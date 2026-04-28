@@ -1,0 +1,720 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JavaPro</string>
+
+    <!-- ══════════════════════════════════════════════
+         NAVIGATION / MENU
+    ══════════════════════════════════════════════ -->
+    <string name="nav_settings">Settings</string>
+    <string name="nav_app_profiles">App Profiles</string>
+    <string name="nav_credits">Credits</string>
+    <string name="nav_mode">Mode</string>
+    <string name="nav_ads">Ads</string>
+    <string name="nav_language">Language: EN</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_gamelist">Gamelist</string>
+    <string name="nav_advanced">Advanced</string>
+    <string name="home_system_health">System Health</string>
+    <string name="home_cpu_high">High</string>
+    <string name="home_cpu_med">Medium</string>
+    <string name="home_cpu_low">Low</string>
+    <string name="home_set_perf_per_app">Set custom performance per app</string>
+    <string name="home_show_fps">Show Real-time FPS</string>
+    <string name="home_fps_reader_mode">FPS Reader Mode</string>
+    <string name="home_root_active">Active</string>
+    <string name="home_root_inactive">Inactive</string>
+    <string name="home_shizuku_running">Running</string>
+    <string name="home_shizuku_stopped">Stopped</string>
+    <string name="home_toast_watch_ad">Please watch the ad until it finishes!</string>
+    <string name="home_support_donate">Donate</string>
+    <string name="home_support_report_bug">Report Bug</string>
+    <string name="home_support_credits">Credits</string>
+    <string name="home_support_section">SUPPORT</string>
+    <string name="home_exclusive_section">EXCLUSIVE</string>
+    <string name="home_exclusive_title">Exclusive Features</string>
+    <string name="home_exclusive_subtitle">Backup, Import &amp; Color Presets</string>
+    <string name="home_exclusive_free_badge">FREE</string>
+    <string name="home_exclusive_ad_progress">%1$d/%2$d videos for 1-day access</string>
+    <string name="home_exclusive_ad_remaining">%1$d more</string>
+    <string name="home_exclusive_ad_watched">%1$d videos watched</string>
+    <!-- HomeScreen labels -->
+    <string name="home_alive_label">Alive</string>
+    <string name="home_fps_monitor_label">FPS Monitor</string>
+    <string name="home_app_profiles_label">App Profiles</string>
+    <string name="home_root_access_label">Root Access</string>
+    <string name="home_telegram_label">Telegram</string>
+    <string name="home_javapro_status_label">JavaPro Status</string>
+
+    <!-- ══════════════════════════════════════════════
+         COMMON ACTIONS
+    ══════════════════════════════════════════════ -->
+    <string name="action_apply">Apply</string>
+    <string name="action_apply_all">Apply All</string>
+    <string name="action_applying">Applying…</string>
+    <string name="action_applied">Applied</string>
+    <string name="action_applied_dot">Applied.</string>
+    <string name="action_applied_success">Successfully applied.</string>
+    <string name="action_applied_done">✓ Successfully applied</string>
+    <string name="action_done">✓ Done!</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_save">Save</string>
+    <string name="action_saved">Saved.</string>
+    <string name="action_save_failed">Failed to save.</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_change">Change</string>
+    <string name="action_add">Add</string>
+    <string name="action_import">Import</string>
+    <string name="action_backup">Backup</string>
+    <string name="action_verify">Verify</string>
+    <string name="action_help">Help</string>
+    <string name="action_buy">Buy</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_proceed">Proceed</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_go_back">Go Back</string>
+    <string name="action_got_it">Got it</string>
+    <string name="action_upgrade_premium">Upgrade to Premium</string>
+    <string name="action_manage">Manage →</string>
+    <string name="action_pick_photo">Pick Photo</string>
+    <string name="action_open_debug">Open Debug Tools</string>
+    <string name="action_open_gamelist">Open Gamelist</string>
+    <string name="action_failed">Failed.</string>
+
+    <!-- ══════════════════════════════════════════════
+         STATUS / LABELS
+    ══════════════════════════════════════════════ -->
+    <string name="status_active">Active</string>
+    <string name="status_inactive">Inactive</string>
+    <string name="status_running">Running</string>
+    <string name="status_stopped">Stopped</string>
+    <string name="status_on">ON</string>
+    <string name="status_off">OFF</string>
+    <string name="status_current">Current</string>
+    <string name="status_limited">Limited</string>
+    <string name="status_unknown">Unknown</string>
+    <string name="status_no_access">No Access</string>
+    <string name="status_protected">Protected</string>
+    <string name="status_legacy">Legacy</string>
+    <string name="status_new_android15">New (Android 15+)</string>
+    <string name="status_default">Default</string>
+    <string name="status_custom">Custom</string>
+    <string name="status_balance">BALANCED</string>
+    <string name="status_performance">PERFORMANCE</string>
+    <string name="status_powersave">POWER SAVE</string>
+    <string name="status_detecting">Detecting…</string>
+    <string name="status_refreshing">Refreshing…</string>
+    <string name="status_loading_apps">Loading apps…</string>
+    <string name="status_loading_app_list">Loading app list…</string>
+    <string name="status_detecting_processes">Detecting processes…</string>
+    <string name="status_applying">Applying…</string>
+    <string name="status_compiling">Compiling…</string>
+    <string name="status_importing">Importing…</string>
+    <string name="status_showing_ad">Showing ad…</string>
+    <string name="status_collecting_fps">Collecting FPS data…</string>
+
+    <!-- ══════════════════════════════════════════════
+         APP DETAIL SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="appdetail_force_stop_title">Force Stop?</string>
+    <string name="appdetail_force_stop_body">The app will be force stopped. Unsaved data will be lost.</string>
+    <string name="appdetail_force_stop_btn">Stop</string>
+    <string name="appdetail_force_stop_anyway">Stop Anyway</string>
+    <string name="appdetail_app_stopped">App stopped.</string>
+    <string name="appdetail_cache_cleared">Cache cleared.</string>
+    <string name="appdetail_memory_trimmed">Memory trimmed.</string>
+    <string name="appdetail_perf_profile">Performance Mode</string>
+    <string name="appdetail_quick_actions">Quick Actions</string>
+    <string name="appdetail_advanced_optimization">Advanced Optimization</string>
+    <string name="appdetail_standby_bucket">Standby Bucket</string>
+    <string name="appdetail_cpu_priority">CPU/Process Priority</string>
+    <string name="appdetail_no_root_shizuku">Root and Shizuku not detected. All features are unavailable.</string>
+    <string name="appdetail_perf_balance">Balanced</string>
+    <string name="appdetail_perf_performance">Performance</string>
+    <string name="appdetail_perf_powersave">Power Save</string>
+    <string name="appdetail_compile_app_memory">Compile app to memory</string>
+    <string name="appdetail_clean_cache_on_apply">Clean app cache when Apply is pressed</string>
+    <string name="appdetail_touch_responsive_title">Touch Responsive</string>
+    <string name="appdetail_touch_responsive_desc">Improve touch screen responsiveness (Root: kernel boost, Shizuku: pointer speed)</string>
+    <string name="appdetail_reduce_logging_title">Reduce Logging</string>
+    <string name="appdetail_reduce_logging_desc">Reduce system log activity</string>
+    <string name="appdetail_notif_limiter_title">Limit Notifications</string>
+    <string name="appdetail_notif_limiter_desc">Block background notifications for this app</string>
+    <string name="appdetail_data_saver_title">Background Data Saver</string>
+    <string name="appdetail_data_saver_desc">Restrict background data usage</string>
+    <string name="appdetail_battery_opt_title">Battery Optimization</string>
+    <string name="appdetail_battery_opt_desc">Force app into doze &amp; limit background activity</string>
+    <string name="appdetail_success_applied">Successfully applied.</string>
+    <string name="appdetail_terapkan_semua">Apply All</string>
+    <string name="appdetail_dex_speed_profile_desc">Compile based on usage profile (recommended)</string>
+    <string name="appdetail_dex_speed_desc">Full compilation for fastest startup</string>
+    <string name="appdetail_dex_quicken_desc">Minimal optimization, fast &amp; storage-friendly</string>
+    <string name="appdetail_dex_verify_desc">Verify only, no optimization</string>
+    <string name="appdetail_run_dexopt">Run DexOpt</string>
+    <string name="appdetail_dexopt_done">DexOpt complete.</string>
+    <string name="appdetail_bucket_applied">Bucket applied.</string>
+    <string name="appdetail_apply_bucket">Apply Bucket</string>
+    <string name="appdetail_bucket_active_desc">No restrictions, normal treatment</string>
+    <string name="appdetail_bucket_frequent_desc">Minor background restrictions</string>
+    <string name="appdetail_bucket_working_desc">Moderate background restrictions</string>
+    <string name="appdetail_bucket_rare_desc">Strict restrictions, maximum battery saving</string>
+    <string name="appdetail_priority_normal_title">Normal</string>
+    <string name="appdetail_priority_normal_desc">Default system priority (nice 0)</string>
+    <string name="appdetail_priority_high_title">High</string>
+    <string name="appdetail_priority_high_desc">Above average priority</string>
+    <string name="appdetail_priority_realtime_title">Real-time</string>
+    <string name="appdetail_priority_realtime_desc">Highest priority, use with caution</string>
+    <string name="appdetail_priority_root_note">Root required · Active while app process is running, resets when app is closed.</string>
+    <string name="appdetail_priority_applied">Priority applied.</string>
+    <string name="appdetail_apply_priority">Apply Priority</string>
+    <string name="appdetail_dexopt_cancel_title">Cancel DexOpt?</string>
+    <string name="appdetail_dexopt_cancel_action">Cancel DexOpt</string>
+    <string name="appdetail_dexopt_irreversible">Processes already running cannot be undone. Apps already compiled remain saved.</string>
+    <!-- AppDetailScreen missing strings -->
+    <string name="appdetail_app_not_found">App not found</string>
+    <string name="appdetail_graphics_driver_label">Graphics Driver</string>
+    <string name="appdetail_app_ops_label">App Ops</string>
+    <string name="appdetail_app_ops_desc">Manage app permissions &amp; operations</string>
+    <string name="appdetail_root_active_label">Root Active</string>
+    <string name="appdetail_shizuku_active_label">Shizuku Active</string>
+    <string name="appdetail_preload_label">Preload</string>
+    <string name="appdetail_smart_cache_cleaner_label">Smart Cache Cleaner</string>
+    <string name="appdetail_bucket_active_label">Active</string>
+    <string name="appdetail_bucket_frequent_label">Frequent</string>
+    <string name="appdetail_bucket_working_label">Working</string>
+    <string name="appdetail_bucket_rare_label">Rare</string>
+    <string name="appdetail_driver_default_label">Default</string>
+    <string name="appdetail_driver_legacy_label">Legacy</string>
+
+    <!-- ══════════════════════════════════════════════
+         APP PROFILE SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="appprofile_search">Search apps…</string>
+    <string name="appprofile_app_count">%1$d apps</string>
+    <string name="appprofile_no_apps">No apps detected</string>
+    <string name="appprofile_app_list">App List</string>
+
+    <!-- ══════════════════════════════════════════════
+         CREDITS SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="credits_title">Credits</string>
+    <string name="credits_main_dev_label">MAIN DEVELOPER</string>
+    <string name="credits_main_dev_badge">Main Developer</string>
+    <string name="credits_co_dev_label">CO-DEVELOPER</string>
+    <string name="credits_co_dev_badge">Co-Developer</string>
+    <string name="credits_special_thanks_title">Special Thanks</string>
+    <string name="credits_special_thanks_body">Huge thanks to all the amazing contributors who helped develop this project.</string>
+    <string name="credits_contributors_label">CONTRIBUTORS</string>
+    <string name="credits_footer">Made by solo developer</string>
+
+    <!-- ══════════════════════════════════════════════
+         DEBUG TOOLS SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="debug_title">Debug Tools</string>
+    <string name="debug_root_status">Root active — full logcat, dmesg, processes available</string>
+    <string name="debug_shizuku_status">Shizuku — limited logcat, per-package filter available</string>
+    <string name="debug_filter_package">Filter Package Name (optional)</string>
+    <string name="debug_live_update">Live Update</string>
+    <string name="debug_live_update_desc">Live update every 2 seconds</string>
+    <string name="debug_auto_refresh_desc">Auto-refresh every 2 seconds</string>
+    <string name="debug_no_log">No logs</string>
+    <string name="debug_no_crash">No crash/ANR detected</string>
+    <string name="debug_crash_count">%1$d crash/ANR/Exception entries found</string>
+    <string name="debug_process">Process</string>
+    <string name="debug_package">Package</string>
+    <string name="debug_app_no_data">App not running or no data available.</string>
+    <string name="debug_load_app_list">Load App List</string>
+    <string name="debug_per_app">Per App (%1$d)</string>
+    <string name="debug_running_apps">Running Apps (%1$d)</string>
+
+    <!-- ══════════════════════════════════════════════
+         EXCLUSIVE FEATURES SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="excl_title">Exclusive Features</string>
+    <string name="excl_ad_closed_title">Ad Closed Too Early</string>
+    <string name="excl_ad_closed_body">You closed the ad before it finished. Progress was not counted. Watch the ad to the end for progress to be recorded.</string>
+    <string name="excl_gate_desc">Watch %1$d ad videos to unlock access for 1 day, or upgrade to Premium for full access forever.</string>
+    <string name="excl_ad_progress_title">Ad Watch Progress</string>
+    <string name="excl_ad_watch_note">Watch the ad until the end. If closed early, progress will not be counted.</string>
+    <string name="excl_access_unlocked">1-day access unlocked!</string>
+    <string name="excl_watch_ad_btn">Watch Ads (%1$d/%2$d)</string>
+    <string name="excl_or_separator">— or —</string>
+    <string name="excl_backup_import_label">BACKUP &amp; IMPORT</string>
+    <string name="excl_backup_location_set">Backup location selected.</string>
+    <string name="excl_backup_saved">Backup saved.</string>
+    <string name="excl_backup_saved_success">Backup saved successfully.</string>
+    <string name="excl_backup_updated">Backup updated.</string>
+    <string name="excl_import_success">Import successful.</string>
+    <string name="excl_invalid_file">Invalid file.</string>
+    <string name="excl_profile_switcher_label">TWEAK PROFILE SWITCHER</string>
+    <string name="excl_saved_profiles">Saved Profiles</string>
+    <string name="excl_save_current_profile">Save Current Profile</string>
+    <string name="excl_no_profiles_yet">No profiles yet.</string>
+    <string name="excl_profile_saved">Profile saved.</string>
+    <string name="excl_save_profile_title">Save Profile</string>
+    <string name="excl_save_profile_desc">Snapshot of all current JavaPro + Game Board + App Profile + App Ops settings.</string>
+    <string name="excl_profile_name_hint">Profile Name</string>
+    <string name="excl_delete_profile_title">Delete Profile?</string>
+    <string name="excl_auto_detect_label">AUTO-TWEAK GAME DETECTION</string>
+    <string name="excl_auto_detect_title">Auto-Detect &amp; Tweak</string>
+    <string name="excl_auto_detect_desc">Apply GameBoost settings when a game from game.txt is opened</string>
+    <string name="excl_game_txt_not_found">game.txt not found.</string>
+    <string name="excl_auto_status_active">Active · %1$d games registered</string>
+    <string name="excl_tweak_applied">✓ Tweak: %1$s</string>
+    <string name="excl_no_tweaks_title">No Tweaks Configured</string>
+    <string name="excl_no_tweaks_body">Game \"%1$s\" detected but no tweaks selected. Go to Gamelist → select game → enable tweaks.</string>
+    <string name="excl_network_label">NETWORK OPTIMIZER</string>
+    <string name="excl_choose_network_preset">Choose Network Preset</string>
+    <string name="excl_color_presets_label">COLOR CALIBRATION PRESETS</string>
+    <string name="excl_root_required_presets">ROOT REQUIRED — Presets can be saved but cannot be applied.</string>
+    <string name="excl_built_in_presets">Built-in Presets</string>
+    <string name="excl_custom_presets">Custom Presets (%1$d)</string>
+    <string name="excl_no_custom_presets">No custom presets yet.</string>
+    <string name="excl_save_preset_title">Save Preset</string>
+    <string name="excl_preset_name_hint">Preset Name</string>
+    <string name="excl_save_values">Save Values</string>
+    <string name="excl_delete_preset_title">Delete Preset?</string>
+    <string name="excl_banner_label">HOME BANNER</string>
+    <string name="excl_banner_desc">Replace the home screen banner with a photo from your gallery. JPG and PNG formats supported. Ideal ratio 16:9 — photos with a different ratio will be auto-cropped to center.</string>
+    <string name="excl_banner_recommendation">Recommended: 1280×720 or 1920×1080 (16:9)</string>
+    <string name="excl_banner_custom_active">Custom banner active.</string>
+    <string name="excl_banner_updated">Banner updated.</string>
+    <string name="excl_banner_reset">Banner reset to default.</string>
+    <string name="excl_navbar_label">NAVBAR STYLE</string>
+    <string name="excl_navbar_floating">Floating pill · tab label appears when active</string>
+    <string name="excl_navbar_indicator">Sliding indicator · gradient glow effect</string>
+    <string name="excl_debug_label">HIDDEN DEBUG TOOLS</string>
+    <string name="excl_debug_desc">Access system logs, crash reports, per-app resource info, and in-depth troubleshooting.</string>
+    <!-- ExclusiveGateDialog missing strings -->
+    <string name="excl_gate_ad_progress_label">Ad Progress</string>
+    <string name="excl_gate_maybe_later">Maybe Later</string>
+    <string name="excl_gate_watch_ads_btn">Watch Ads (%1$d/%2$d)</string>
+
+    <!-- ══════════════════════════════════════════════
+         FPS LIVE SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="fps_title">Real-time FPS</string>
+    <string name="fps_chart_title">Live FPS Chart</string>
+    <string name="fps_chart_paused">Chart paused. Press Resume to record again.</string>
+    <string name="fps_frame_count">Frame Count</string>
+    <string name="fps_points">%1$d points</string>
+    <string name="fps_avg">Average</string>
+    <string name="fps_max">Max</string>
+    <string name="fps_min">Min</string>
+
+    <!-- ══════════════════════════════════════════════
+         GAME BOOST SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="gameboost_search">Search games…</string>
+    <string name="gameboost_games_detected">%1$d games detected</string>
+    <string name="gameboost_game_not_found">Game not found</string>
+    <string name="gameboost_active">GameBoost active!</string>
+    <string name="gameboost_stopped">GameBoost stopped</string>
+    <string name="gameboost_app_stopped">%1$s stopped</string>
+    <string name="gameboost_detection">Detection</string>
+    <string name="gameboost_more_accurate_root">More accurate detection requires root access</string>
+    <string name="gameboost_no_custom_packages">No custom packages added yet.</string>
+    <string name="gameboost_package_exists">Package already exists</string>
+    <string name="gameboost_package_empty">Package name cannot be empty</string>
+    <string name="gameboost_invalid_package">Invalid package format</string>
+    <string name="gameboost_enter_package">Enter app package name (e.g. com.tencent.ig)</string>
+    <string name="gameboost_add_package_title">Add Game Package</string>
+    <string name="gameboost_manage_packages_title">Manage Custom Packages</string>
+    <string name="gameboost_manage_packages_btn">Manage (%1$d)</string>
+    <string name="gameboost_package_not_found">Package not found or not installed.</string>
+    <string name="gameboost_no_apps">No apps</string>
+    <string name="gameboost_no_search_results">No search results found</string>
+
+    <!-- ══════════════════════════════════════════════
+         GAME BOOST DETAIL SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="gbdetail_play_btn">Play!</string>
+    <string name="gbdetail_prioritize_game">Prioritize Game</string>
+    <string name="gbdetail_prioritize_desc">Give CPU and memory priority to this game</string>
+    <string name="gbdetail_graphics_driver">Graphics Driver</string>
+    <string name="gbdetail_select_driver">Select Graphics Driver</string>
+    <string name="gbdetail_gpu_renderer_desc">Change the GPU renderer backend for this game. Changes take effect after restarting the game.</string>
+    <string name="gbdetail_driver_applied">Graphics Driver Applied!</string>
+    <string name="gbdetail_apply_driver">Apply Graphics Driver</string>
+    <string name="gbdetail_boost_options">Boost Options</string>
+    <string name="gbdetail_boost_applied">Boost Options Applied!</string>
+    <string name="gbdetail_apply_boost">Apply Boost Options</string>
+    <string name="gbdetail_root_options_advanced">Root Options (Advanced)</string>
+    <string name="gbdetail_root_options_label">Advanced Root Options</string>
+    <string name="gbdetail_root_options_applied">Root Options Applied!</string>
+    <string name="gbdetail_apply_root_options">Apply Root Options</string>
+    <string name="gbdetail_root_extra_label">Root Extra Options</string>
+    <string name="gbdetail_root_extra_applied">Root Extra Options Applied!</string>
+    <string name="gbdetail_apply_root_extra">Apply Root Extra Options</string>
+    <string name="gbdetail_apply_graphics_perf">Apply Graphics Performance</string>
+    <string name="gbdetail_tap_expand">Tap to see all options</string>
+    <string name="gbdetail_tap_collapse">Tap to collapse</string>
+    <!-- GameBoost tweak names/descriptions -->
+    <string name="gbdetail_perf_gov_desc">Set performance governor + max frequency, supports Adreno &amp; Mali</string>
+    <string name="gbdetail_cpu_uclamp">CPU uClamp 100%</string>
+    <string name="gbdetail_cpu_uclamp_desc">Force foreground &amp; top-app CPU utilization to maximum</string>
+    <string name="gbdetail_render_ahead">Render Ahead</string>
+    <string name="gbdetail_render_ahead_desc">Pre-render frames before display, reduce visual jitter</string>
+    <string name="gbdetail_reduce_anim">Reduce Animations</string>
+    <string name="gbdetail_reduce_anim_desc">Speed up UI transitions during gaming</string>
+    <string name="gbdetail_lock_fps">Lock FPS</string>
+    <string name="gbdetail_lock_fps_desc">Lock screen refresh rate to target FPS</string>
+    <string name="gbdetail_resolution_scale">Resolution Scale</string>
+    <string name="gbdetail_touch_boost">Touch Boost</string>
+    <string name="gbdetail_touch_boost_desc">Improve touch screen responsiveness</string>
+    <string name="gbdetail_disable_doze">Disable Doze</string>
+    <string name="gbdetail_disable_doze_desc">Prevent Android from entering power-saving mode during gaming</string>
+    <string name="gbdetail_android_game_mode">Android Game Mode</string>
+    <string name="gbdetail_android_game_mode_desc">Enable Android\'s built-in game mode</string>
+    <string name="gbdetail_disable_thermal">Disable Thermal</string>
+    <string name="gbdetail_disable_thermal_desc">Freeze thermal zones + freeze thermal daemon</string>
+    <string name="gbdetail_sustained_perf">Sustained Performance Mode</string>
+    <string name="gbdetail_sustained_perf_desc">Maintain stable performance, prevent throttling during long sessions</string>
+    <string name="gbdetail_aggressive_lmk">Aggressive LMK</string>
+    <string name="gbdetail_aggressive_lmk_desc">Force Low Memory Killer to free RAM more aggressively</string>
+    <string name="gbdetail_irq_affinity">IRQ Affinity to Big Core</string>
+    <string name="gbdetail_irq_affinity_desc">Route interrupts to performance cores for lower latency</string>
+    <string name="gbdetail_kill_bg_apps">Clear Background RAM</string>
+    <string name="gbdetail_kill_bg_apps_desc">Stop all background apps to free RAM</string>
+    <string name="gbdetail_adreno_boost">Adreno Boost Level</string>
+    <string name="gbdetail_adreno_boost_desc">Increase Adreno GPU DVFS aggressiveness (Snapdragon only)</string>
+    <string name="gbdetail_aggressive_gpu_idle">Aggressive GPU Idle Timer</string>
+    <string name="gbdetail_aggressive_gpu_idle_desc">Keep GPU active longer, reduce re-ramp latency</string>
+    <string name="gbdetail_perf_graphics">Graphics &amp; Frame Performance</string>
+    <string name="gbdetail_io_storage">I/O &amp; Storage</string>
+    <string name="gbdetail_advanced_tweaks">Advanced GPU &amp; System Tweaks</string>
+    <string name="gbdetail_misc">Miscellaneous</string>
+    <string name="gbdetail_wifi_gaming">WiFi Gaming Mode</string>
+    <string name="gbdetail_wifi_gaming_desc">Disable WiFi sleep &amp; scan throttle for low WiFi latency</string>
+    <string name="gbdetail_tcp_opt">TCP/IP Optimization</string>
+    <string name="gbdetail_tcp_opt_desc">Enable TCP fast open, SACK, timestamps + force mobile data always on</string>
+    <string name="gbdetail_io_scheduler">Optimal IO Scheduler</string>
+    <string name="gbdetail_io_scheduler_desc">Set none scheduler + rq_affinity for low latency</string>
+    <string name="gbdetail_max_cpu_gpu">Max CPU &amp; GPU Boost</string>
+    <string name="gbdetail_max_cpu_gpu_desc">High performance, low latency, power saving</string>
+    <string name="gbdetail_sched_tweak">Kernel Scheduler Tweak</string>
+    <string name="gbdetail_sched_tweak_desc">Optimize sched latency, granularity and child runs</string>
+    <!-- Driver options -->
+    <string name="gbdetail_driver_default_desc">Wide compatibility, stable on most GPUs</string>
+    <string name="gbdetail_driver_legacy_desc">Legacy mode, suited for older games</string>
+    <!-- GameBoostDetailScreen missing strings -->
+    <string name="gbdetail_boost_btn">Boost!</string>
+    <string name="gbdetail_play_label">Play!</string>
+    <string name="gbdetail_stop_btn">Stop</string>
+    <string name="gbdetail_gameboost_active_toast">GameBoost active!</string>
+    <string name="gbdetail_driver_applied_toast">Graphics Driver Applied!</string>
+
+    <!-- ══════════════════════════════════════════════
+         MEMORY SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="memory_title">Memory</string>
+    <string name="memory_ram_usage">RAM Usage</string>
+    <string name="memory_of_gb">of %1$.1f GB</string>
+    <string name="memory_available">Available</string>
+    <string name="memory_charging">Charging</string>
+    <string name="memory_battery">Battery</string>
+    <string name="memory_management">Memory Management</string>
+    <string name="memory_optimization">Memory Optimization</string>
+    <string name="memory_clear_cache">Clear system cache to free RAM</string>
+    <string name="memory_kill_bg">Stop all background apps to free RAM</string>
+    <string name="memory_hot">Hot</string>
+    <string name="memory_good">Good</string>
+    <string name="memory_dead">Dead</string>
+    <string name="memory_overheat">Overheat</string>
+    <string name="memory_protected_app">Protected Apps</string>
+    <string name="memory_running_apps">Running Apps</string>
+    <string name="memory_apps_detected">%1$d apps detected</string>
+    <string name="memory_dexopt_all">DexOpt All Apps</string>
+    <string name="memory_dexopt_desc">DexOpt speeds up app launching. Side effect: storage size increases. Do not close JavaPro while the process is running.</string>
+    <string name="memory_dexopt_warning">⚠ Root required for DexOpt</string>
+    <string name="memory_dexopt_do_not_close">🔒 Do not close JavaPro</string>
+    <string name="memory_compiling_app">Compiling: %1$s</string>
+    <string name="memory_no_apps_detected">No apps detected</string>
+    <string name="memory_vm_kernel">VM &amp; Kernel Memory</string>
+    <string name="memory_vm_tweak">VM Memory Tweak</string>
+    <string name="memory_vm_tweak_desc">Optimize swappiness, dirty ratio and page cluster</string>
+    <string name="memory_swappiness_desc">How aggressively the kernel uses swap. Device default: %1$d</string>
+    <string name="memory_dirty_ratio_desc">Percentage of dirty memory before writing to disk. Default: %1$d</string>
+    <string name="memory_page_cluster_desc">Number of pages read from swap at once (0=off). Default: %1$d</string>
+    <string name="memory_cache_pressure">Cache Pressure</string>
+    <string name="memory_cache_pressure_desc">Controls how quickly the kernel drops cache. Default: %1$d</string>
+    <string name="memory_readahead_desc">Amount of data read ahead from storage. Default: %1$d KB</string>
+    <string name="memory_data_loss_risk">⚠ Data loss risk</string>
+    <string name="memory_sync_desc">Sync files to disk after writing. Disable for better performance, risk of data loss on crash.</string>
+    <string name="memory_pengelolaan">Memory Management</string>
+    <string name="memory_kernel_memory">VM &amp; Kernel Memory</string>
+    <string name="memory_zram_algo">ZRAM Compression Algorithm</string>
+    <string name="memory_zram_algo_desc">Change ZRAM compression algorithm, LZ4/ZSTD are faster than default</string>
+    <string name="memory_recompile_apps">Recompile apps for faster launching</string>
+    <string name="memory_dexopt_app_confirm">DexOpt will recompile %1$s.\n\n⚠ Storage size will increase.\n⏱ This may take a while.\n🔒 Do not close JavaPro.</string>
+
+    <!-- ══════════════════════════════════════════════
+         PREMIUM SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="premium_device_id">Your Device ID</string>
+    <string name="premium_device_id_copied">Device ID copied!</string>
+    <string name="premium_device_id_tap_hint">Tap to copy. This Device ID is sent automatically when pressing the Buy button.</string>
+    <string name="premium_already_premium">You are already Premium!</string>
+    <string name="premium_king_no_expiry">King · No expiry</string>
+    <string name="premium_plus_star_active">Plus★ · Active until %1$s</string>
+    <string name="premium_plus_plus_active">Plus+ · Active until %1$s</string>
+    <string name="premium_plus_active">Plus · Active until %1$s</string>
+    <string name="premium_package_plus">Plus Package</string>
+    <string name="premium_package_plus_plus">Plus+ Package</string>
+    <string name="premium_package_plus_star">Plus★ Package</string>
+    <string name="premium_package_king">King Package</string>
+    <string name="premium_status_label">Status</string>
+    <string name="premium_license_type">License Type</string>
+    <string name="premium_valid_until">Valid Until</string>
+    <string name="premium_forever">Forever</string>
+    <string name="premium_time_remaining">Time Remaining</string>
+    <string name="premium_days_label">Days</string>
+    <string name="premium_hours_label">Hours</string>
+    <string name="premium_expired_msg">Premium has expired. Please renew your subscription.</string>
+    <string name="premium_about_title">About Premium</string>
+    <string name="premium_about_desc">Enjoy JavaPro without ads. Choose a package, click Buy to contact the developer via Telegram, and enter the provided activation key.</string>
+    <string name="premium_choose_package">Choose Package</string>
+    <string name="premium_7days">7 days</string>
+    <string name="premium_30days">30 days</string>
+    <string name="premium_365days">365 days</string>
+    <string name="premium_buy_weekly_msg">Hello, I would like to purchase the Weekly package ($0.63)\nDevice ID: %1$s</string>
+    <string name="premium_buy_monthly_msg">Hello, I would like to purchase the Monthly package ($1.25)\nDevice ID: %1$s</string>
+    <string name="premium_buy_yearly_msg">Hello, I would like to purchase the Yearly package ($2.67)\nDevice ID: %1$s</string>
+    <string name="premium_buy_permanent_msg">Hello, I would like to purchase the Permanent package ($4.67)\nDevice ID: %1$s</string>
+    <string name="premium_help_msg">Hello, I need help activating my premium key\nDevice ID: %1$s</string>
+    <string name="premium_price_weekly">$0.63</string>
+    <string name="premium_price_monthly">$1.25</string>
+    <string name="premium_price_yearly">$2.67</string>
+    <string name="premium_price_permanent">$4.67</string>
+    <string name="premium_key_activation_title">Key Activation</string>
+    <string name="premium_enter_key_hint">Enter Activation Key</string>
+    <string name="premium_invalid_key_msg">Key is invalid, expired, or not for this device.</string>
+    <string name="premium_key_valid">Key valid! Reloading…</string>
+    <string name="premium_invalid_key_toast">Invalid key</string>
+    <string name="premium_king_no_expiry_label">King · No expiry</string>
+    <string name="premium_execution_method">Execution Method</string>
+    <string name="premium_root_shizuku_required">Root or Shizuku required</string>
+
+    <!-- ══════════════════════════════════════════════
+         SETTING SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="settings_title">Settings</string>
+    <!-- SettingScreen missing strings -->
+    <string name="settings_javapro_status_label">JavaPro Status</string>
+    <string name="settings_color_calibration_label">Color Calibration</string>
+    <string name="settings_color_red">Red</string>
+    <string name="settings_color_green">Green</string>
+    <string name="settings_color_blue">Blue</string>
+    <string name="settings_color_saturation">Saturation</string>
+    <string name="settings_apply_on_boot_label">Apply on Boot</string>
+    <string name="settings_apply_on_boot_desc">Auto-apply after reboot</string>
+    <string name="settings_reset_colors_btn">Reset Colors</string>
+    <string name="settings_reset_all_btn">Reset All Settings</string>
+    <string name="settings_reset_all_desc">Restore to default</string>
+    <string name="settings_upgrade_to_pro_btn">Upgrade to Pro</string>
+
+    <!-- ══════════════════════════════════════════════
+         TWEAK SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="tweak_network">Network</string>
+    <string name="tweak_system">System</string>
+    <string name="tweak_memory_section">Memory</string>
+    <string name="tweak_advanced">Advanced</string>
+    <string name="tweak_scheduler_desc">Disk read/write queue algorithm. Current: %1$s</string>
+    <string name="tweak_tcp_congestion_desc">Network management algorithm. Current: %1$s</string>
+    <string name="tweak_root_not_detected">Root not detected. All tweaks require root access.</string>
+    <string name="tweak_apply_memory_opt">Apply Memory Optimization</string>
+    <string name="tweak_tcp_congestion_title">TCP Congestion Control</string>
+    <string name="tweak_choose_network">Choose Network Preset</string>
+    <!-- TweakScreen missing strings -->
+    <string name="tweak_title_advanced">Advanced</string>
+    <string name="tweak_subtitle_kernel">Kernel &amp; system tweaks</string>
+    <string name="tweak_section_battery">Battery</string>
+    <string name="tweak_section_memory">Memory</string>
+    <string name="tweak_section_io_storage">I/O &amp; Storage</string>
+    <string name="tweak_section_miscellaneous">Miscellaneous</string>
+    <string name="tweak_fsync_label">Fsync</string>
+    <string name="tweak_io_scheduler_label">I/O Scheduler</string>
+    <string name="tweak_swappiness_label">Swappiness</string>
+    <string name="tweak_cache_pressure_label">Cache Pressure</string>
+    <string name="tweak_dirty_ratio_label">Dirty Ratio</string>
+    <string name="tweak_page_cluster_label">Page Cluster</string>
+    <string name="tweak_charging_label">Charging</string>
+    <string name="tweak_over_voltage_label">Over Voltage</string>
+    <string name="tweak_tcp_congestion_label">TCP Congestion Control</string>
+
+    <!-- ══════════════════════════════════════════════
+         UPDATE DIALOG
+    ══════════════════════════════════════════════ -->
+    <!-- UpdateDialog missing strings -->
+    <string name="update_dialog_title">Update Available</string>
+    <string name="update_dialog_subtitle">New stable version ready to install</string>
+    <string name="update_new_version_label">NEW VERSION</string>
+    <string name="update_changelog_label">CHANGELOG</string>
+    <string name="update_later_btn">Later</string>
+    <string name="update_now_btn">Update Now</string>
+    <string name="update_free_safe_note">Free update · Your data is safe</string>
+    <string name="update_downloading_label">Downloading…</string>
+    <string name="update_complete_label">Complete!</string>
+    <string name="update_opening_installer_label">Opening installer…</string>
+    <string name="update_keep_app_open_note">Keep the app open</string>
+    <string name="update_connected_label">Connected</string>
+    <string name="update_progress_label">Progress</string>
+
+    <!-- ══════════════════════════════════════════════
+         SPLASH SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="root_active_splash">Root access active</string>
+    <string name="non_root_splash">No root detected</string>
+
+    <!-- ══════════════════════════════════════════════
+         SETTING SCREEN — LICENSE / STATUS
+    ══════════════════════════════════════════════ -->
+    <string name="permanent_license_active">Permanent license active</string>
+    <string name="plus_star_active_days">PLUS★ active · %1$d days remaining</string>
+    <string name="plus_plus_active_days">PLUS+ active · %1$d days remaining</string>
+    <string name="plus_weekly_days">PLUS active · %1$d days remaining</string>
+    <string name="activate_for_pro">Activate a license to unlock Pro features</string>
+    <string name="all_settings_reset">All settings have been reset</string>
+
+    <!-- ══════════════════════════════════════════════
+         SCREEN RECORDER
+    ══════════════════════════════════════════════ -->
+    <string name="screen_record_title">Screen Recorder</string>
+
+    <!-- Settings labels -->
+    <string name="screen_record_fps_label">Frame Rate (FPS)</string>
+    <string name="screen_record_resolution_label">Resolution</string>
+    <string name="screen_record_bitrate_label">Bitrate</string>
+
+    <!-- Bitrate options -->
+    <string name="screen_record_bitrate_economy">Economy</string>
+    <string name="screen_record_bitrate_medium">Medium</string>
+    <string name="screen_record_bitrate_high">High</string>
+    <string name="screen_record_bitrate_ultra">Ultra</string>
+
+    <!-- Audio -->
+    <string name="screen_record_audio_label">Audio</string>
+    <string name="screen_record_audio_mic_title">Microphone</string>
+    <string name="screen_record_audio_mic_desc">Record audio from microphone</string>
+
+    <!-- Info summary -->
+    <string name="screen_record_info_label">Recording Info</string>
+    <string name="screen_record_info_fps">FPS: %1$s</string>
+    <string name="screen_record_info_res">Resolution: %1$s</string>
+    <string name="screen_record_info_bitrate">Bitrate: %1$s</string>
+    <string name="screen_record_info_audio_on">Audio: On</string>
+    <string name="screen_record_info_audio_off">Audio: Off</string>
+    <string name="screen_record_info_save_path">Save to: %1$s</string>
+
+    <!-- Status -->
+    <string name="screen_record_status_recording">Recording…</string>
+    <string name="screen_record_status_tap_stop">Tap to stop</string>
+    <string name="screen_record_status_ready">Ready</string>
+    <string name="screen_record_status_ready_desc">Tap Start to begin recording</string>
+
+    <!-- Countdown -->
+    <string name="screen_record_countdown_label">Starting in %1$d…</string>
+
+    <!-- Buttons -->
+    <string name="screen_record_btn_start">Start Recording</string>
+    <string name="screen_record_btn_stop">Stop Recording</string>
+
+    <!-- Save -->
+    <string name="screen_record_saved">Recording saved.</string>
+    <string name="screen_record_last_saved">Last saved: %1$s</string>
+
+    <!-- Exclusive menu -->
+    <string name="excl_more_menu_label">More</string>
+    <string name="excl_more_menu_desc">Additional exclusive tools</string>
+    <string name="excl_more_screen_record">Screen Recorder</string>
+    <string name="premium_activation_info">Send your Device ID to the admin to get premium activation.</string> 
+    <string name="action_request_activation">Request Activation to Telegram</string>
+    <string name="gbdetail_mem_opt">Memory Optimization</string>
+    <string name="gbdetail_mem_opt_desc">Drop page cache to free up RAM instantly</string>
+    <!-- Reset Confirmation Dialog -->
+    <string name="dialog_reset_title">Reset All Settings?</string>
+    <string name="dialog_reset_message">This will reset all tweaks, color calibration, and profiles to default. This action cannot be undone.</string>
+    <string name="dialog_reset_confirm">Reset</string>
+    <string name="dialog_reset_cancel">Cancel</string>
+
+<!-- About App -->
+    <string name="about_title">About App</string>
+    <string name="about_app_name">JavaPro</string>
+    <string name="about_version">Version</string>
+    <string name="about_build">Build</string>
+    <string name="about_developer">Developer</string>
+    <string name="about_developer_name">Java_nih_deks</string>
+    <string name="about_copyright">© 2026 JavaPro. All rights reserved.</string>
+    <string name="theme_picker_title">App Theme</string>
+<string name="theme_accent_label">Accent color</string>
+<string name="theme_midnight">Midnight</string>
+<string name="theme_ocean">Ocean</string>
+<string name="theme_forest">Forest</string>
+<string name="theme_ember">Ember</string>
+<string name="theme_aurora">Aurora</string>
+<string name="theme_steel">Steel</string>
+<!-- AdBlock Dialog -->
+<string name="adblock_title">Access Denied</string>
+<string name="adblock_body">Please use automatic DNS to access this app. Access denied due to AdBlock or Private DNS usage.</string>
+<string name="adblock_btn_exit">Exit</string>
+
+<!-- Toast -->
+<string name="toast_permission_required">Permission Required</string>
+<string name="toast_overlay_required">Allow Overlay to display FPS</string>
+    <string name="setting_daily_reward_title">Daily Reward</string>
+    <string name="setting_daily_reward_desc">Watch 6 ads to get 1 day of premium</string>
+    <string name="reward_screen_title">Weekly Reward</string>
+    <string name="reward_title_idle">Weekly Reward</string>
+    <string name="reward_title_loading">Loading…</string>
+    <string name="reward_title_success">Reward Claimed!</string>
+    <string name="reward_title_already">Already Claimed</string>
+    <string name="reward_title_failed">Failed</string>
+    <string name="reward_title_weekly_limit">Weekly Limit Reached</string>
+
+    <string name="reward_body_progress">%1$d of %2$d ads watched · This week: %3$d/%4$d claims</string>
+    <string name="reward_body_loading_ad">Loading ad…</string>
+    <string name="reward_body_loading_api">Processing reward…</string>
+    <string name="reward_body_success">1-day Premium activated! This week: %1$d/%2$d claims</string>
+    <string name="reward_body_already">Already claimed. Next in %1$d h %2$d min.</string>
+    <string name="reward_body_weekly_limit">You\'ve claimed %1$d×/week. Resets Monday in %2$d days %3$d hrs.</string>
+
+    <string name="reward_progress_label">Ads watched</string>
+    <string name="reward_weekly_claims_label">Claims this week</string>
+    <string name="reward_perks_title">What you get</string>
+    <string name="reward_perk_duration">Active for 1 day</string>
+    <string name="reward_perk_weekly">2× per week, resets every Monday</string>
+
+    <string name="reward_btn_watch_ad">Watch Ad</string>
+    <string name="reward_btn_later">Maybe later</string>
+    <string name="reward_btn_start">Start Using</string>
+    <string name="reward_btn_retry">Try Again</string>
+    <string name="reward_btn_close">Close</string>
+
+    <string name="reward_error_no_internet">No internet connection.</string>
+    <string name="reward_error_server">Failed to reach server.</string>
+    <string name="reward_error_ad_skipped">Ad skipped, please try again.</string>
+
+    <string name="excl_gate_desc_new">This feature is for Premium users only.\nBuy Premium or get free access via Weekly Reward.</string>
+    <string name="excl_gate_go_to_reward">Get Free via Reward</string>
+    <!-- Exclusive Features – toast / label -->
+<string name="excl_builtin_presets">Built-in Presets</string>
+<string name="excl_profile_applied">Profile \"%1$s\" applied.</string>
+<string name="excl_net_preset_applied">Network preset \"%1$s\" applied.</string>
+<string name="excl_preset_applied">Preset \"%1$s\" applied.</string>
+<string name="excl_preset_saved">Preset \"%1$s\" saved.</string>
+<string name="reward_no_network_warning">Enable network to continue this feature</string>
+<string name="reward_error_ad_unavailable">Ad not available, please try again in a moment</string>
+<string name="reward_btn_claim_premium_en">Claim Premium</string>
+<string name="reward_toast_server_error">Server is down, try again later.</string>
+    <string name="reward_body_progress_dialog">%1$d of %2$d ads watched</string>
+    <string name="reward_body_success_dialog">Premium active! Enjoy.</string>
+<string name="reward_perk_no_ads">Ad-free for 24 hours</string>
+<string name="reward_perk_all_features">All premium features unlocked</string>
+
+</resources>

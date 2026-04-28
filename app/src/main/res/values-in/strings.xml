@@ -1,0 +1,715 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JavaPro</string>
+
+    <!-- ══════════════════════════════════════════════
+         NAVIGATION / MENU
+    ══════════════════════════════════════════════ -->
+    <string name="nav_settings">Pengaturan</string>
+    <string name="nav_app_profiles">Profil Aplikasi</string>
+    <string name="nav_credits">Kredit</string>
+    <string name="nav_mode">Mode</string>
+    <string name="nav_ads">Iklan</string>
+    <string name="nav_language">Bahasa: ID</string>
+    <string name="nav_home">Beranda</string>
+    <string name="nav_gamelist">Gamelist</string>
+    <string name="nav_advanced">Lanjutan</string>
+    <string name="home_system_health">Kesehatan Sistem</string>
+    <string name="home_cpu_high">Tinggi</string>
+    <string name="home_cpu_med">Sedang</string>
+    <string name="home_cpu_low">Rendah</string>
+    <string name="home_set_perf_per_app">Atur performa khusus tiap aplikasi</string>
+    <string name="home_show_fps">Tampilkan FPS Real-time</string>
+    <string name="home_fps_reader_mode">Mode Pembaca FPS</string>
+    <string name="home_root_active">Aktif</string>
+    <string name="home_root_inactive">Tidak Aktif</string>
+    <string name="home_shizuku_running">Berjalan</string>
+    <string name="home_shizuku_stopped">Berhenti</string>
+    <string name="home_toast_watch_ad">Tonton iklan sampai selesai terlebih dahulu!</string>
+    <string name="home_support_donate">Donasi</string>
+    <string name="home_support_report_bug">Laporkan Bug</string>
+    <string name="home_support_credits">Kredit</string>
+    <string name="home_support_section">DUKUNGAN</string>
+    <string name="home_exclusive_section">EKSKLUSIF</string>
+    <string name="home_exclusive_title">Fitur Eksklusif</string>
+    <string name="home_exclusive_subtitle">Backup, Import &amp; Preset Warna</string>
+    <string name="home_exclusive_free_badge">GRATIS</string>
+    <string name="home_exclusive_ad_progress">%1$d/%2$d video untuk akses 1 hari</string>
+    <string name="home_exclusive_ad_remaining">%1$d lagi</string>
+    <string name="home_exclusive_ad_watched">%1$d video ditonton</string>
+    <!-- HomeScreen labels -->
+    <string name="home_alive_label">Aktif</string>
+    <string name="home_fps_monitor_label">Monitor FPS</string>
+    <string name="home_app_profiles_label">Profil Aplikasi</string>
+    <string name="home_root_access_label">Akses Root</string>
+    <string name="home_telegram_label">Telegram</string>
+    <string name="home_javapro_status_label">Status JavaPro</string>
+
+    <!-- ══════════════════════════════════════════════
+         COMMON ACTIONS
+    ══════════════════════════════════════════════ -->
+    <string name="action_apply">Terapkan</string>
+    <string name="action_apply_all">Terapkan Semua</string>
+    <string name="action_applying">Menerapkan…</string>
+    <string name="action_applied">Diterapkan</string>
+    <string name="action_applied_dot">Diterapkan.</string>
+    <string name="action_applied_success">Berhasil diterapkan.</string>
+    <string name="action_applied_done">✓ Berhasil diterapkan</string>
+    <string name="action_done">✓ Selesai!</string>
+    <string name="action_cancel">Batal</string>
+    <string name="action_close">Tutup</string>
+    <string name="action_dismiss">Tutup</string>
+    <string name="action_save">Simpan</string>
+    <string name="action_saved">Disimpan.</string>
+    <string name="action_save_failed">Gagal menyimpan.</string>
+    <string name="action_delete">Hapus</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_refresh">Perbarui</string>
+    <string name="action_change">Ubah</string>
+    <string name="action_add">Tambah</string>
+    <string name="action_import">Import</string>
+    <string name="action_backup">Backup</string>
+    <string name="action_verify">Verifikasi</string>
+    <string name="action_help">Bantuan</string>
+    <string name="action_buy">Beli</string>
+    <string name="action_continue">Lanjutkan</string>
+    <string name="action_proceed">Lanjutkan</string>
+    <string name="action_resume">Lanjut</string>
+    <string name="action_pause">Jeda</string>
+    <string name="action_stop">Hentikan</string>
+    <string name="action_go_back">Kembali</string>
+    <string name="action_got_it">Mengerti</string>
+    <string name="action_upgrade_premium">Upgrade Premium</string>
+    <string name="action_manage">Kelola →</string>
+    <string name="action_pick_photo">Pilih Foto</string>
+    <string name="action_open_debug">Buka Debug Tools</string>
+    <string name="action_open_gamelist">Buka Gamelist</string>
+    <string name="action_failed">Gagal.</string>
+
+    <!-- ══════════════════════════════════════════════
+         STATUS / LABELS
+    ══════════════════════════════════════════════ -->
+    <string name="status_active">Aktif</string>
+    <string name="status_inactive">Tidak Aktif</string>
+    <string name="status_running">Berjalan</string>
+    <string name="status_stopped">Berhenti</string>
+    <string name="status_on">ON</string>
+    <string name="status_off">Nonaktif</string>
+    <string name="status_current">Saat Ini</string>
+    <string name="status_limited">Terbatas</string>
+    <string name="status_unknown">Tidak Diketahui</string>
+    <string name="status_no_access">Tidak Ada Akses</string>
+    <string name="status_protected">Terlindungi</string>
+    <string name="status_legacy">Lama</string>
+    <string name="status_new_android15">Baru (Android 15+)</string>
+    <string name="status_default">Default</string>
+    <string name="status_custom">Custom</string>
+    <string name="status_balance">SEIMBANG</string>
+    <string name="status_performance">PERFORMA</string>
+    <string name="status_powersave">HEMAT DAYA</string>
+    <string name="status_detecting">Mendeteksi…</string>
+    <string name="status_refreshing">Memperbarui…</string>
+    <string name="status_loading_apps">Memuat aplikasi…</string>
+    <string name="status_loading_app_list">Memuat daftar aplikasi…</string>
+    <string name="status_detecting_processes">Mendeteksi proses…</string>
+    <string name="status_applying">Menerapkan…</string>
+    <string name="status_compiling">Mengkompilasi…</string>
+    <string name="status_importing">Mengimpor…</string>
+    <string name="status_showing_ad">Menampilkan iklan…</string>
+    <string name="status_collecting_fps">Mengumpulkan data FPS…</string>
+
+    <!-- ══════════════════════════════════════════════
+         APP DETAIL SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="appdetail_force_stop_title">Force Stop?</string>
+    <string name="appdetail_force_stop_body">App akan dihentikan paksa. Data yang belum tersimpan akan hilang.</string>
+    <string name="appdetail_force_stop_btn">Hentikan</string>
+    <string name="appdetail_force_stop_anyway">Tetap Hentikan</string>
+    <string name="appdetail_app_stopped">App dihentikan.</string>
+    <string name="appdetail_cache_cleared">Cache dibersihkan.</string>
+    <string name="appdetail_memory_trimmed">Memory di-trim.</string>
+    <string name="appdetail_perf_profile">Mode Performa</string>
+    <string name="appdetail_quick_actions">Aksi Cepat</string>
+    <string name="appdetail_advanced_optimization">Optimasi Lanjutan</string>
+    <string name="appdetail_standby_bucket">Standby Bucket</string>
+    <string name="appdetail_cpu_priority">Prioritas CPU/Proses</string>
+    <string name="appdetail_no_root_shizuku">Root dan Shizuku tidak terdeteksi. Semua fitur tidak dapat digunakan.</string>
+    <string name="appdetail_perf_balance">Seimbang</string>
+    <string name="appdetail_perf_performance">Performa</string>
+    <string name="appdetail_perf_powersave">Hemat Daya</string>
+    <string name="appdetail_compile_app_memory">Kompilasi app ke memori</string>
+    <string name="appdetail_clean_cache_on_apply">Bersihkan cache app saat Apply ditekan</string>
+    <string name="appdetail_touch_responsive_title">Touch Responsif</string>
+    <string name="appdetail_touch_responsive_desc">Tingkatkan responsivitas layar sentuh (Root: kernel boost, Shizuku: pointer speed)</string>
+    <string name="appdetail_reduce_logging_title">Kurangi Logging</string>
+    <string name="appdetail_reduce_logging_desc">Kurangi aktivitas log sistem</string>
+    <string name="appdetail_notif_limiter_title">Batasi Notifikasi</string>
+    <string name="appdetail_notif_limiter_desc">Blokir notifikasi background app ini</string>
+    <string name="appdetail_data_saver_title">Hemat Data Background</string>
+    <string name="appdetail_data_saver_desc">Batasi penggunaan data di background</string>
+    <string name="appdetail_battery_opt_title">Optimalkan Baterai</string>
+    <string name="appdetail_battery_opt_desc">Paksa app masuk doze &amp; batasi background activity</string>
+    <string name="appdetail_success_applied">Berhasil diterapkan.</string>
+    <string name="appdetail_terapkan_semua">Terapkan Semua</string>
+    <string name="appdetail_dex_speed_profile_desc">Kompilasi berdasarkan profil penggunaan (rekomendasi)</string>
+    <string name="appdetail_dex_speed_desc">Kompilasi penuh untuk startup secepat mungkin</string>
+    <string name="appdetail_dex_quicken_desc">Optimasi minimal, cepat &amp; hemat storage</string>
+    <string name="appdetail_dex_verify_desc">Hanya verifikasi, tanpa optimasi</string>
+    <string name="appdetail_run_dexopt">Jalankan DexOpt</string>
+    <string name="appdetail_dexopt_done">DexOpt selesai.</string>
+    <string name="appdetail_bucket_applied">Bucket diterapkan.</string>
+    <string name="appdetail_apply_bucket">Terapkan Bucket</string>
+    <string name="appdetail_bucket_active_desc">Tidak ada batasan, perlakuan normal</string>
+    <string name="appdetail_bucket_frequent_desc">Sedikit batasan background</string>
+    <string name="appdetail_bucket_working_desc">Batasan sedang pada background</string>
+    <string name="appdetail_bucket_rare_desc">Batasan ketat, hemat baterai maksimal</string>
+    <string name="appdetail_priority_normal_title">Normal</string>
+    <string name="appdetail_priority_normal_desc">Prioritas default sistem (nice 0)</string>
+    <string name="appdetail_priority_high_title">Tinggi</string>
+    <string name="appdetail_priority_high_desc">Prioritas lebih tinggi dari rata-rata</string>
+    <string name="appdetail_priority_realtime_title">Real-time</string>
+    <string name="appdetail_priority_realtime_desc">Prioritas tertinggi, gunakan dengan hati-hati</string>
+    <string name="appdetail_priority_root_note">Root required · Berlaku selama proses app aktif, reset saat app ditutup.</string>
+    <string name="appdetail_priority_applied">Prioritas diterapkan.</string>
+    <string name="appdetail_apply_priority">Terapkan Prioritas</string>
+    <string name="appdetail_dexopt_cancel_title">Batalkan DexOpt?</string>
+    <string name="appdetail_dexopt_cancel_action">Batalkan DexOpt</string>
+    <string name="appdetail_dexopt_irreversible">Proses yang sudah berjalan tidak dapat di-undo. Aplikasi yang sudah dikompilasi tetap tersimpan.</string>
+    <!-- AppDetailScreen missing strings -->
+    <string name="appdetail_app_not_found">Aplikasi tidak ditemukan</string>
+    <string name="appdetail_graphics_driver_label">Driver Grafis</string>
+    <string name="appdetail_app_ops_label">App Ops</string>
+    <string name="appdetail_app_ops_desc">Kelola izin &amp; operasi aplikasi</string>
+    <string name="appdetail_root_active_label">Root Aktif</string>
+    <string name="appdetail_shizuku_active_label">Shizuku Aktif</string>
+    <string name="appdetail_preload_label">Preload</string>
+    <string name="appdetail_smart_cache_cleaner_label">Smart Cache Cleaner</string>
+    <string name="appdetail_bucket_active_label">Aktif</string>
+    <string name="appdetail_bucket_frequent_label">Sering</string>
+    <string name="appdetail_bucket_working_label">Bekerja</string>
+    <string name="appdetail_bucket_rare_label">Jarang</string>
+    <string name="appdetail_driver_default_label">Default</string>
+    <string name="appdetail_driver_legacy_label">Legacy</string>
+
+    <!-- ══════════════════════════════════════════════
+         APP PROFILE SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="appprofile_search">Cari aplikasi…</string>
+    <string name="appprofile_app_count">%1$d aplikasi</string>
+    <string name="appprofile_no_apps">Tidak ada aplikasi terdeteksi</string>
+    <string name="appprofile_app_list">Daftar Aplikasi</string>
+
+    <!-- ══════════════════════════════════════════════
+         CREDITS SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="credits_title">Kredit</string>
+    <string name="credits_main_dev_label">PENGEMBANG UTAMA</string>
+    <string name="credits_main_dev_badge">Pengembang Utama</string>
+    <string name="credits_co_dev_label">CO-PENGEMBANG</string>
+    <string name="credits_co_dev_badge">Co-Pengembang</string>
+    <string name="credits_special_thanks_title">Terima Kasih Spesial</string>
+    <string name="credits_special_thanks_body">Terima kasih sebesar-besarnya kepada para kontributor hebat yang telah membantu pengembangan project ini.</string>
+    <string name="credits_contributors_label">KONTRIBUTOR</string>
+    <string name="credits_footer">Dibuat oleh satu developer</string>
+
+    <!-- ══════════════════════════════════════════════
+         DEBUG TOOLS SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="debug_title">Debug Tools</string>
+    <string name="debug_root_status">Root aktif — full logcat, dmesg, proses tersedia</string>
+    <string name="debug_shizuku_status">Shizuku — logcat terbatas, filter per package tersedia</string>
+    <string name="debug_filter_package">Filter Package Name (opsional)</string>
+    <string name="debug_live_update">Live Update</string>
+    <string name="debug_live_update_desc">Live update setiap 2 detik</string>
+    <string name="debug_auto_refresh_desc">Refresh otomatis setiap 2 detik</string>
+    <string name="debug_no_log">Tidak ada log</string>
+    <string name="debug_no_crash">Tidak ada crash/ANR terdeteksi</string>
+    <string name="debug_crash_count">%1$d entri crash/ANR/Exception ditemukan</string>
+    <string name="debug_process">Proses</string>
+    <string name="debug_package">Paket</string>
+    <string name="debug_app_no_data">App tidak berjalan atau tidak ada data tersedia.</string>
+    <string name="debug_load_app_list">Muat Daftar Aplikasi</string>
+    <string name="debug_per_app">Per Aplikasi (%1$d)</string>
+    <string name="debug_running_apps">Aplikasi Berjalan (%1$d)</string>
+
+    <!-- ══════════════════════════════════════════════
+         EXCLUSIVE FEATURES SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="excl_title">Fitur Eksklusif</string>
+    <string name="excl_ad_closed_title">Iklan Ditutup Terlalu Cepat</string>
+    <string name="excl_ad_closed_body">Kamu menutup iklan sebelum selesai. Progres tidak dihitung. Tonton iklan sampai habis agar progres bertambah.</string>
+    <string name="excl_gate_desc">Tonton %1$d video iklan untuk membuka akses selama 1 hari, atau upgrade ke Premium untuk akses penuh selamanya.</string>
+    <string name="excl_ad_progress_title">Progres Tonton Iklan</string>
+    <string name="excl_ad_watch_note">Tonton iklan sampai selesai. Jika ditutup lebih awal, progres tidak dihitung.</string>
+    <string name="excl_access_unlocked">Akses 1 hari terbuka!</string>
+    <string name="excl_watch_ad_btn">Tonton Iklan (%1$d/%2$d)</string>
+    <string name="excl_or_separator">— atau —</string>
+    <string name="excl_backup_import_label">BACKUP &amp; IMPORT</string>
+    <string name="excl_backup_location_set">Lokasi backup sudah dipilih.</string>
+    <string name="excl_backup_saved">Backup disimpan.</string>
+    <string name="excl_backup_saved_success">Backup berhasil disimpan.</string>
+    <string name="excl_backup_updated">Backup diperbarui.</string>
+    <string name="excl_import_success">Import berhasil.</string>
+    <string name="excl_invalid_file">File tidak valid.</string>
+    <string name="excl_profile_switcher_label">TWEAK PROFILE SWITCHER</string>
+    <string name="excl_saved_profiles">Profil Tersimpan</string>
+    <string name="excl_save_current_profile">Simpan Profil Saat Ini</string>
+    <string name="excl_no_profiles_yet">Belum ada profil.</string>
+    <string name="excl_profile_saved">Profil disimpan.</string>
+    <string name="excl_save_profile_title">Simpan Profil</string>
+    <string name="excl_save_profile_desc">Snapshot semua pengaturan JavaPro + Game Board + App Profile + App Ops saat ini.</string>
+    <string name="excl_profile_name_hint">Nama Profil</string>
+    <string name="excl_delete_profile_title">Hapus Profil?</string>
+    <string name="excl_auto_detect_label">AUTO-TWEAK GAME DETECTION</string>
+    <string name="excl_auto_detect_title">Deteksi &amp; Tweak Otomatis</string>
+    <string name="excl_auto_detect_desc">Terapkan setting GameBoost saat game dari game.txt dibuka</string>
+    <string name="excl_game_txt_not_found">game.txt tidak ditemukan.</string>
+    <string name="excl_auto_status_active">Aktif · %1$d game terdaftar</string>
+    <string name="excl_tweak_applied">✓ Tweak: %1$s</string>
+    <string name="excl_no_tweaks_title">Tweak Belum Dikonfigurasi</string>
+    <string name="excl_no_tweaks_body">Game \"%1$s\" terdeteksi tapi belum ada tweak yang dipilih. Buka Gamelist → pilih game → aktifkan tweak.</string>
+    <string name="excl_network_label">NETWORK OPTIMIZER</string>
+    <string name="excl_choose_network_preset">Pilih Preset Jaringan</string>
+    <string name="excl_color_presets_label">COLOR CALIBRATION PRESETS</string>
+    <string name="excl_root_required_presets">ROOT REQUIRED — Preset bisa disimpan tapi tidak bisa diterapkan.</string>
+    <string name="excl_built_in_presets">Preset Bawaan</string>
+    <string name="excl_custom_presets">Preset Kustom (%1$d)</string>
+    <string name="excl_no_custom_presets">Belum ada preset kustom.</string>
+    <string name="excl_save_preset_title">Simpan Preset</string>
+    <string name="excl_preset_name_hint">Nama Preset</string>
+    <string name="excl_save_values">Simpan Nilai</string>
+    <string name="excl_delete_preset_title">Hapus Preset?</string>
+    <string name="excl_banner_label">BANNER HOME</string>
+    <string name="excl_banner_desc">Ganti banner di halaman utama dengan foto dari galeri. Format JPG dan PNG didukung. Rasio ideal 16:9 — foto dengan rasio berbeda akan otomatis di-crop ke tengah.</string>
+    <string name="excl_banner_recommendation">Rekomendasi: 1280×720 atau 1920×1080 (16:9)</string>
+    <string name="excl_banner_custom_active">Banner kustom aktif.</string>
+    <string name="excl_banner_updated">Banner diperbarui.</string>
+    <string name="excl_banner_reset">Banner direset ke default.</string>
+    <string name="excl_navbar_label">GAYA NAVBAR</string>
+    <string name="excl_navbar_floating">Pill melayang · label tab muncul saat aktif</string>
+    <string name="excl_navbar_indicator">Indicator geser · efek gradien glow</string>
+    <string name="excl_debug_label">HIDDEN DEBUG TOOLS</string>
+    <string name="excl_debug_desc">Akses log sistem, crash report, info resource per app, dan troubleshooting mendalam.</string>
+    <!-- ExclusiveGateDialog missing strings -->
+    <string name="excl_gate_ad_progress_label">Progres Iklan</string>
+    <string name="excl_gate_maybe_later">Nanti Saja</string>
+    <string name="excl_gate_watch_ads_btn">Tonton Iklan (%1$d/%2$d)</string>
+
+    <!-- ══════════════════════════════════════════════
+         FPS LIVE SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="fps_title">FPS Real-time</string>
+    <string name="fps_chart_title">Grafik FPS Langsung</string>
+    <string name="fps_chart_paused">Grafik dijeda. Tekan Lanjut untuk merekam kembali.</string>
+    <string name="fps_frame_count">Jumlah Frame</string>
+    <string name="fps_points">%1$d titik</string>
+    <string name="fps_avg">Rata-rata</string>
+    <string name="fps_max">Tertinggi</string>
+    <string name="fps_min">Terendah</string>
+
+    <!-- ══════════════════════════════════════════════
+         GAME BOOST SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="gameboost_search">Cari game…</string>
+    <string name="gameboost_games_detected">%1$d game terdeteksi</string>
+    <string name="gameboost_game_not_found">Game tidak ditemukan</string>
+    <string name="gameboost_active">GameBoost aktif!</string>
+    <string name="gameboost_stopped">GameBoost dimatikan</string>
+    <string name="gameboost_app_stopped">%1$s dihentikan</string>
+    <string name="gameboost_detection">Deteksi</string>
+    <string name="gameboost_more_accurate_root">Deteksi lebih akurat memerlukan akses root</string>
+    <string name="gameboost_no_custom_packages">Belum ada package custom yang ditambahkan.</string>
+    <string name="gameboost_package_exists">Package sudah ada</string>
+    <string name="gameboost_package_empty">Nama package tidak boleh kosong</string>
+    <string name="gameboost_invalid_package">Format package tidak valid</string>
+    <string name="gameboost_enter_package">Masukkan package name aplikasi (contoh: com.tencent.ig)</string>
+    <string name="gameboost_add_package_title">Tambah Package Game</string>
+    <string name="gameboost_manage_packages_title">Kelola Package Custom</string>
+    <string name="gameboost_manage_packages_btn">Kelola (%1$d)</string>
+    <string name="gameboost_package_not_found">Package tidak ditemukan atau tidak terinstall.</string>
+    <string name="gameboost_no_apps">Tidak ada aplikasi</string>
+    <string name="gameboost_no_search_results">Hasil pencarian tidak ditemukan</string>
+
+    <!-- ══════════════════════════════════════════════
+         GAME BOOST DETAIL SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="gbdetail_play_btn">Main!</string>
+    <string name="gbdetail_prioritize_game">Prioritaskan Game</string>
+    <string name="gbdetail_prioritize_desc">Beri prioritas CPU dan memori ke game ini</string>
+    <string name="gbdetail_graphics_driver">Driver Grafis</string>
+    <string name="gbdetail_select_driver">Pilih Driver Grafis</string>
+    <string name="gbdetail_gpu_renderer_desc">Ubah backend renderer GPU untuk game ini. Perubahan berlaku setelah restart game.</string>
+    <string name="gbdetail_driver_applied">Driver Grafis Diterapkan!</string>
+    <string name="gbdetail_apply_driver">Terapkan Driver Grafis</string>
+    <string name="gbdetail_boost_options">Opsi Boost</string>
+    <string name="gbdetail_boost_applied">Opsi Boost Diterapkan!</string>
+    <string name="gbdetail_apply_boost">Terapkan Opsi Boost</string>
+    <string name="gbdetail_root_options_advanced">Opsi Root (Lanjutan)</string>
+    <string name="gbdetail_root_options_label">Opsi Root Lanjutan</string>
+    <string name="gbdetail_root_options_applied">Opsi Root Diterapkan!</string>
+    <string name="gbdetail_apply_root_options">Terapkan Opsi Root</string>
+    <string name="gbdetail_root_extra_label">Opsi Root Extra</string>
+    <string name="gbdetail_root_extra_applied">Opsi Root Extra Diterapkan!</string>
+    <string name="gbdetail_apply_root_extra">Terapkan Opsi Root Extra</string>
+    <string name="gbdetail_apply_graphics_perf">Terapkan Performa Grafis</string>
+    <string name="gbdetail_tap_expand">Tap untuk lihat semua opsi</string>
+    <string name="gbdetail_tap_collapse">Tap untuk menyembunyikan</string>
+    <!-- GameBoost tweak names/descriptions -->
+    <string name="gbdetail_perf_gov_desc">Set governor performance + frekuensi max, support Adreno &amp; Mali</string>
+    <string name="gbdetail_cpu_uclamp">CPU uClamp 100%</string>
+    <string name="gbdetail_cpu_uclamp_desc">Paksa utilisasi CPU foreground &amp; top-app ke maksimum</string>
+    <string name="gbdetail_render_ahead">Render Ahead</string>
+    <string name="gbdetail_render_ahead_desc">Pre-render frame sebelum ditampilkan, kurangi jitter visual</string>
+    <string name="gbdetail_reduce_anim">Kurangi Animasi</string>
+    <string name="gbdetail_reduce_anim_desc">Percepat transisi UI saat gaming</string>
+    <string name="gbdetail_lock_fps">Kunci FPS</string>
+    <string name="gbdetail_lock_fps_desc">Kunci refresh rate layar ke FPS target</string>
+    <string name="gbdetail_resolution_scale">Skala Resolusi</string>
+    <string name="gbdetail_touch_boost">Boost Sentuhan</string>
+    <string name="gbdetail_touch_boost_desc">Tingkatkan responsivitas layar sentuh</string>
+    <string name="gbdetail_disable_doze">Nonaktifkan Doze</string>
+    <string name="gbdetail_disable_doze_desc">Cegah Android masuk mode hemat daya saat gaming</string>
+    <string name="gbdetail_android_game_mode">Mode Game Android</string>
+    <string name="gbdetail_android_game_mode_desc">Aktifkan mode game bawaan Android</string>
+    <string name="gbdetail_disable_thermal">Nonaktifkan Thermal</string>
+    <string name="gbdetail_disable_thermal_desc">Bekukan thermal zone + freeze thermal daemon</string>
+    <string name="gbdetail_sustained_perf">Sustained Performance Mode</string>
+    <string name="gbdetail_sustained_perf_desc">Jaga performa stabil, cegah throttling saat sesi panjang</string>
+    <string name="gbdetail_aggressive_lmk">LMK Agresif</string>
+    <string name="gbdetail_aggressive_lmk_desc">Paksa Low Memory Killer bebaskan RAM lebih agresif</string>
+    <string name="gbdetail_irq_affinity">IRQ Affinity ke Big Core</string>
+    <string name="gbdetail_irq_affinity_desc">Arahkan interrupt ke core performa untuk latency lebih rendah</string>
+    <string name="gbdetail_kill_bg_apps">Bersihkan RAM Background</string>
+    <string name="gbdetail_kill_bg_apps_desc">Hentikan semua app background untuk bebaskan RAM</string>
+    <string name="gbdetail_adreno_boost">Adreno Boost Level</string>
+    <string name="gbdetail_adreno_boost_desc">Tingkatkan agresivitas DVFS GPU Adreno (khusus Snapdragon)</string>
+    <string name="gbdetail_aggressive_gpu_idle">GPU Idle Timer Agresif</string>
+    <string name="gbdetail_aggressive_gpu_idle_desc">Paksa GPU tetap aktif lebih lama, kurangi re-ramp latency</string>
+    <string name="gbdetail_perf_graphics">Performa Grafis &amp; Frame</string>
+    <string name="gbdetail_io_storage">I/O &amp; Penyimpanan</string>
+    <string name="gbdetail_advanced_tweaks">Tweak GPU &amp; Sistem Lanjutan</string>
+    <string name="gbdetail_misc">Lain-lain</string>
+    <string name="gbdetail_wifi_gaming">WiFi Gaming Mode</string>
+    <string name="gbdetail_wifi_gaming_desc">Nonaktifkan WiFi sleep &amp; scan throttle untuk latency WiFi rendah</string>
+    <string name="gbdetail_tcp_opt">Optimasi TCP/IP</string>
+    <string name="gbdetail_tcp_opt_desc">Aktifkan TCP fast open, SACK, timestamps + paksa mobile data selalu on</string>
+    <string name="gbdetail_io_scheduler">IO Scheduler Optimal</string>
+    <string name="gbdetail_io_scheduler_desc">Set none scheduler + rq_affinity untuk latency rendah</string>
+    <string name="gbdetail_max_cpu_gpu">CPU &amp; GPU Boost Maksimal</string>
+    <string name="gbdetail_max_cpu_gpu_desc">Performa tinggi, latensi rendah, hemat daya</string>
+    <string name="gbdetail_sched_tweak">Kernel Scheduler Tweak</string>
+    <string name="gbdetail_sched_tweak_desc">Optimalkan sched latency, granularity dan child runs</string>
+    <!-- Driver options -->
+    <string name="gbdetail_driver_default_desc">Kompatibilitas luas, stabil di kebanyakan GPU</string>
+    <string name="gbdetail_driver_legacy_desc">Mode legacy, cocok untuk game lama</string>
+    <!-- GameBoostDetailScreen missing strings -->
+    <string name="gbdetail_boost_btn">Boost!</string>
+    <string name="gbdetail_play_label">Main!</string>
+    <string name="gbdetail_stop_btn">Hentikan</string>
+    <string name="gbdetail_gameboost_active_toast">GameBoost aktif!</string>
+    <string name="gbdetail_driver_applied_toast">Driver Grafis Diterapkan!</string>
+
+    <!-- ══════════════════════════════════════════════
+         MEMORY SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="memory_title">Memori</string>
+    <string name="memory_ram_usage">Penggunaan RAM</string>
+    <string name="memory_of_gb">dari %1$.1f GB</string>
+    <string name="memory_available">Tersedia</string>
+    <string name="memory_charging">Mengisi Daya</string>
+    <string name="memory_battery">Baterai</string>
+    <string name="memory_management">Pengelolaan Memori</string>
+    <string name="memory_optimization">Optimasi Memori</string>
+    <string name="memory_clear_cache">Bersihkan cache sistem untuk bebaskan RAM</string>
+    <string name="memory_kill_bg">Hentikan semua app background untuk bebaskan RAM</string>
+    <string name="memory_hot">Panas</string>
+    <string name="memory_good">Baik</string>
+    <string name="memory_dead">Buruk</string>
+    <string name="memory_overheat">Kepanasan</string>
+    <string name="memory_protected_app">Aplikasi Terlindungi</string>
+    <string name="memory_running_apps">Aplikasi Berjalan</string>
+    <string name="memory_apps_detected">%1$d aplikasi terdeteksi</string>
+    <string name="memory_dexopt_all">DexOpt Semua Aplikasi</string>
+    <string name="memory_dexopt_desc">DexOpt mempercepat pembukaan aplikasi. Efek samping: ukuran penyimpanan bertambah. Jangan tutup JavaPro saat proses berjalan.</string>
+    <string name="memory_dexopt_warning">⚠ Root diperlukan untuk DexOpt</string>
+    <string name="memory_dexopt_do_not_close">🔒 Jangan tutup JavaPro</string>
+    <string name="memory_compiling_app">Mengkompilasi: %1$s</string>
+    <string name="memory_no_apps_detected">Tidak ada aplikasi terdeteksi</string>
+    <string name="memory_vm_kernel">VM &amp; Memori Kernel</string>
+    <string name="memory_vm_tweak">VM Memory Tweak</string>
+    <string name="memory_vm_tweak_desc">Optimalkan swappiness, dirty ratio dan page cluster</string>
+    <string name="memory_swappiness_desc">Seberapa agresif kernel menggunakan swap. Default perangkat: %1$d</string>
+    <string name="memory_dirty_ratio_desc">Persentase memori kotor sebelum tulis ke disk. Default: %1$d</string>
+    <string name="memory_page_cluster_desc">Jumlah halaman dari swap sekaligus (0=off). Default: %1$d</string>
+    <string name="memory_cache_pressure">Tekanan Cache</string>
+    <string name="memory_cache_pressure_desc">Kontrol seberapa cepat kernel membuang cache. Default: %1$d</string>
+    <string name="memory_readahead_desc">Ukuran data yang dibaca lebih awal dari storage. Default: %1$d KB</string>
+    <string name="memory_data_loss_risk">⚠ Risiko kehilangan data</string>
+    <string name="memory_sync_desc">Sinkronisasi file ke disk setelah tulis. Matikan untuk performa lebih, risiko kehilangan data saat crash.</string>
+    <string name="memory_pengelolaan">Pengelolaan Memori</string>
+    <string name="memory_kernel_memory">VM &amp; Memori Kernel</string>
+    <string name="memory_zram_algo">Algoritma Kompresi ZRAM</string>
+    <string name="memory_zram_algo_desc">Ganti algoritma kompresi ZRAM, LZ4/ZSTD lebih cepat dari default</string>
+    <string name="memory_recompile_apps">Kompilasi ulang aplikasi untuk pembukaan lebih cepat</string>
+    <string name="memory_dexopt_app_confirm">DexOpt akan mengkompilasi ulang %1$s.\n\n⚠ Ukuran penyimpanan akan bertambah.\n⏱ Memerlukan beberapa saat.\n🔒 Jangan tutup JavaPro.</string>
+
+    <!-- ══════════════════════════════════════════════
+         PREMIUM SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="premium_device_id">Device ID Anda</string>
+    <string name="premium_device_id_copied">Device ID disalin!</string>
+    <string name="premium_device_id_tap_hint">Tap untuk menyalin. Device ID ini dikirim otomatis saat menekan tombol Beli.</string>
+    <string name="premium_already_premium">Anda sudah Premium!</string>
+    <string name="premium_king_no_expiry">King · Tanpa batas</string>
+    <string name="premium_plus_star_active">Plus★ · Aktif hingga %1$s</string>
+    <string name="premium_plus_plus_active">Plus+ · Aktif hingga %1$s</string>
+    <string name="premium_plus_active">Plus · Aktif hingga %1$s</string>
+    <string name="premium_package_plus">Paket Plus</string>
+    <string name="premium_package_plus_plus">Paket Plus+</string>
+    <string name="premium_package_plus_star">Paket Plus★</string>
+    <string name="premium_package_king">Paket King</string>
+    <string name="premium_status_label">Status</string>
+    <string name="premium_license_type">Tipe Lisensi</string>
+    <string name="premium_valid_until">Berlaku Hingga</string>
+    <string name="premium_forever">Selamanya</string>
+    <string name="premium_time_remaining">Sisa Waktu</string>
+    <string name="premium_days_label">Hari</string>
+    <string name="premium_hours_label">Jam</string>
+    <string name="premium_expired_msg">Premium telah berakhir. Silakan perbarui langganan.</string>
+    <string name="premium_about_title">Tentang Premium</string>
+    <string name="premium_about_desc">Nikmati JavaPro tanpa iklan. Pilih paket, klik Beli untuk menghubungi developer via Telegram, dan masukkan key aktivasi yang diberikan.</string>
+    <string name="premium_choose_package">Pilih Paket</string>
+    <string name="premium_7days">7 hari</string>
+    <string name="premium_30days">30 hari</string>
+    <string name="premium_365days">365 hari</string>
+    <string name="premium_buy_weekly_msg">Halo, saya ingin membeli paket Mingguan (Rp 10.000)\nDevice ID: %1$s</string>
+    <string name="premium_buy_monthly_msg">Halo, saya ingin membeli paket Bulanan (Rp 20.000)\nDevice ID: %1$s</string>
+    <string name="premium_buy_yearly_msg">Halo, saya ingin membeli paket Tahunan (Rp 40.000)\nDevice ID: %1$s</string>
+    <string name="premium_buy_permanent_msg">Halo, saya ingin membeli paket Permanen (Rp 70.000)\nDevice ID: %1$s</string>
+    <string name="premium_help_msg">Halo, saya butuh bantuan aktivasi key premium\nDevice ID: %1$s</string>
+    <string name="premium_price_weekly">Rp 10.000</string>
+    <string name="premium_price_monthly">Rp 20.000</string>
+    <string name="premium_price_yearly">Rp 40.000</string>
+    <string name="premium_price_permanent">Rp 70.000</string>
+    <string name="premium_key_activation_title">Aktivasi Key</string>
+    <string name="premium_enter_key_hint">Masukkan Key Aktivasi</string>
+    <string name="premium_invalid_key_msg">Key tidak valid, kadaluarsa, atau bukan untuk perangkat ini.</string>
+    <string name="premium_key_valid">Key valid! Memuat ulang…</string>
+    <string name="premium_invalid_key_toast">Key tidak valid</string>
+    <string name="premium_king_no_expiry_label">King · Tanpa batas</string>
+    <string name="premium_execution_method">Metode Eksekusi</string>
+    <string name="premium_root_shizuku_required">Root atau Shizuku diperlukan</string>
+
+    <!-- ══════════════════════════════════════════════
+         SETTING SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="settings_title">Pengaturan</string>
+    <!-- SettingScreen missing strings -->
+    <string name="settings_javapro_status_label">Status JavaPro</string>
+    <string name="settings_color_calibration_label">Kalibrasi Warna</string>
+    <string name="settings_color_red">Merah</string>
+    <string name="settings_color_green">Hijau</string>
+    <string name="settings_color_blue">Biru</string>
+    <string name="settings_color_saturation">Saturasi</string>
+    <string name="settings_apply_on_boot_label">Terapkan saat Boot</string>
+    <string name="settings_apply_on_boot_desc">Terapkan otomatis setelah reboot</string>
+    <string name="settings_reset_colors_btn">Reset Warna</string>
+    <string name="settings_reset_all_btn">Reset Semua Pengaturan</string>
+    <string name="settings_reset_all_desc">Kembalikan ke pengaturan default</string>
+    <string name="settings_upgrade_to_pro_btn">Upgrade ke Pro</string>
+
+    <!-- ══════════════════════════════════════════════
+         TWEAK SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="tweak_network">Jaringan</string>
+    <string name="tweak_system">Sistem</string>
+    <string name="tweak_memory_section">Memori</string>
+    <string name="tweak_advanced">Lanjutan</string>
+    <string name="tweak_scheduler_desc">Algoritma antrian baca/tulis disk. Saat ini: %1$s</string>
+    <string name="tweak_tcp_congestion_desc">Algoritma manajemen jaringan. Saat ini: %1$s</string>
+    <string name="tweak_root_not_detected">Root tidak terdeteksi. Semua tweak memerlukan akses root.</string>
+    <string name="tweak_apply_memory_opt">Terapkan Optimasi Memori</string>
+    <string name="tweak_tcp_congestion_title">Kontrol Kemacetan TCP</string>
+    <string name="tweak_choose_network">Pilih Preset Jaringan</string>
+    <!-- TweakScreen missing strings -->
+    <string name="tweak_title_advanced">Lanjutan</string>
+    <string name="tweak_subtitle_kernel">Tweak kernel &amp; sistem</string>
+    <string name="tweak_section_battery">Baterai</string>
+    <string name="tweak_section_memory">Memori</string>
+    <string name="tweak_section_io_storage">I/O &amp; Penyimpanan</string>
+    <string name="tweak_section_miscellaneous">Lain-lain</string>
+    <string name="tweak_fsync_label">Fsync</string>
+    <string name="tweak_io_scheduler_label">IO Scheduler</string>
+    <string name="tweak_swappiness_label">Swappiness</string>
+    <string name="tweak_cache_pressure_label">Tekanan Cache</string>
+    <string name="tweak_dirty_ratio_label">Dirty Ratio</string>
+    <string name="tweak_page_cluster_label">Page Cluster</string>
+    <string name="tweak_charging_label">Pengisian Daya</string>
+    <string name="tweak_over_voltage_label">Over Voltage</string>
+    <string name="tweak_tcp_congestion_label">Kontrol Kemacetan TCP</string>
+
+    <!-- ══════════════════════════════════════════════
+         UPDATE DIALOG
+    ══════════════════════════════════════════════ -->
+    <!-- UpdateDialog missing strings -->
+    <string name="update_dialog_title">Pembaruan Tersedia</string>
+    <string name="update_dialog_subtitle">Versi stabil baru siap diinstall</string>
+    <string name="update_new_version_label">VERSI BARU</string>
+    <string name="update_changelog_label">CHANGELOG</string>
+    <string name="update_later_btn">Nanti</string>
+    <string name="update_now_btn">Perbarui Sekarang</string>
+    <string name="update_free_safe_note">Pembaruan gratis · Data Anda aman</string>
+    <string name="update_downloading_label">Mengunduh…</string>
+    <string name="update_complete_label">Selesai!</string>
+    <string name="update_opening_installer_label">Membuka installer…</string>
+    <string name="update_keep_app_open_note">Jangan tutup aplikasi</string>
+    <string name="update_connected_label">Terhubung</string>
+    <string name="update_progress_label">Progres</string>
+
+    <!-- ══════════════════════════════════════════════
+         SPLASH SCREEN
+    ══════════════════════════════════════════════ -->
+    <string name="root_active_splash">Akses root aktif</string>
+    <string name="non_root_splash">Root tidak terdeteksi</string>
+
+    <!-- ══════════════════════════════════════════════
+         SETTING SCREEN — LICENSE / STATUS
+    ══════════════════════════════════════════════ -->
+    <string name="permanent_license_active">Lisensi permanen aktif</string>
+    <string name="plus_star_active_days">PLUS★ aktif · sisa %1$d hari</string>
+    <string name="plus_plus_active_days">PLUS+ aktif · sisa %1$d hari</string>
+    <string name="plus_weekly_days">PLUS aktif · sisa %1$d hari</string>
+    <string name="activate_for_pro">Aktifkan lisensi untuk membuka fitur Pro</string>
+    <string name="all_settings_reset">Semua pengaturan telah direset</string>
+
+    <!-- ══════════════════════════════════════════════
+         SCREEN RECORDER
+    ══════════════════════════════════════════════ -->
+    <string name="screen_record_title">Perekam Layar</string>
+
+    <!-- Settings labels -->
+    <string name="screen_record_fps_label">Frame Rate (FPS)</string>
+    <string name="screen_record_resolution_label">Resolusi</string>
+    <string name="screen_record_bitrate_label">Bitrate</string>
+
+    <!-- Bitrate options -->
+    <string name="screen_record_bitrate_economy">Hemat</string>
+    <string name="screen_record_bitrate_medium">Sedang</string>
+    <string name="screen_record_bitrate_high">Tinggi</string>
+    <string name="screen_record_bitrate_ultra">Ultra</string>
+
+    <!-- Audio -->
+    <string name="screen_record_audio_label">Audio</string>
+    <string name="screen_record_audio_mic_title">Mikrofon</string>
+    <string name="screen_record_audio_mic_desc">Rekam audio dari mikrofon</string>
+
+    <!-- Info summary -->
+    <string name="screen_record_info_label">Info Rekaman</string>
+    <string name="screen_record_info_fps">FPS: %1$s</string>
+    <string name="screen_record_info_res">Resolusi: %1$s</string>
+    <string name="screen_record_info_bitrate">Bitrate: %1$s</string>
+    <string name="screen_record_info_audio_on">Audio: Aktif</string>
+    <string name="screen_record_info_audio_off">Audio: Nonaktif</string>
+    <string name="screen_record_info_save_path">Simpan ke: %1$s</string>
+
+    <!-- Status -->
+    <string name="screen_record_status_recording">Merekam…</string>
+    <string name="screen_record_status_tap_stop">Tap untuk berhenti</string>
+    <string name="screen_record_status_ready">Siap</string>
+    <string name="screen_record_status_ready_desc">Tap Mulai untuk memulai rekaman</string>
+
+    <!-- Countdown -->
+    <string name="screen_record_countdown_label">Dimulai dalam %1$d…</string>
+
+    <!-- Buttons -->
+    <string name="screen_record_btn_start">Mulai Rekam</string>
+    <string name="screen_record_btn_stop">Hentikan Rekaman</string>
+
+    <!-- Save -->
+    <string name="screen_record_saved">Rekaman disimpan.</string>
+    <string name="screen_record_last_saved">Terakhir disimpan: %1$s</string>
+
+    <!-- Exclusive menu -->
+    <string name="excl_more_menu_label">Lainnya</string>
+    <string name="excl_more_menu_desc">Alat eksklusif tambahan</string>
+    <string name="excl_more_screen_record">Perekam Layar</string>
+    <string name="premium_activation_info">Kirim Device ID kamu ke admin untuk mendapatkan aktivasi premium.</string>
+    <string name="action_request_activation">Minta Aktivasi ke Telegram</string>
+    <string name="gbdetail_mem_opt">Optimasi Memori</string>
+    <string name="gbdetail_mem_opt_desc">Hapus cache halaman untuk membebaskan RAM secara instan</string>
+    <string name="dialog_reset_title">Reset Semua Pengaturan?</string>
+    <string name="dialog_reset_message">Ini akan mereset semua tweak, kalibrasi warna, dan profil ke default. Tindakan ini tidak dapat dibatalkan.</string>
+    <string name="dialog_reset_confirm">Reset</string>
+    <string name="dialog_reset_cancel">Batal</string>
+
+    <string name="about_title">Tentang Aplikasi</string>
+    <string name="about_app_name">JavaPro</string>
+    <string name="about_version">Versi</string>
+    <string name="about_build">Build</string>
+    <string name="about_developer">Developer</string>
+    <string name="about_developer_name">Java_nih_deks</string>
+    <string name="about_copyright">© 2026 JavaPro. Hak cipta dilindungi.</string>
+    <string name="theme_picker_title">Tema Aplikasi</string>
+<string name="theme_accent_label">Warna aksen</string>
+<string name="theme_midnight">Tengah Malam</string>
+<string name="theme_ocean">Samudra</string>
+<string name="theme_forest">Hutan</string>
+<string name="theme_ember">Bara Api</string>
+<string name="theme_aurora">Aurora</string>
+<string name="theme_steel">Baja</string>
+<string name="adblock_title">Akses Ditolak</string>
+<string name="adblock_body">Gunakan DNS otomatis untuk masuk ke aplikasi. Akses ditolak karena penggunaan AdBlock/Private DNS.</string>
+<string name="adblock_btn_exit">Keluar</string>
+<string name="toast_permission_required">Izin Diperlukan</string>
+<string name="toast_overlay_required">Izinkan Overlay untuk menampilkan FPS</string>
+    <string name="setting_daily_reward_title">Hadiah Harian</string>
+    <string name="setting_daily_reward_desc">Tonton 6 iklan untuk dapatkan premium 1 hari</string>
+    <string name="reward_screen_title">Reward Harian</string>
+    <string name="reward_title_idle">Reward Mingguan</string>
+    <string name="reward_title_loading">Memuat…</string>
+    <string name="reward_title_success">Reward Berhasil!</string>
+    <string name="reward_title_already">Sudah Diklaim</string>
+    <string name="reward_title_failed">Gagal</string>
+    <string name="reward_title_weekly_limit">Batas Mingguan Tercapai</string>
+
+    <string name="reward_body_progress">%1$d dari %2$d iklan ditonton · Klaim minggu ini: %3$d/%4$d</string>
+    <string name="reward_body_loading_ad">Memuat iklan…</string>
+    <string name="reward_body_loading_api">Memproses reward…</string>
+    <string name="reward_body_success">Premium 1 hari aktif! Klaim minggu ini: %1$d/%2$d</string>
+    <string name="reward_body_already">Sudah diklaim. Berikutnya dalam %1$d jam %2$d menit.</string>
+    <string name="reward_body_weekly_limit">Kamu sudah klaim %1$d×/minggu. Reset hari Senin dalam %2$d hari %3$d jam.</string>
+
+    <string name="reward_progress_label">Iklan ditonton</string>
+    <string name="reward_weekly_claims_label">Klaim minggu ini</string>
+    <string name="reward_perks_title">Yang kamu dapatkan</string>
+    <string name="reward_perk_duration">Aktif 1 hari</string>
+    <string name="reward_perk_weekly">2× per minggu, reset tiap Senin</string>
+
+    <string name="reward_btn_watch_ad">Tonton Iklan</string>
+    <string name="reward_btn_later">Nanti saja</string>
+    <string name="reward_btn_start">Mulai Gunakan</string>
+    <string name="reward_btn_retry">Coba Lagi</string>
+    <string name="reward_btn_close">Tutup</string>
+
+    <string name="reward_error_no_internet">Tidak ada koneksi internet.</string>
+    <string name="reward_error_server">Gagal menghubungi server.</string>
+    <string name="reward_error_ad_skipped">Iklan dilewati, coba lagi.</string>
+
+    <string name="excl_gate_desc_new">Fitur ini khusus untuk pengguna Premium.\nBeli Premium atau dapatkan akses gratis lewat Reward Mingguan.</string>
+    <string name="excl_gate_go_to_reward">Dapatkan Gratis via Reward</string>
+    <!-- Exclusive Features – toast / label -->
+<string name="excl_builtin_presets">Preset Bawaan</string>
+<string name="excl_profile_applied">Profil \"%1$s\" diterapkan.</string>
+<string name="excl_net_preset_applied">Preset jaringan \"%1$s\" diterapkan.</string>
+<string name="excl_preset_applied">Preset \"%1$s\" diterapkan.</string>
+<string name="excl_preset_saved">Preset \"%1$s\" disimpan.</string>
+<string name="reward_no_network_warning">Aktifkan jaringan untuk melanjutkan fitur ini</string>
+<string name="reward_error_ad_unavailable">Iklan belum tersedia, coba beberapa saat lagi</string>
+<string name="reward_btn_claim_premium">Klaim Premium</string>
+    <string name="reward_toast_server_error">Server sedang gangguan, coba lagi nanti.</string>
+    <string name="reward_body_progress_dialog">%1$d dari %2$d iklan ditonton</string>
+    <string name="reward_body_success_dialog">Premium aktif! Selamat menikmati.</string>
+<string name="reward_perk_no_ads">Bebas iklan selama 24 jam</string>
+<string name="reward_perk_all_features">Semua fitur premium terbuka</string>
+
+</resources>

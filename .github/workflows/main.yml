@@ -1,0 +1,49 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Grant execute permission to Gradle
+        run: chmod +x gradlew
+
+      - name: Check keystore
+        run: ls -l javapro-release.jks
+
+      - name: Create keystore.properties
+        run: |
+          cat > keystore.properties <<EOF
+          storeFile=javapro-release.jks
+          storePassword=javapro123
+          keyAlias=mykey
+          keyPassword=javapro123
+          EOF
+
+      - name: Clean Gradle cache
+        run: ./gradlew clean
+
+      - name: Build APK (Release)
+        run: ./gradlew assembleRelease --no-build-cache --rerun-tasks
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/*.apk

@@ -1,0 +1,35 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/JavaPro/app/src/main/java/com/javapro/ui/MainScreen.kt",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 12279,
+          "line": 289
+        },
+        "start": {
+          "column": 0,
+          "index": 12279,
+          "line": 289
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/JavaPro/app/src/main/java/com/javapro/ui/screens/HomeScreen.kt",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 34014,
+          "line": 636
+        },
+        "start": {
+          "column": 0,
+          "index": 34014,
+          "line": 636
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/JavaPro/app/src/main/java/com/javapro/ui/screens/HomeScreen.kt"
+}

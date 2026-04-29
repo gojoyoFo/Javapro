@@ -285,7 +285,9 @@ object DailyRewardManager {
         val requestSig = signRequest(deviceId, requestTs)
 
         try {
-            val body = """{"deviceId":"$deviceId","ts":$requestTs,"sig":"$requestSig"}"""
+            val adsCount    = adsWatchedSession(context)
+        val adsSig      = hmac("$adsCount:$deviceId:$requestTs")
+        val body = """{"deviceId":"$deviceId","ts":$requestTs,"sig":"$requestSig","adsCount":$adsCount,"adsSig":"$adsSig"}"""
                 .toRequestBody("application/json".toMediaType())
 
             val request = Request.Builder()

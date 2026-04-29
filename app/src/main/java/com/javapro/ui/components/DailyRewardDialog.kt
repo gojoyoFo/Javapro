@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit
 
 @Composable
 fun DailyRewardDialog(
-    onWatchAd : (onAdFinished: (AdWatchResult) -> Unit) -> Unit,
+    onWatchAd : (onAdStarted: () -> Unit, onAdFinished: (AdWatchResult) -> Unit) -> Unit,
     onDismiss : () -> Unit,
     onGranted : () -> Unit
 ) {
@@ -233,13 +233,11 @@ fun DailyRewardDialog(
                             Button(
                                 onClick = {
                                     if (!isNetworkAvailable) return@Button
-                                    DailyRewardManager.markAdStart(context)
                                     uiState = RewardUiState.LOADING_AD
 
-                                    // FIX: wrap di scope.launch(Dispatchers.Main) supaya
-                                    // semua update state berjalan di Main thread,
-                                    // karena callback onWatchAd bisa dipanggil dari background thread.
-                                    onWatchAd { result ->
+                                    onWatchAd(
+                                        { DailyRewardManager.markAdStart(context) },
+                                        { result ->
                                         scope.launch(Dispatchers.Main) {
                                             when (result) {
                                                 AdWatchResult.UNAVAILABLE -> {
@@ -315,7 +313,7 @@ fun DailyRewardDialog(
                                                 }
                                             }
                                         }
-                                    }
+                                    })
                                 },
                                 enabled  = isNetworkAvailable,
                                 modifier = Modifier.fillMaxWidth().height(50.dp),

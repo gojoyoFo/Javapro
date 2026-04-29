@@ -61,7 +61,7 @@ private enum class RewardUiState {
 @Composable
 fun DailyRewardScreen(
     navController : NavController,
-    onWatchAd     : (onAdFinished: (AdWatchResult) -> Unit) -> Unit,
+    onWatchAd     : (onAdStarted: () -> Unit, onAdFinished: (AdWatchResult) -> Unit) -> Unit,
     onGranted     : () -> Unit,
     lang          : String = "en"
 ) {
@@ -233,10 +233,11 @@ fun DailyRewardScreen(
         if (!isNetworkAvailable) return
         if (uiState != RewardUiState.PROGRESS) return
 
-        DailyRewardManager.markAdStart(context)
         uiState = RewardUiState.LOADING_AD
 
-        onWatchAd { result ->
+        onWatchAd(
+            { DailyRewardManager.markAdStart(context) },
+            { result ->
             scope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 when (result) {
                     AdWatchResult.UNAVAILABLE -> {
@@ -352,7 +353,7 @@ fun DailyRewardScreen(
                     }
                 }
             }
-        }
+        })
     }
 
     Scaffold(

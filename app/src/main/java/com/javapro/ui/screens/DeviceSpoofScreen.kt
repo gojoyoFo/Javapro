@@ -939,7 +939,7 @@ private fun DyworBottomSheet(onDismiss: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     DyworPoint(Icons.Filled.Android,       stringResource(R.string.spoof_dywor_point1))
-                    DyworPoint(Icons.Filled.GamesOutlined, stringResource(R.string.spoof_dywor_point2))
+                    DyworPoint(Icons.Filled.SportsEsports, stringResource(R.string.spoof_dywor_point2))
                     DyworPoint(Icons.Filled.Warning,       stringResource(R.string.spoof_dywor_point3))
                 }
             }

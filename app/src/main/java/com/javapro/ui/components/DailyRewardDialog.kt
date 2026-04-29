@@ -291,10 +291,14 @@ fun DailyRewardDialog(
                                                             uiState  = RewardUiState.ERROR
                                                         }
                                                         DailyRewardManager.ClaimResult.AdFraudDetected -> {
+                                                            DailyRewardManager.resetSessionAds(context)
+                                                            adsWatched = 0
                                                             errorMsg = context.getString(R.string.reward_error_ad_skipped)
                                                             uiState  = RewardUiState.ERROR
                                                         }
                                                         DailyRewardManager.ClaimResult.TamperDetected -> {
+                                                            DailyRewardManager.resetSessionAds(context)
+                                                            adsWatched = 0
                                                             errorMsg = context.getString(R.string.reward_error_server)
                                                             uiState  = RewardUiState.ERROR
                                                         }

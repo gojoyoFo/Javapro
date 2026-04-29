@@ -215,11 +215,10 @@ fun DailyRewardScreen(
                                     uiState      = RewardUiState.WEEKLY_LIMIT
                                 }
                                 DailyRewardManager.ClaimResult.InsufficientAds -> {
-                                    DailyRewardManager.resetSessionAds(context)
-                                    adsWatched          = 0
-                                    confirmedAdsWatched = 0
+                                    // Jangan reset progres — server belum konfirmasi iklan cukup,
+                                    // bisa karena SSV delay. User cukup retry.
                                     errorMsg       = context.getString(R.string.reward_error_ad_skipped)
-                                    errorResetsAds = true
+                                    errorResetsAds = false
                                     uiState        = RewardUiState.ERROR
                                 }
                                 DailyRewardManager.ClaimResult.AdFraudDetected -> {

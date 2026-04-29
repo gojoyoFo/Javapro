@@ -738,7 +738,7 @@ fun DailyRewardSettingItem(
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { navController.navigate("weakly_reward") },
+            .clickable { navController.navigate("daily_reward") },
         headlineContent = {
             Text(
                 text  = stringResource(R.string.setting_daily_reward_title),

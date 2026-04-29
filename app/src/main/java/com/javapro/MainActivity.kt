@@ -377,6 +377,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         adStateHandler.post(adStateWatcher)
+        // Reset cache setiap app foreground — user mungkin baru saja beli premium
+        PremiumManager.invalidateCache(this)
     }
 
     override fun onPause() {

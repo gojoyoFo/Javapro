@@ -25,9 +25,11 @@ object PremiumManager {
     private const val TS_TOLERANCE_MS = 3 * 60 * 1000L
 
     private const val PREFS_NAME   = "javapro_premium_prefs"
-    private const val KEY_TYPE     = "premium_type"
-    private const val KEY_EXPIRY   = "premium_expiry_ms"
-    private const val KEY_VERIFIED = "premium_verified"
+    private const val KEY_TYPE       = "premium_type"
+    private const val KEY_EXPIRY     = "premium_expiry_ms"
+    private const val KEY_VERIFIED   = "premium_verified"
+    private const val KEY_LAST_CHECK = "premium_last_check"
+    private const val CACHE_TTL_MS   = 30 * 60 * 1000L // 30 menit
 
     private val REAL_PREMIUM_TYPES = setOf("permanent", "weekly", "monthly", "yearly")
 
@@ -118,7 +120,19 @@ object PremiumManager {
     fun getExpiryMs(context: Context): Long =
         prefs(context).getLong(KEY_EXPIRY, 0L)
 
-    suspend fun checkOnline(context: Context): Boolean = withContext(Dispatchers.IO) {
+    fun invalidateCache(context: Context) {
+        prefs(context).edit().putLong(KEY_LAST_CHECK, 0L).apply()
+    }
+
+    suspend fun checkOnline(context: Context, forceRefresh: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+        // Pakai cache kalau belum expired — kurangi hit server
+        if (!forceRefresh) {
+            val lastCheck = prefs(context).getLong(KEY_LAST_CHECK, 0L)
+            if (System.currentTimeMillis() - lastCheck < CACHE_TTL_MS) {
+                return@withContext isPremium(context)
+            }
+        }
+
         val deviceId   = getDeviceId(context)
         val requestTs  = System.currentTimeMillis()
         val requestSig = signRequest(deviceId, requestTs)
@@ -152,6 +166,7 @@ object PremiumManager {
                 }
             }
 
+            prefs(context).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
             saveCache(context, premium, type.ifEmpty { null }, expiry)
             premium
 

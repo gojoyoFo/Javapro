@@ -8,7 +8,6 @@ import com.javapro.ui.screens.AdWatchResult
 import com.javapro.utils.PremiumManager
 import com.unity3d.ads.IUnityAdsLoadListener
 import com.unity3d.ads.IUnityAdsShowListener
-import com.unity3d.ads.MetaData
 import com.unity3d.ads.UnityAds
 import com.unity3d.ads.metadata.MetaData
 import kotlinx.coroutines.CoroutineScope

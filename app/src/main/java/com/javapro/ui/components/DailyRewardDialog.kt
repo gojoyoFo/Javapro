@@ -36,6 +36,7 @@ import androidx.core.content.getSystemService
 import com.javapro.R
 import com.javapro.ui.screens.AdWatchResult
 import com.javapro.utils.DailyRewardManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -234,38 +235,45 @@ fun DailyRewardDialog(
                                     if (!isNetworkAvailable) return@Button
                                     DailyRewardManager.markAdStart(context)
                                     uiState = RewardUiState.LOADING_AD
+
+                                    // FIX: wrap di scope.launch(Dispatchers.Main) supaya
+                                    // semua update state berjalan di Main thread,
+                                    // karena callback onWatchAd bisa dipanggil dari background thread.
                                     onWatchAd { result ->
-                                        when (result) {
-                                            AdWatchResult.UNAVAILABLE -> {
-                                                DailyRewardManager.clearAdStart(context)
-                                                uiState = RewardUiState.IDLE
-                                                Toast.makeText(
-                                                    context,
-                                                    context.getString(R.string.reward_error_ad_unavailable),
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                            AdWatchResult.SKIPPED -> {
-                                                DailyRewardManager.clearAdStart(context)
-                                                errorMsg = context.getString(R.string.reward_error_ad_skipped)
-                                                uiState  = RewardUiState.ERROR
-                                            }
-                                            AdWatchResult.COMPLETED -> {
-                                                if (!DailyRewardManager.isAdDurationValid(context)) {
+                                        scope.launch(Dispatchers.Main) {
+                                            when (result) {
+                                                AdWatchResult.UNAVAILABLE -> {
+                                                    DailyRewardManager.clearAdStart(context)
+                                                    uiState = RewardUiState.IDLE
+                                                    Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.reward_error_ad_unavailable),
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                                AdWatchResult.SKIPPED -> {
                                                     DailyRewardManager.clearAdStart(context)
                                                     errorMsg = context.getString(R.string.reward_error_ad_skipped)
                                                     uiState  = RewardUiState.ERROR
-                                                    return@onWatchAd
                                                 }
-                                                DailyRewardManager.clearAdStart(context)
-                                                DailyRewardManager.recordAdWatched(context)
-                                                adsWatched = DailyRewardManager.adsWatchedSession(context)
-                                                if (!DailyRewardManager.hasWatchedEnoughAds(context)) {
-                                                    uiState = RewardUiState.IDLE
-                                                    return@onWatchAd
-                                                }
-                                                uiState = RewardUiState.LOADING_API
-                                                scope.launch {
+                                                AdWatchResult.COMPLETED -> {
+                                                    if (!DailyRewardManager.isAdDurationValid(context)) {
+                                                        DailyRewardManager.clearAdStart(context)
+                                                        errorMsg = context.getString(R.string.reward_error_ad_skipped)
+                                                        uiState  = RewardUiState.ERROR
+                                                        return@launch
+                                                    }
+                                                    DailyRewardManager.clearAdStart(context)
+                                                    DailyRewardManager.recordAdWatched(context)
+                                                    adsWatched = DailyRewardManager.adsWatchedSession(context)
+
+                                                    if (!DailyRewardManager.hasWatchedEnoughAds(context)) {
+                                                        // Progres bertambah, tapi belum cukup → balik ke IDLE
+                                                        uiState = RewardUiState.IDLE
+                                                        return@launch
+                                                    }
+
+                                                    uiState = RewardUiState.LOADING_API
                                                     when (val res = DailyRewardManager.claimReward(context)) {
                                                         is DailyRewardManager.ClaimResult.Success -> {
                                                             uiState = RewardUiState.SUCCESS
@@ -382,9 +390,7 @@ fun DailyRewardDialog(
                     RewardUiState.ALREADY,
                     RewardUiState.ERROR -> {
                         Button(
-                            onClick  = {
-                                uiState = RewardUiState.IDLE
-                            },
+                            onClick  = { uiState = RewardUiState.IDLE },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             shape    = RoundedCornerShape(14.dp),
                             colors   = ButtonDefaults.buttonColors(

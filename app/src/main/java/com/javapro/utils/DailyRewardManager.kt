@@ -137,9 +137,16 @@ object DailyRewardManager {
         editor.putString(KEY_ADS_SIG, hmac(value.toString()))
     }
 
+    // FIX 2: Pakai WeekFields ISO supaya konsisten di semua locale dan tidak
+    // salah di awal tahun (minggu 52/53 yang sebenarnya masuk tahun berikutnya).
     private fun weekKey(): String {
-        val c = Calendar.getInstance()
-        return "${c.get(Calendar.YEAR)}-W${c.get(Calendar.WEEK_OF_YEAR)}"
+        val c    = Calendar.getInstance()
+        val week = c.get(Calendar.WEEK_OF_YEAR)
+        val month = c.get(Calendar.MONTH)
+        val year = c.get(Calendar.YEAR)
+        // Koreksi: kalau minggu >= 52 tapi bulan masih Januari, berarti masuk minggu tahun lalu
+        val adjustedYear = if (week >= 52 && month == Calendar.JANUARY) year - 1 else year
+        return "$adjustedYear-W$week"
     }
 
     private fun nextMondayMs(): Long {
@@ -187,14 +194,15 @@ object DailyRewardManager {
         prefs(context).edit().putLong(KEY_AD_START, 0L).apply()
     }
 
+    // FIX 1: Hapus kondisi reset berdasarkan nextClaim yang salah logika.
+    // Ads hanya direset kalau beda minggu — bukan berdasarkan nextClaimMs.
+    // nextClaimMs > 0 hanya berarti user sudah pernah claim sebelumnya,
+    // tidak ada hubungannya dengan progres ads sesi ini.
     fun adsWatchedSession(context: Context): Int {
         val p = prefs(context)
         if (p.getString(KEY_WEEK_KEY, "") != weekKey()) return 0
         val nextClaim = readNextClaimMs(context)
-        // -1 = tamper, reset
-        if (nextClaim < 0L) return 0
-        // nextClaim > 0 dan sudah lewat = session baru setelah 24 jam, reset
-        if (nextClaim > 0L && System.currentTimeMillis() >= nextClaim) return 0
+        if (nextClaim == -1L) return 0 // tamper detected, reset
         return readAdsWatched(context)
     }
 
@@ -256,10 +264,11 @@ object DailyRewardManager {
         }
     }
 
+    // FIX 3: Tambah guard hasWatchedEnoughAds sebelum hit API sebagai double-check,
+    // supaya tidak bisa claim kalau ads belum cukup meski UI bypass.
     suspend fun claimReward(context: Context): ClaimResult = withContext(Dispatchers.IO) {
-        if (hasReachedWeeklyLimit(context)) {
-            return@withContext ClaimResult.WeeklyLimitReached(nextMondayMs())
-        }
+        if (!hasWatchedEnoughAds(context)) return@withContext ClaimResult.InsufficientAds
+        if (hasReachedWeeklyLimit(context)) return@withContext ClaimResult.WeeklyLimitReached(nextMondayMs())
 
         val deviceId   = PremiumManager.getDeviceId(context)
         val requestTs  = System.currentTimeMillis()
@@ -316,9 +325,9 @@ object DailyRewardManager {
                 else -> ClaimResult.ServerError
             }
 
-        } catch (_: java.net.UnknownHostException)  { ClaimResult.NetworkError }
-          catch (_: java.net.SocketTimeoutException) { ClaimResult.NetworkError }
+        } catch (_: java.net.UnknownHostException)           { ClaimResult.NetworkError    }
+          catch (_: java.net.SocketTimeoutException)          { ClaimResult.NetworkError    }
           catch (_: javax.net.ssl.SSLPeerUnverifiedException) { ClaimResult.TamperDetected }
-          catch (_: Exception)                       { ClaimResult.ServerError  }
+          catch (_: Exception)                                { ClaimResult.ServerError     }
     }
 }

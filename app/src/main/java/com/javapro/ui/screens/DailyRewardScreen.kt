@@ -119,10 +119,13 @@ fun DailyRewardScreen(
     var cooldownLeft by remember {
         mutableIntStateOf(DailyRewardManager.cooldownSecondsLeft(context))
     }
-    val isCoolingDown = cooldownLeft > 0
 
-    LaunchedEffect(isCoolingDown) {
-        if (isCoolingDown) {
+    // FIX: Tambah epoch untuk trigger LaunchedEffect setiap kali cooldown dimulai baru,
+    // bahkan jika sebelumnya sudah dalam state cooldown (isCoolingDown true -> true).
+    var cooldownEpoch by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(cooldownEpoch) {
+        if (cooldownLeft > 0) {
             while (true) {
                 delay(1_000L)
                 val remaining = DailyRewardManager.cooldownSecondsLeft(context)
@@ -141,11 +144,11 @@ fun DailyRewardScreen(
             }
         )
     }
-    var errorMsg          by remember { mutableStateOf("") }
-    var errorResetsAds    by remember { mutableStateOf(false) }
-    var nextClaimMs       by remember { mutableStateOf(DailyRewardManager.msUntilNextClaim(context)) }
-    var nextMondayMs      by remember { mutableStateOf(DailyRewardManager.msUntilNextMonday(context)) }
-    var isGranting        by remember { mutableStateOf(false) }
+    var errorMsg            by remember { mutableStateOf("") }
+    var errorResetsAds      by remember { mutableStateOf(false) }
+    var nextClaimMs         by remember { mutableStateOf(DailyRewardManager.msUntilNextClaim(context)) }
+    var nextMondayMs        by remember { mutableStateOf(DailyRewardManager.msUntilNextMonday(context)) }
+    var isGranting          by remember { mutableStateOf(false) }
     var confirmedAdsWatched by remember { mutableIntStateOf(adsWatched) }
 
     val claimedThisWeek = DailyRewardManager.weekClaimCount(context)
@@ -178,9 +181,9 @@ fun DailyRewardScreen(
 
                     AdWatchResult.SKIPPED -> {
                         DailyRewardManager.clearAdStart(context)
-                        errorMsg      = context.getString(R.string.reward_error_ad_skipped)
+                        errorMsg       = context.getString(R.string.reward_error_ad_skipped)
                         errorResetsAds = false
-                        uiState       = RewardUiState.ERROR
+                        uiState        = RewardUiState.ERROR
                     }
 
                     AdWatchResult.COMPLETED -> {
@@ -253,8 +256,11 @@ fun DailyRewardScreen(
                                 }
                             }
                         } else {
+                            // FIX: increment epoch SEBELUM set cooldownLeft,
+                            // supaya LaunchedEffect(cooldownEpoch) terpicu dengan nilai terbaru.
                             DailyRewardManager.startCooldown(context)
-                            cooldownLeft = DailyRewardManager.COOLDOWN_SECONDS
+                            cooldownLeft  = DailyRewardManager.COOLDOWN_SECONDS
+                            cooldownEpoch++
                             uiState = RewardUiState.PROGRESS
                         }
                     }
@@ -462,11 +468,14 @@ fun DailyRewardScreen(
                                 }
                             }
 
+                            val isCoolingDown = cooldownLeft > 0
                             val buttonEnabled = !isCoolingDown && isNetworkAvailable
                             Button(
                                 onClick  = { if (buttonEnabled) watchNextAd() },
                                 enabled  = buttonEnabled,
-                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
                                 shape    = RoundedCornerShape(16.dp),
                                 colors   = ButtonDefaults.buttonColors(
                                     containerColor         = colorScheme.primary,
@@ -538,8 +547,10 @@ fun DailyRewardScreen(
                         }
 
                         Button(
-                            onClick = { showRestartDialog = true },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            onClick  = { showRestartDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
                             shape    = RoundedCornerShape(16.dp),
                             colors   = ButtonDefaults.buttonColors(
                                 containerColor = colorScheme.primary,
@@ -573,7 +584,9 @@ fun DailyRewardScreen(
                                         }
                                         uiState = RewardUiState.PROGRESS
                                     },
-                                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
                                     shape    = RoundedCornerShape(16.dp),
                                     colors   = ButtonDefaults.buttonColors(
                                         containerColor = colorScheme.primary,
@@ -589,7 +602,9 @@ fun DailyRewardScreen(
                             }
                             OutlinedButton(
                                 onClick  = { navController.popBackStack() },
-                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
                                 shape    = RoundedCornerShape(16.dp)
                             ) {
                                 Text(
@@ -643,7 +658,10 @@ private fun AdProgressSection(
 
             LinearProgressIndicator(
                 progress   = { progress },
-                modifier   = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50)),
+                modifier   = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(50)),
                 color      = colorScheme.primary,
                 trackColor = colorScheme.surfaceContainerHighest
             )

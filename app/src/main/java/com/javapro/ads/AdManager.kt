@@ -113,8 +113,10 @@ object AdManager {
         isShowingAd = true
         Log.d(TAG, "[$slot] showing preloaded ad...")
 
+        // MetaData HARUS di-set sebelum UnityAds.show() dipanggil
+        // supaya sid terkirim ke SSV callback
         if (customData != null) {
-            val meta = MetaData(activity).apply {
+            MetaData(activity).apply {
                 set("unity.customdata", customData)
                 commit()
             }
@@ -174,8 +176,9 @@ object AdManager {
                 fallbackTimeout?.cancel()
                 Log.d(TAG, "[$slot] fallback loaded. Showing...")
                 isShowingAd = true
+                // MetaData HARUS di-set sebelum UnityAds.show() dipanggil
                 if (customData != null) {
-                    val meta = MetaData(activity).apply {
+                    MetaData(activity).apply {
                         set("unity.customdata", customData)
                         commit()
                     }

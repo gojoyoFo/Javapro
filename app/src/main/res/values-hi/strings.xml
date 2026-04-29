@@ -642,7 +642,7 @@
 <string name="excl_preset_saved">प्रीसेट \"%1$s\" सेव हो गया।</string>
 <string name="reward_no_network_warning">इस सुविधा को जारी रखने के लिए नेटवर्क चालू करें</string>
 <string name="reward_error_ad_unavailable">विज्ञापन अभी उपलब्ध नहीं है, कृपया थोड़ी देर बाद प्रयास करें</string>
-<string name="reward_btn_claim_premium_hi">प्रीमियम प्राप्त करें</string>
+<string name="reward_btn_claim">प्रीमियम प्राप्त करें</string>
 <string name="reward_toast_server_error">सर्वर डाउन है, बाद में दोबारा कोशिश करें।</string>
     <string name="reward_body_progress_dialog">%1$d में से %2$d विज्ञापन देखे गए</string>
     <string name="reward_body_success_dialog">प्रीमियम सक्रिय! आनंद लें।</string>

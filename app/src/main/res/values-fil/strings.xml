@@ -624,7 +624,7 @@
 <string name="excl_preset_saved">Preset na \"%1$s\" na-save.</string>
 <string name="reward_no_network_warning">I-aktibo ang network para magpatuloy sa feature na ito</string>
 <string name="reward_error_ad_unavailable">Hindi pa available ang ad, subukan muli sa ilang sandali</string>
-<string name="reward_btn_claim_premium_tl">Kunin ang Premium</string>
+<string name="reward_btn_claim">Kunin ang Premium</string>
 <string name="reward_toast_server_error">Ang server ay down, subukan ulit mamaya.</string>
     <string name="reward_body_progress_dialog">%1$d ng %2$d ads na napanood</string>
     <string name="reward_body_success_dialog">Premium active! Mag-enjoy.</string>

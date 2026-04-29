@@ -710,7 +710,7 @@
 <string name="excl_preset_saved">Preset \"%1$s\" saved.</string>
 <string name="reward_no_network_warning">Enable network to continue this feature</string>
 <string name="reward_error_ad_unavailable">Ad not available, please try again in a moment</string>
-<string name="reward_btn_claim_premium_en">Claim Premium</string>
+<string name="reward_btn_claim">Claim Premium</string>
 <string name="reward_toast_server_error">Server is down, try again later.</string>
     <string name="reward_body_progress_dialog">%1$d of %2$d ads watched</string>
     <string name="reward_body_success_dialog">Premium active! Enjoy.</string>

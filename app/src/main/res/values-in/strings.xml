@@ -705,7 +705,7 @@
 <string name="excl_preset_saved">Preset \"%1$s\" disimpan.</string>
 <string name="reward_no_network_warning">Aktifkan jaringan untuk melanjutkan fitur ini</string>
 <string name="reward_error_ad_unavailable">Iklan belum tersedia, coba beberapa saat lagi</string>
-<string name="reward_btn_claim_premium">Klaim Premium</string>
+<string name="reward_btn_claim">Klaim Premium</string>
     <string name="reward_toast_server_error">Server sedang gangguan, coba lagi nanti.</string>
     <string name="reward_body_progress_dialog">%1$d dari %2$d iklan ditonton</string>
     <string name="reward_body_success_dialog">Premium aktif! Selamat menikmati.</string>

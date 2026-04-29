@@ -98,13 +98,18 @@ object DailyRewardManager {
         return try {
             val receivedSig = json.optString("sig", "")
             if (receivedSig.isEmpty()) return false
-            val copy = JSONObject(json.toString()).apply { remove("sig") }
+            // Sort keys supaya urutan konsisten — JSONObject.toString() tidak deterministic
+            val keys = json.keys().asSequence().filter { it != "sig" }.sorted().toList()
+            val payload = keys.joinToString(",") { key ->
+                val v = json.get(key)
+                "\"$key\":\"$v\""
+            }.let { "{$it}" }
             val mac = Mac.getInstance("HmacSHA256")
             mac.init(SecretKeySpec(
                 PremiumManager.getServerHmacSecret().toByteArray(Charsets.UTF_8),
                 "HmacSHA256"
             ))
-            val expected = mac.doFinal(copy.toString().toByteArray(Charsets.UTF_8))
+            val expected = mac.doFinal(payload.toByteArray(Charsets.UTF_8))
                 .joinToString("") { "%02x".format(it) }
             receivedSig.length == expected.length &&
                 receivedSig.zip(expected).all { (a, b) -> a == b }
@@ -284,13 +289,17 @@ object DailyRewardManager {
                 .build()
 
             val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful && response.code != 400) {
+                // 5xx atau network-level error — jangan parse body
+                return@withContext ClaimResult.ServerError
+            }
             val responseBody = response.body?.string() ?: return@withContext ClaimResult.ServerError
             val json = JSONObject(responseBody)
 
             if (!verifyServerSignature(json)) return@withContext ClaimResult.TamperDetected
 
             val serverTs = json.optLong("ts", 0L)
-            if (serverTs == 0L || kotlin.math.abs(System.currentTimeMillis() - serverTs) > 3 * 60 * 1000L) {
+            if (serverTs == 0L || kotlin.math.abs(System.currentTimeMillis() - serverTs) > 10 * 60 * 1000L) {
                 return@withContext ClaimResult.TamperDetected
             }
 

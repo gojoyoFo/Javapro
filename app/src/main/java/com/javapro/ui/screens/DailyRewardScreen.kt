@@ -159,6 +159,58 @@ fun DailyRewardScreen(
         label         = "adProgress"
     )
 
+    fun claimNow() {
+        if (!isNetworkAvailable) return
+        if (uiState != RewardUiState.PROGRESS) return
+        scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            uiState = RewardUiState.LOADING_API
+            when (val res = DailyRewardManager.claimReward(context)) {
+                is DailyRewardManager.ClaimResult.Success -> {
+                    uiState = RewardUiState.SUCCESS
+                }
+                is DailyRewardManager.ClaimResult.AlreadyClaimed -> {
+                    nextClaimMs = res.nextClaimMs - System.currentTimeMillis()
+                    uiState     = RewardUiState.ALREADY
+                }
+                is DailyRewardManager.ClaimResult.WeeklyLimitReached -> {
+                    nextMondayMs = res.nextMondayMs - System.currentTimeMillis()
+                    uiState      = RewardUiState.WEEKLY_LIMIT
+                }
+                DailyRewardManager.ClaimResult.InsufficientAds -> {
+                    errorMsg       = context.getString(R.string.reward_error_ad_skipped)
+                    errorResetsAds = false
+                    uiState        = RewardUiState.ERROR
+                }
+                DailyRewardManager.ClaimResult.AdFraudDetected -> {
+                    DailyRewardManager.resetSessionAds(context)
+                    adsWatched          = 0
+                    confirmedAdsWatched = 0
+                    errorMsg       = context.getString(R.string.reward_error_ad_skipped)
+                    errorResetsAds = true
+                    uiState        = RewardUiState.ERROR
+                }
+                DailyRewardManager.ClaimResult.TamperDetected -> {
+                    DailyRewardManager.resetSessionAds(context)
+                    adsWatched          = 0
+                    confirmedAdsWatched = 0
+                    errorMsg       = context.getString(R.string.reward_error_server)
+                    errorResetsAds = true
+                    uiState        = RewardUiState.ERROR
+                }
+                DailyRewardManager.ClaimResult.NetworkError,
+                DailyRewardManager.ClaimResult.ServerError -> {
+                    // Jangan reset — biarkan user retry claim tanpa nonton iklan lagi
+                    uiState = RewardUiState.PROGRESS
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.reward_toast_server_error),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
     fun watchNextAd() {
         if (!isNetworkAvailable) return
         if (uiState != RewardUiState.PROGRESS) return
@@ -467,10 +519,11 @@ fun DailyRewardScreen(
                                 }
                             }
 
+                            val adsFull       = confirmedAdsWatched >= adsRequired
                             val isCoolingDown = cooldownLeft > 0
                             val buttonEnabled = !isCoolingDown && isNetworkAvailable
                             Button(
-                                onClick  = { if (buttonEnabled) watchNextAd() },
+                                onClick  = { if (buttonEnabled) { if (adsFull) claimNow() else watchNextAd() } },
                                 enabled  = buttonEnabled,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -484,6 +537,11 @@ fun DailyRewardScreen(
                                 )
                             ) {
                                 when {
+                                    adsFull -> {
+                                        Icon(Icons.Filled.CardGiftcard, null, modifier = Modifier.size(20.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.reward_btn_claim), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    }
                                     !isNetworkAvailable -> {
                                         Icon(Icons.Filled.SignalWifiOff, null, modifier = Modifier.size(20.dp))
                                         Spacer(Modifier.width(8.dp))

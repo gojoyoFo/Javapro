@@ -2,7 +2,6 @@ package com.javapro.utils
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +80,8 @@ object DailyRewardManager {
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(HMAC_SECRET.toByteArray(Charsets.UTF_8), "HmacSHA256"))
         val raw = mac.doFinal(data.toByteArray(Charsets.UTF_8))
-        return Base64.encodeToString(raw, Base64.NO_WRAP)
+        // Hex supaya konsisten dengan server (Node.js digest('hex'))
+        return raw.joinToString("") { "%02x".format(it) }
     }
 
     private fun verifyHmac(data: String, stored: String?): Boolean {

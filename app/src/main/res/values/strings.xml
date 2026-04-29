@@ -717,5 +717,52 @@
 <string name="reward_perk_no_ads">Ad-free for 24 hours</string>
 <string name="reward_perk_all_features">All premium features unlocked</string>
 <string name="reward_error_ssv_pending">Ad verification pending, please try again in a moment</string>
+<string name="spoof_screen_title">Device Spoof</string>
+    <string name="spoof_select_brand">Select Brand</string>
+    <string name="spoof_devices_count">devices</string>
+    <string name="spoof_soon_badge">Soon</string>
+    <string name="spoof_more_props">more props</string>
+
+    <!-- Root warning -->
+    <string name="spoof_root_only_title">Root Only</string>
+    <string name="spoof_root_only_desc">This feature is only available on rooted devices.</string>
+    <string name="spoof_root_required">Your device must be rooted to use this feature.</string>
+
+    <!-- Active spoof card -->
+    <string name="spoof_active_label">Active Spoof</string>
+    <string name="spoof_active_badge">ACTIVE</string>
+
+    <!-- Device detail sheet -->
+    <string name="spoof_detail_chipset">Chipset</string>
+    <string name="spoof_detail_model">Model</string>
+    <string name="spoof_detail_fingerprint">Build Fingerprint</string>
+    <string name="spoof_detail_props_title">System Properties</string>
+    <string name="spoof_premium_required">This feature requires a Premium account.</string>
+
+    <!-- Buttons -->
+    <string name="spoof_btn_cancel">Cancel</string>
+    <string name="spoof_btn_apply">Apply</string>
+
+    <!-- Ad gate -->
+    <string name="spoof_ad_skipped">Watch the ad until the end to apply the spoof.</string>
+    <string name="spoof_applied_success">%1$s applied successfully!</string>
+    <string name="spoof_apply_failed">Failed to apply spoof. Make sure root is active.</string>
+
+    <!-- Dywor Bottom Sheet -->
+    <string name="spoof_dywor_title">Dwyor</string>
+    <string name="spoof_dywor_body">Do With Your Own Risk — This feature modifies system properties directly. Any risk that arises is entirely the user\'s responsibility.</string>
+    <string name="spoof_dywor_point1">Only applies until the next reboot</string>
+    <string name="spoof_dywor_point2">May affect device detection in games</string>
+    <string name="spoof_dywor_point3">Not responsible for account bans</string>
+    <string name="spoof_dywor_btn">I Understand, Continue</string>
+
+    <!-- Home screen card -->
+    <string name="home_spoof_card_title">Device Spoof</string>
+    <string name="home_spoof_card_desc">Spoof device model, chipset, and fingerprint</string>
+     <string name="spoof_reboot_title">Reboot Now?</string>
+    <string name="spoof_reboot_body">%1$s has been applied. A reboot is required for the spoof to work properly.</string>
+    <string name="spoof_reboot_now">Reboot Now</string>
+    <string name="spoof_reboot_later">Later</string>
+    <string name="spoof_reboot_failed">Failed to perform automatic reboot.</string>
 
 </resources>

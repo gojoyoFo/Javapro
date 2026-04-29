@@ -649,4 +649,52 @@
 <string name="reward_perk_no_ads">24 घंटे तक बिना विज्ञापन</string>
 <string name="reward_perk_all_features">सभी प्रीमियम सुविधाएँ उपलब्ध</string>
 <string name="reward_error_ssv_pending">विज्ञापन सत्यापन लंबित है, कृपया कुछ समय बाद पुनः प्रयास करें।</string>
+<string name="spoof_screen_title">डिवाइस स्पूफ</string>
+    <string name="spoof_select_brand">ब्रांड चुनें</string>
+    <string name="spoof_devices_count">डिवाइस</string>
+    <string name="spoof_soon_badge">जल्द आ रहा है</string>
+    <string name="spoof_more_props">और प्रॉप्स</string>
+
+    <!-- Root warning -->
+    <string name="spoof_root_only_title">केवल Root</string>
+    <string name="spoof_root_only_desc">यह सुविधा केवल Root किए गए डिवाइस पर उपलब्ध है।</string>
+    <string name="spoof_root_required">इस सुविधा का उपयोग करने के लिए डिवाइस को Root होना आवश्यक है।</string>
+
+    <!-- Active spoof card -->
+    <string name="spoof_active_label">सक्रिय स्पूफ</string>
+    <string name="spoof_active_badge">सक्रिय</string>
+
+    <!-- Device detail sheet -->
+    <string name="spoof_detail_chipset">चिपसेट</string>
+    <string name="spoof_detail_model">मॉडल</string>
+    <string name="spoof_detail_fingerprint">बिल्ड फिंगरप्रिंट</string>
+    <string name="spoof_detail_props_title">सिस्टम प्रॉपर्टीज़</string>
+    <string name="spoof_premium_required">इस सुविधा के लिए Premium खाता आवश्यक है।</string>
+
+    <!-- Buttons -->
+    <string name="spoof_btn_cancel">रद्द करें</string>
+    <string name="spoof_btn_apply">लागू करें</string>
+
+    <!-- Ad gate -->
+    <string name="spoof_ad_skipped">स्पूफ लागू करने के लिए विज्ञापन पूरा देखें।</string>
+    <string name="spoof_applied_success">%1$s सफलतापूर्वक लागू किया गया!</string>
+    <string name="spoof_apply_failed">स्पूफ लागू करने में विफल। सुनिश्चित करें कि Root सक्रिय है।</string>
+
+    <!-- Dywor Bottom Sheet -->
+    <string name="spoof_dywor_title">Dwyor</string>
+    <string name="spoof_dywor_body">Do With Your Own Risk — यह सुविधा सिस्टम प्रॉपर्टी को सीधे बदलती है। इससे उत्पन्न किसी भी जोखिम की जिम्मेदारी पूरी तरह उपयोगकर्ता की है।</string>
+    <string name="spoof_dywor_point1">केवल अगले रीबूट तक प्रभावी</string>
+    <string name="spoof_dywor_point2">गेम में डिवाइस पहचान को प्रभावित कर सकता है</string>
+    <string name="spoof_dywor_point3">खाता बैन के लिए जिम्मेदार नहीं</string>
+    <string name="spoof_dywor_btn">मैं समझता हूँ, जारी रखें</string>
+
+    <!-- Home screen card -->
+    <string name="home_spoof_card_title">डिवाइस स्पूफ</string>
+    <string name="home_spoof_card_desc">डिवाइस मॉडल, चिपसेट और फिंगरप्रिंट स्पूफ करें</string>
+    <string name="spoof_reboot_title">अभी रीबूट करें?</string>
+    <string name="spoof_reboot_body">%1$s सफलतापूर्वक लागू किया गया। स्पूफ को सही तरीके से काम करने के लिए रीबूट आवश्यक है।</string>
+    <string name="spoof_reboot_now">अभी रीबूट करें</string>
+    <string name="spoof_reboot_later">बाद में</string>
+    <string name="spoof_reboot_failed">स्वचालित रीबूट विफल रहा।</string>
+    
 </resources>

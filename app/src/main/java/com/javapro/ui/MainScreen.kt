@@ -326,15 +326,30 @@ private fun NavContent(
             val activity = LocalContext.current.findActivity()
             DailyRewardScreen(
                 navController = navController,
-                onWatchAd     = { onAdFinished ->
-                    AdManager.showRewardedForDailyReward(activity) { result ->
-                        onAdFinished(result)
-                    }
+                onWatchAd     = { onAdStarted, onAdFinished ->
+                    AdManager.showRewardedForDailyReward(
+                        activity = activity,
+                        onStart  = onAdStarted,
+                        onResult = { result -> onAdFinished(result) }
+                    )
                 },
-                onGranted     = {
-                    navController.popBackStack()
-                },
+                onGranted     = { navController.popBackStack() },
                 lang          = lang
+            )
+        }
+
+        composable("device_spoof") {
+            val activity = LocalContext.current.findActivity()
+            DeviceSpoofScreen(
+                navController = navController,
+                lang          = lang,
+                onWatchAd     = { onAdStarted, onAdFinished ->
+                    AdManager.showRewardedForExclusive(
+                        activity    = activity,
+                        onCompleted = { onAdFinished(AdWatchResult.COMPLETED) },
+                        onSkipped   = { onAdFinished(AdWatchResult.UNAVAILABLE) }
+                    )
+                }
             )
         }
     }

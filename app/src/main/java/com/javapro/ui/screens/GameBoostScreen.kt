@@ -1,5 +1,6 @@
 package com.javapro.ui.screens
 import com.javapro.R
+import com.javapro.ui.components.SpoofDeviceCard
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -292,6 +293,8 @@ fun GameBoostScreen(navController: NavController, lang: String) {
                 singleLine    = true
             )
             Spacer(Modifier.height(12.dp))
+            SpoofDeviceCard(navController = navController)
+            Spacer(Modifier.height(4.dp))
             if (isLoading) {
                 Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
             } else {

@@ -650,4 +650,52 @@
 <string name="reward_perk_no_ads">24小时内无广告</string>
 <string name="reward_perk_all_features">所有高级功能已解锁</string>
 <string name="reward_error_ssv_pending">广告验证处理中，请稍后再试。</string>
+<string name="spoof_screen_title">设备伪装</string>
+    <string name="spoof_select_brand">选择品牌</string>
+    <string name="spoof_devices_count">台设备</string>
+    <string name="spoof_soon_badge">即将推出</string>
+    <string name="spoof_more_props">个属性</string>
+
+    <!-- Root warning -->
+    <string name="spoof_root_only_title">仅限 Root</string>
+    <string name="spoof_root_only_desc">此功能仅适用于已 Root 的设备。</string>
+    <string name="spoof_root_required">使用此功能需要 Root 权限。</string>
+
+    <!-- Active spoof card -->
+    <string name="spoof_active_label">已激活伪装</string>
+    <string name="spoof_active_badge">已激活</string>
+
+    <!-- Device detail sheet -->
+    <string name="spoof_detail_chipset">芯片组</string>
+    <string name="spoof_detail_model">型号</string>
+    <string name="spoof_detail_fingerprint">构建指纹</string>
+    <string name="spoof_detail_props_title">系统属性</string>
+    <string name="spoof_premium_required">此功能需要高级账户。</string>
+
+    <!-- Buttons -->
+    <string name="spoof_btn_cancel">取消</string>
+    <string name="spoof_btn_apply">应用</string>
+
+    <!-- Ad gate -->
+    <string name="spoof_ad_skipped">请完整观看广告后方可应用伪装。</string>
+    <string name="spoof_applied_success">%1$s 已成功应用！</string>
+    <string name="spoof_apply_failed">应用伪装失败，请确保 Root 权限已启用。</string>
+
+    <!-- Dywor Bottom Sheet -->
+    <string name="spoof_dywor_title">Dwyor</string>
+    <string name="spoof_dywor_body">风险自担 — 此功能将直接修改系统属性。由此产生的一切风险由用户自行承担。</string>
+    <string name="spoof_dywor_point1">仅在下次重启前有效</string>
+    <string name="spoof_dywor_point2">可能影响游戏中的设备检测</string>
+    <string name="spoof_dywor_point3">不对封号行为负责</string>
+    <string name="spoof_dywor_btn">我已了解，继续</string>
+
+    <!-- Home screen card -->
+    <string name="home_spoof_card_title">设备伪装</string>
+    <string name="home_spoof_card_desc">伪装设备型号、芯片组及构建指纹</string>
+    <string name="spoof_reboot_title">立即重启？</string>
+    <string name="spoof_reboot_body">%1$s 已成功应用。需要重启设备以使伪装正常生效。</string>
+    <string name="spoof_reboot_now">立即重启</string>
+    <string name="spoof_reboot_later">稍后</string>
+    <string name="spoof_reboot_failed">自动重启失败。</string>
+    
 </resources>

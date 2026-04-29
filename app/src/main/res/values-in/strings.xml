@@ -712,5 +712,52 @@
 <string name="reward_perk_no_ads">Bebas iklan selama 24 jam</string>
 <string name="reward_perk_all_features">Semua fitur premium terbuka</string>
 <string name="reward_error_ssv_pending">Verifikasi iklan tertunda, silakan coba lagi sebentar lagi</string>
+ <string name="spoof_screen_title">Device Spoof</string>
+    <string name="spoof_select_brand">Pilih Brand</string>
+    <string name="spoof_devices_count">perangkat</string>
+    <string name="spoof_soon_badge">Soon</string>
+    <string name="spoof_more_props">props lainnya</string>
+
+    <!-- Root warning -->
+    <string name="spoof_root_only_title">Root Only</string>
+    <string name="spoof_root_only_desc">Fitur ini hanya tersedia untuk perangkat yang sudah di-root.</string>
+    <string name="spoof_root_required">Perangkat harus di-root untuk menggunakan fitur ini.</string>
+
+    <!-- Active spoof card -->
+    <string name="spoof_active_label">Spoof Aktif</string>
+    <string name="spoof_active_badge">AKTIF</string>
+
+    <!-- Device detail sheet -->
+    <string name="spoof_detail_chipset">Chipset</string>
+    <string name="spoof_detail_model">Model</string>
+    <string name="spoof_detail_fingerprint">Build Fingerprint</string>
+    <string name="spoof_detail_props_title">System Properties</string>
+    <string name="spoof_premium_required">Fitur ini memerlukan akun Premium.</string>
+
+    <!-- Buttons -->
+    <string name="spoof_btn_cancel">Batal</string>
+    <string name="spoof_btn_apply">Terapkan</string>
+
+    <!-- Ad gate -->
+    <string name="spoof_ad_skipped">Tonton iklan sampai selesai untuk menerapkan spoof.</string>
+    <string name="spoof_applied_success">%1$s berhasil diterapkan!</string>
+    <string name="spoof_apply_failed">Gagal menerapkan spoof. Pastikan root aktif.</string>
+
+    <!-- Dywor Bottom Sheet -->
+    <string name="spoof_dywor_title">Dwyor</string>
+    <string name="spoof_dywor_body">Do With Your Own Risk — Fitur ini mengubah properti sistem secara langsung. Segala risiko yang timbul sepenuhnya menjadi tanggung jawab pengguna.</string>
+    <string name="spoof_dywor_point1">Hanya berlaku sampai reboot berikutnya</string>
+    <string name="spoof_dywor_point2">Dapat mempengaruhi deteksi perangkat di game</string>
+    <string name="spoof_dywor_point3">Tidak bertanggung jawab atas ban akun</string>
+    <string name="spoof_dywor_btn">Saya Mengerti, Lanjutkan</string>
+
+    <!-- Home screen card -->
+    <string name="home_spoof_card_title">Device Spoof</string>
+    <string name="home_spoof_card_desc">Spoof model, chipset, dan fingerprint perangkat</string>
+    <string name="spoof_reboot_title">Reboot Sekarang?</string>
+    <string name="spoof_reboot_body">%1$s berhasil diterapkan. Reboot diperlukan agar spoof berjalan optimal.</string>
+    <string name="spoof_reboot_now">Reboot Sekarang</string>
+    <string name="spoof_reboot_later">Nanti</string>
+    <string name="spoof_reboot_failed">Gagal melakukan reboot otomatis.</string>
 
 </resources>

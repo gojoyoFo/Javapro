@@ -631,5 +631,52 @@
 <string name="reward_perk_no_ads">Walang Ads sa loob ng 24 oras</string>
 <string name="reward_perk_all_features">Lahat ng premium na tampok ay naka-unlock</string>
 <string name="reward_error_ssv_pending">Nakabinbin ang pag-verify ng ad, pakisubukang muli sa ilang sandali</string>
+<string name="spoof_screen_title">Device Spoof</string>
+    <string name="spoof_select_brand">Pumili ng Brand</string>
+    <string name="spoof_devices_count">device</string>
+    <string name="spoof_soon_badge">Soon</string>
+    <string name="spoof_more_props">pang props</string>
+
+    <!-- Root warning -->
+    <string name="spoof_root_only_title">Root Lamang</string>
+    <string name="spoof_root_only_desc">Ang feature na ito ay para lamang sa mga na-root na device.</string>
+    <string name="spoof_root_required">Kailangan ng root ang iyong device para magamit ang feature na ito.</string>
+
+    <!-- Active spoof card -->
+    <string name="spoof_active_label">Aktibong Spoof</string>
+    <string name="spoof_active_badge">AKTIBO</string>
+
+    <!-- Device detail sheet -->
+    <string name="spoof_detail_chipset">Chipset</string>
+    <string name="spoof_detail_model">Modelo</string>
+    <string name="spoof_detail_fingerprint">Build Fingerprint</string>
+    <string name="spoof_detail_props_title">Mga System Properties</string>
+    <string name="spoof_premium_required">Nangangailangan ng Premium account ang feature na ito.</string>
+
+    <!-- Buttons -->
+    <string name="spoof_btn_cancel">Kanselahin</string>
+    <string name="spoof_btn_apply">Ilapat</string>
+
+    <!-- Ad gate -->
+    <string name="spoof_ad_skipped">Panoorin ang ad hanggang sa katapusan para mailapat ang spoof.</string>
+    <string name="spoof_applied_success">Matagumpay na nailapat ang %1$s!</string>
+    <string name="spoof_apply_failed">Nabigo ang pag-apply ng spoof. Siguraduhing aktibo ang root.</string>
+
+    <!-- Dywor Bottom Sheet -->
+    <string name="spoof_dywor_title">Dwyor</string>
+    <string name="spoof_dywor_body">Do With Your Own Risk — Direktang binabago ng feature na ito ang mga system property. Ang anumang panganib na dulot nito ay responsibilidad ng gumagamit.</string>
+    <string name="spoof_dywor_point1">Epektibo lamang hanggang sa susunod na reboot</string>
+    <string name="spoof_dywor_point2">Maaaring makaapekto sa pagtuklas ng device sa laro</string>
+    <string name="spoof_dywor_point3">Hindi responsable sa pagba-ban ng account</string>
+    <string name="spoof_dywor_btn">Naiintindihan Ko, Ituloy</string>
+
+    <!-- Home screen card -->
+    <string name="home_spoof_card_title">Device Spoof</string>
+    <string name="home_spoof_card_desc">I-spoof ang modelo, chipset, at fingerprint ng device</string>
+    <string name="spoof_reboot_title">I-reboot Ngayon?</string>
+    <string name="spoof_reboot_body">Matagumpay na nailapat ang %1$s. Kailangan ng reboot para gumana nang tama ang spoof.</string>
+    <string name="spoof_reboot_now">I-reboot Ngayon</string>
+    <string name="spoof_reboot_later">Mamaya Na</string>
+    <string name="spoof_reboot_failed">Nabigo ang awtomatikong reboot.</string>
 
 </resources>

@@ -649,5 +649,5 @@
     <string name="reward_body_success_dialog">高级功能已激活！尽情享受。</string>
 <string name="reward_perk_no_ads">24小时内无广告</string>
 <string name="reward_perk_all_features">所有高级功能已解锁</string>
-
+<string name="reward_error_ssv_pending">广告验证处理中，请稍后再试。</string>
 </resources>

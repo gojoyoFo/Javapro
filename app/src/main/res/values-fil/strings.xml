@@ -630,6 +630,6 @@
     <string name="reward_body_success_dialog">Premium active! Mag-enjoy.</string>
 <string name="reward_perk_no_ads">Walang Ads sa loob ng 24 oras</string>
 <string name="reward_perk_all_features">Lahat ng premium na tampok ay naka-unlock</string>
-
+<string name="reward_error_ssv_pending">Nakabinbin ang pag-verify ng ad, pakisubukang muli sa ilang sandali</string>
 
 </resources>

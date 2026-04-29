@@ -711,5 +711,6 @@
     <string name="reward_body_success_dialog">Premium aktif! Selamat menikmati.</string>
 <string name="reward_perk_no_ads">Bebas iklan selama 24 jam</string>
 <string name="reward_perk_all_features">Semua fitur premium terbuka</string>
+<string name="reward_error_ssv_pending">Verifikasi iklan tertunda, silakan coba lagi sebentar lagi</string>
 
 </resources>

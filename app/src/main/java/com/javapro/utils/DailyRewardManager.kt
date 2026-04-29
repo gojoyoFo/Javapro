@@ -191,8 +191,13 @@ object DailyRewardManager {
 
     fun isAdDurationValid(context: Context): Boolean {
         val startMs = prefs(context).getLong(KEY_AD_START, 0L)
-        if (startMs == 0L) return false
-        return System.currentTimeMillis() - startMs >= MIN_AD_DURATION_MS
+        // Kalau startMs hilang (app di-kill saat cooldown lalu dibuka lagi),
+        // percaya Unity COMPLETED callback — jangan reject iklan yang sudah ditonton.
+        if (startMs == 0L) return true
+        // Guard: kalau timestamp terlalu lama (> 5 menit), berarti stale dari sesi lama
+        val elapsed = System.currentTimeMillis() - startMs
+        if (elapsed > 5 * 60 * 1000L) return false
+        return elapsed >= MIN_AD_DURATION_MS
     }
 
     fun clearAdStart(context: Context) {

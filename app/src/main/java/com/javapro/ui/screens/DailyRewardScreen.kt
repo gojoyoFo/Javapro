@@ -177,9 +177,27 @@ fun DailyRewardScreen(
                     uiState      = RewardUiState.WEEKLY_LIMIT
                 }
                 DailyRewardManager.ClaimResult.InsufficientAds -> {
-                    errorMsg       = context.getString(R.string.reward_error_ad_skipped)
-                    errorResetsAds = false
-                    uiState        = RewardUiState.ERROR
+                    // SSV Unity belum masuk — auto retry sekali setelah 5 detik
+                    uiState = RewardUiState.LOADING_API
+                    delay(5_000L)
+                    when (val retry = DailyRewardManager.claimReward(context)) {
+                        is DailyRewardManager.ClaimResult.Success -> {
+                            uiState = RewardUiState.SUCCESS
+                        }
+                        is DailyRewardManager.ClaimResult.AlreadyClaimed -> {
+                            nextClaimMs = retry.nextClaimMs - System.currentTimeMillis()
+                            uiState     = RewardUiState.ALREADY
+                        }
+                        is DailyRewardManager.ClaimResult.WeeklyLimitReached -> {
+                            nextMondayMs = retry.nextMondayMs - System.currentTimeMillis()
+                            uiState      = RewardUiState.WEEKLY_LIMIT
+                        }
+                        else -> {
+                            errorMsg       = context.getString(R.string.reward_error_ssv_pending)
+                            errorResetsAds = false
+                            uiState        = RewardUiState.ERROR
+                        }
+                    }
                 }
                 DailyRewardManager.ClaimResult.AdFraudDetected -> {
                     DailyRewardManager.resetSessionAds(context)
@@ -267,11 +285,28 @@ fun DailyRewardScreen(
                                     uiState      = RewardUiState.WEEKLY_LIMIT
                                 }
                                 DailyRewardManager.ClaimResult.InsufficientAds -> {
-                                    // Jangan reset progres — server belum konfirmasi iklan cukup,
-                                    // bisa karena SSV delay. User cukup retry.
-                                    errorMsg       = context.getString(R.string.reward_error_ad_skipped)
-                                    errorResetsAds = false
-                                    uiState        = RewardUiState.ERROR
+                                    // SSV Unity belum masuk ke Supabase — auto retry sekali setelah 5 detik
+                                    uiState = RewardUiState.LOADING_API
+                                    delay(5_000L)
+                                    when (val retry = DailyRewardManager.claimReward(context)) {
+                                        is DailyRewardManager.ClaimResult.Success -> {
+                                            uiState = RewardUiState.SUCCESS
+                                        }
+                                        is DailyRewardManager.ClaimResult.AlreadyClaimed -> {
+                                            nextClaimMs = retry.nextClaimMs - System.currentTimeMillis()
+                                            uiState     = RewardUiState.ALREADY
+                                        }
+                                        is DailyRewardManager.ClaimResult.WeeklyLimitReached -> {
+                                            nextMondayMs = retry.nextMondayMs - System.currentTimeMillis()
+                                            uiState      = RewardUiState.WEEKLY_LIMIT
+                                        }
+                                        else -> {
+                                            // Masih gagal setelah retry — tampilkan pesan yang tepat
+                                            errorMsg       = context.getString(R.string.reward_error_ssv_pending)
+                                            errorResetsAds = false
+                                            uiState        = RewardUiState.ERROR
+                                        }
+                                    }
                                 }
                                 DailyRewardManager.ClaimResult.AdFraudDetected -> {
                                     DailyRewardManager.resetSessionAds(context)

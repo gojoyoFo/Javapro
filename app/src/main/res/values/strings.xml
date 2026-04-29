@@ -716,5 +716,6 @@
     <string name="reward_body_success_dialog">Premium active! Enjoy.</string>
 <string name="reward_perk_no_ads">Ad-free for 24 hours</string>
 <string name="reward_perk_all_features">All premium features unlocked</string>
+<string name="reward_error_ssv_pending">Ad verification pending, please try again in a moment</string>
 
 </resources>

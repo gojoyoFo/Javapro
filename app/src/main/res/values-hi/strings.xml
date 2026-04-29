@@ -648,4 +648,5 @@
     <string name="reward_body_success_dialog">प्रीमियम सक्रिय! आनंद लें।</string>
 <string name="reward_perk_no_ads">24 घंटे तक बिना विज्ञापन</string>
 <string name="reward_perk_all_features">सभी प्रीमियम सुविधाएँ उपलब्ध</string>
+<string name="reward_error_ssv_pending">विज्ञापन सत्यापन लंबित है, कृपया कुछ समय बाद पुनः प्रयास करें।</string>
 </resources>

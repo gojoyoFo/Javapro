@@ -8,8 +8,9 @@ import com.javapro.ui.screens.AdWatchResult
 import com.javapro.utils.PremiumManager
 import com.unity3d.ads.IUnityAdsLoadListener
 import com.unity3d.ads.IUnityAdsShowListener
+import com.unity3d.ads.MetaData
 import com.unity3d.ads.UnityAds
-import com.unity3d.ads.UnityAdsShowOptions
+import com.unity3d.ads.metadata.MetaData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -113,10 +114,13 @@ object AdManager {
         isShowingAd = true
         Log.d(TAG, "[$slot] showing preloaded ad...")
 
-        val showOptions = UnityAdsShowOptions().apply {
-            if (customData != null) setCustomData(customData)
+        if (customData != null) {
+            val meta = MetaData(activity).apply {
+                set("unity.customdata", customData)
+                commit()
+            }
         }
-        UnityAds.show(activity, PLACEMENT_ID, showOptions, object : IUnityAdsShowListener {
+        UnityAds.show(activity, PLACEMENT_ID, object : IUnityAdsShowListener {
             override fun onUnityAdsShowStart(placementId: String) {
                 Log.d(TAG, "[$slot] show started.")
                 onStart()
@@ -171,10 +175,13 @@ object AdManager {
                 fallbackTimeout?.cancel()
                 Log.d(TAG, "[$slot] fallback loaded. Showing...")
                 isShowingAd = true
-                val fallbackOptions = UnityAdsShowOptions().apply {
-                    if (customData != null) setCustomData(customData)
+                if (customData != null) {
+                    val meta = MetaData(activity).apply {
+                        set("unity.customdata", customData)
+                        commit()
+                    }
                 }
-                UnityAds.show(activity, PLACEMENT_ID, fallbackOptions, object : IUnityAdsShowListener {
+                UnityAds.show(activity, PLACEMENT_ID, object : IUnityAdsShowListener {
                     override fun onUnityAdsShowStart(placementId: String) { onStart() }
                     override fun onUnityAdsShowClick(placementId: String) {}
                     override fun onUnityAdsShowComplete(

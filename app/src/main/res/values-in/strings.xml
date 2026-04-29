@@ -662,7 +662,7 @@
 <string name="adblock_btn_exit">Keluar</string>
 <string name="toast_permission_required">Izin Diperlukan</string>
 <string name="toast_overlay_required">Izinkan Overlay untuk menampilkan FPS</string>
-    <string name="setting_daily_reward_title">Hadiah Harian</string>
+    <string name="setting_daily_reward_title">Hadiah Mingguan</string>
     <string name="setting_daily_reward_desc">Tonton 6 iklan untuk dapatkan premium 1 hari</string>
     <string name="reward_screen_title">Reward Harian</string>
     <string name="reward_title_idle">Reward Mingguan</string>

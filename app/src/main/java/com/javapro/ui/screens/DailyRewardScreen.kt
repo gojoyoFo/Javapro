@@ -619,27 +619,19 @@ fun DailyRewardScreen(
                     }
 
                     RewardUiState.SUCCESS -> {
-                        var showRestartDialog by remember { mutableStateOf(false) }
-
-                        if (showRestartDialog) {
-                            AlertDialog(
-                                onDismissRequest = {},
-                                title   = { Text("Restart JavaPro") },
-                                text    = { Text("Premium berhasil diaktifkan!\n\nMohon tutup dan buka ulang JavaPro agar pengecekan online di splash screen bekerja.") },
-                                confirmButton = {
-                                    TextButton(onClick = {
-                                        showRestartDialog = false
-                                        if (!isGranting) {
-                                            isGranting = true
-                                            onGranted()
-                                        }
-                                    }) { Text("OK, Tutup Sekarang") }
-                                }
-                            )
+                        // Tidak perlu restart — invalidateCache di onResume sudah handle
+                        LaunchedEffect(Unit) {
+                            if (!isGranting) {
+                                isGranting = true
+                                kotlinx.coroutines.delay(2_000L)
+                                onGranted()
+                            }
                         }
 
                         Button(
-                            onClick  = { showRestartDialog = true },
+                            onClick  = {
+                                if (!isGranting) { isGranting = true; onGranted() }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),

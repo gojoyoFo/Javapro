@@ -599,7 +599,7 @@
 <string name="adblock_btn_exit">बाहर निकलें</string>
 <string name="toast_permission_required">अनुमति आवश्यक है</string>
 <string name="toast_overlay_required">FPS दिखाने के लिए Overlay की अनुमति दें</string>
-<string name="setting_daily_reward_title">दैनिक पुरस्कार</string>
+<string name="setting_daily_reward_title">साप्ताहिक पुरस्कार</string>
 <string name="setting_daily_reward_desc">1 दिन का प्रीमियम पाने के लिए 6 विज्ञापन देखें</string>
  <string name="reward_screen_title">साप्ताहिक रिवॉर्ड</string>
     <string name="reward_title_idle">साप्ताहिक रिवॉर्ड</string>

@@ -667,7 +667,7 @@
 <!-- Toast -->
 <string name="toast_permission_required">Permission Required</string>
 <string name="toast_overlay_required">Allow Overlay to display FPS</string>
-    <string name="setting_daily_reward_title">Daily Reward</string>
+    <string name="setting_daily_reward_title">Weakly Reward</string>
     <string name="setting_daily_reward_desc">Watch 6 ads to get 1 day of premium</string>
     <string name="reward_screen_title">Weekly Reward</string>
     <string name="reward_title_idle">Weekly Reward</string>

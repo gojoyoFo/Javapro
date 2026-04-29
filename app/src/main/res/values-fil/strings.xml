@@ -581,7 +581,7 @@
 <string name="adblock_btn_exit">Lumabas</string>
 <string name="toast_permission_required">Kailangan ng Pahintulot</string>
 <string name="toast_overlay_required">Payagan ang Overlay para ipakita ang FPS</string>
-<string name="setting_daily_reward_title">Araw-araw na Gantimpala</string>
+<string name="setting_daily_reward_title">lingguhang mga gantimpala</string>
 <string name="setting_daily_reward_desc">Panoorin ang 6 na ads para makakuha ng 1-araw na premium</string>
 <string name="reward_screen_title">Lingguhang Reward</string>
     <string name="reward_title_idle">Lingguhang Reward</string>

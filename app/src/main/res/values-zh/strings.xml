@@ -600,7 +600,7 @@
 <string name="adblock_btn_exit">退出</string>
 <string name="toast_permission_required">需要权限</string>
 <string name="toast_overlay_required">请允许悬浮窗以显示FPS</string>
-    <string name="setting_daily_reward_title">每日奖励</string>
+    <string name="setting_daily_reward_title">每周奖励 </string>
     <string name="setting_daily_reward_desc">观看6个广告获得1天高级版</string>
     <string name="reward_screen_title">每周奖励</string>
     <string name="reward_title_idle">每周奖励</string>

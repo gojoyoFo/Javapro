@@ -224,6 +224,7 @@ fun DeviceSpoofScreen(
     onWatchAd     : (onAdStarted: () -> Unit, onAdFinished: (AdWatchResult) -> Unit) -> Unit
 ) {
     val context    = LocalContext.current
+    val isPremium  = remember { PremiumManager.isPremium(context) }
     val isRoot     = remember { isRooted() }
     val scope      = rememberCoroutineScope()
     val brands     = remember { allBrands() }
@@ -234,7 +235,6 @@ fun DeviceSpoofScreen(
     var showDeviceSheet   by remember { mutableStateOf(false) }
     var isApplying        by remember { mutableStateOf(false) }
     var appliedDevice     by remember { mutableStateOf<String?>(null) }
-    var showRebootDialog  by remember { mutableStateOf(false) }
 
     if (showDyworSheet) {
         DyworBottomSheet(onDismiss = { showDyworSheet = false })
@@ -252,75 +252,42 @@ fun DeviceSpoofScreen(
                     return@DeviceDetailSheet
                 }
                 isApplying = true
-                onWatchAd(
-                    {},
-                    { result ->
-                        if (result == AdWatchResult.COMPLETED) {
-                            scope.launch {
-                                val ok = withContext(Dispatchers.IO) { applySpoof(context, device) }
-                                isApplying = false
-                                if (ok) {
-                                    appliedDevice   = device.name
-                                    showDeviceSheet = false
-                                    showRebootDialog = true
-                                } else {
-                                    Toast.makeText(context, context.getString(R.string.spoof_apply_failed), Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                if (isPremium) {
+                    scope.launch {
+                        val ok = withContext(Dispatchers.IO) { applySpoof(context, device) }
+                        isApplying = false
+                        if (ok) {
+                            appliedDevice   = device.name
+                            showDeviceSheet = false
+                            Toast.makeText(context, context.getString(R.string.spoof_applied_success, device.name), Toast.LENGTH_SHORT).show()
                         } else {
-                            isApplying = false
-                            Toast.makeText(context, context.getString(R.string.spoof_ad_skipped), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.spoof_apply_failed), Toast.LENGTH_SHORT).show()
                         }
                     }
-                )
-            }
-        )
-    }
-
-    if (showRebootDialog && appliedDevice != null) {
-        AlertDialog(
-            onDismissRequest = { showRebootDialog = false },
-            icon = {
-                Icon(
-                    imageVector        = Icons.Filled.Refresh,
-                    contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.primary,
-                    modifier           = Modifier.size(32.dp)
-                )
-            },
-            title = {
-                Text(
-                    text       = stringResource(R.string.spoof_reboot_title),
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(stringResource(R.string.spoof_reboot_body, appliedDevice!!))
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showRebootDialog = false
-                        try {
-                            Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
-                        } catch (_: Exception) {
-                            Toast.makeText(context, context.getString(R.string.spoof_reboot_failed), Toast.LENGTH_SHORT).show()
+                } else {
+                    onWatchAd(
+                        {},
+                        { result ->
+                            if (result == AdWatchResult.COMPLETED) {
+                                scope.launch {
+                                    val ok = withContext(Dispatchers.IO) { applySpoof(context, device) }
+                                    isApplying = false
+                                    if (ok) {
+                                        appliedDevice   = device.name
+                                        showDeviceSheet = false
+                                        Toast.makeText(context, context.getString(R.string.spoof_applied_success, device.name), Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, context.getString(R.string.spoof_apply_failed), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            } else {
+                                isApplying = false
+                                Toast.makeText(context, context.getString(R.string.spoof_ad_skipped), Toast.LENGTH_SHORT).show()
+                            }
                         }
-                    },
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(stringResource(R.string.spoof_reboot_now))
+                    )
                 }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showRebootDialog = false },
-                    shape   = RoundedCornerShape(12.dp)
-                ) {
-                    Text(stringResource(R.string.spoof_reboot_later))
-                }
-            },
-            shape = RoundedCornerShape(20.dp)
+            }
         )
     }
 

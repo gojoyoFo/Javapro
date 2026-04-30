@@ -692,8 +692,6 @@
     <!-- Home screen card -->
     <string name="home_spoof_card_title">设备伪装</string>
     <string name="home_spoof_card_desc">伪装设备型号、芯片组及构建指纹</string>
-    <string name="spoof_reboot_now">立即重启</string>
-    <string name="spoof_reboot_later">稍后</string>
     <string name="spoof_reboot_failed">自动重启失败。</string>
     <string name="spoof_btn_reset">重置</string>
 <string name="spoof_reset_success">已成功将伪装重置为默认值。</string>
@@ -703,7 +701,6 @@
     <string name="spoof_reset_reboot_body">伪装将在重启后停用。</string>
     <string name="spoof_reboot_now">立即重启</string>
     <string name="spoof_reboot_later">稍后</string>
-    <string name="spoof_reboot_failed">重启失败，请手动重启。</string>
     <string name="spoof_pending_reboot_banner">等待重启以应用伪装更改。</string>
     
 </resources>

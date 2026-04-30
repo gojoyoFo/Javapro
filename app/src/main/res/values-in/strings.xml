@@ -754,9 +754,6 @@
     <!-- Home screen card -->
     <string name="home_spoof_card_title">Device Spoof</string>
     <string name="home_spoof_card_desc">Spoof model, chipset, dan fingerprint perangkat</string>
-    <string name="spoof_reboot_now">Reboot Sekarang</string>
-    <string name="spoof_reboot_later">Nanti</string>
-    <string name="spoof_reboot_failed">Gagal melakukan reboot otomatis</string>
     <string name="spoof_btn_reset">Reset</string>
 <string name="spoof_reset_success">Spoof berhasil direset ke default.</string>
 <string name="spoof_reboot_title">Reboot Diperlukan</string>

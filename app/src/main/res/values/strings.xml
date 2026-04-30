@@ -759,9 +759,6 @@
     <!-- Home screen card -->
     <string name="home_spoof_card_title">Device Spoof</string>
     <string name="home_spoof_card_desc">Spoof device model, chipset, and fingerprint</string>
-    <string name="spoof_reboot_now">Reboot Now</string>
-    <string name="spoof_reboot_later">Later</string>
-    <string name="spoof_reboot_failed">Failed to perform automatic reboot</string>
     <string name="spoof_btn_reset">Reset</string>
 <string name="spoof_reset_success">Spoof has been reset to default.</string>
  <string name="spoof_reboot_title">Reboot Required</string>

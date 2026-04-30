@@ -691,8 +691,6 @@
     <!-- Home screen card -->
     <string name="home_spoof_card_title">डिवाइस स्पूफ</string>
     <string name="home_spoof_card_desc">डिवाइस मॉडल, चिपसेट और फिंगरप्रिंट स्पूफ करें</string>
-    <string name="spoof_reboot_title">अभी रीबूट करें?</string>
-    <string name="spoof_reboot_body">%1$s सफलतापूर्वक लागू किया गया। स्पूफ को सही तरीके से काम करने के लिए रीबूट आवश्यक है।</string>
     <string name="spoof_reboot_now">अभी रीबूट करें</string>
     <string name="spoof_reboot_later">बाद में</string>
     <string name="spoof_reboot_failed">स्वचालित रीबूट विफल रहा।</string>

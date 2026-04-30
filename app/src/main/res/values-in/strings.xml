@@ -754,8 +754,6 @@
     <!-- Home screen card -->
     <string name="home_spoof_card_title">Device Spoof</string>
     <string name="home_spoof_card_desc">Spoof model, chipset, dan fingerprint perangkat</string>
-    <string name="spoof_reboot_title">Reboot Sekarang?</string>
-    <string name="spoof_reboot_body">%1$s berhasil diterapkan. Reboot diperlukan agar spoof berjalan optimal.</string>
     <string name="spoof_reboot_now">Reboot Sekarang</string>
     <string name="spoof_reboot_later">Nanti</string>
     <string name="spoof_reboot_failed">Gagal melakukan reboot otomatis</string>

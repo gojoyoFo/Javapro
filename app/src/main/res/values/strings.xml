@@ -759,8 +759,6 @@
     <!-- Home screen card -->
     <string name="home_spoof_card_title">Device Spoof</string>
     <string name="home_spoof_card_desc">Spoof device model, chipset, and fingerprint</string>
-     <string name="spoof_reboot_title">Reboot Now?</string>
-    <string name="spoof_reboot_body">%1$s has been applied. A reboot is required for the spoof to work properly.</string>
     <string name="spoof_reboot_now">Reboot Now</string>
     <string name="spoof_reboot_later">Later</string>
     <string name="spoof_reboot_failed">Failed to perform automatic reboot</string>

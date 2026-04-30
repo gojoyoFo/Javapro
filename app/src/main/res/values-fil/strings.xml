@@ -673,8 +673,6 @@
     <!-- Home screen card -->
     <string name="home_spoof_card_title">Device Spoof</string>
     <string name="home_spoof_card_desc">I-spoof ang modelo, chipset, at fingerprint ng device</string>
-    <string name="spoof_reboot_title">I-reboot Ngayon?</string>
-    <string name="spoof_reboot_body">Matagumpay na nailapat ang %1$s. Kailangan ng reboot para gumana nang tama ang spoof.</string>
     <string name="spoof_reboot_now">I-reboot Ngayon</string>
     <string name="spoof_reboot_later">Mamaya Na</string>
     <string name="spoof_reboot_failed">Nabigo ang awtomatikong reboot.</string>

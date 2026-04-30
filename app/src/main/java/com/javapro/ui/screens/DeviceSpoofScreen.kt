@@ -68,9 +68,13 @@ fun DeviceSpoofScreen(
     var showPendingReboot by remember {
         val saved = prefs.getBoolean("spoof_pending_reboot", false)
         val resolved = if (saved) {
-            val moduleActive = SpoofExecutor.isSpoofActive()
-            if (!moduleActive) {
-                prefs.edit().putBoolean("spoof_pending_reboot", false).apply()
+            // Cek apakah device sudah reboot sejak spoof/reset di-apply.
+            // Boot time = waktu sekarang - elapsed since boot (ms sejak epoch saat boot).
+            val applyTime = prefs.getLong("spoof_apply_time", 0L)
+            val bootTime  = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+            if (applyTime > 0L && bootTime > applyTime) {
+                // Sudah reboot setelah apply → clear flag
+                prefs.edit().putBoolean("spoof_pending_reboot", false).remove("spoof_apply_time").apply()
                 false
             } else true
         } else false
@@ -91,6 +95,7 @@ fun DeviceSpoofScreen(
                 prefs.edit()
                     .putString("spoof_active_device", device.name)
                     .putBoolean("spoof_pending_reboot", true)
+                    .putLong("spoof_apply_time", System.currentTimeMillis())
                     .apply()
                 delay(600)
                 showRebootDialog = true
@@ -109,6 +114,7 @@ fun DeviceSpoofScreen(
                 prefs.edit()
                     .remove("spoof_active_device")
                     .putBoolean("spoof_pending_reboot", true)
+                    .putLong("spoof_apply_time", System.currentTimeMillis())
                     .apply()
                 delay(600)
                 showResetRebootDialog = true

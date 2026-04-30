@@ -53,77 +53,109 @@ data class SpoofBrand(
 private fun asusRogDevices(): List<SpoofDevice> = listOf(
     SpoofDevice(
         name        = "ASUS ROG Phone 9",
-        model       = "ASUSAI2501",
+        model       = "ASUS_AI2501",
         brand       = "asus",
-        chipset     = "Snapdragon™ 8 Elite",
+        chipset     = "Snapdragon 8 Elite",
         fingerprint = "asus/ASUS_AI2501/ASUS_AI2501:14/UKQ1.231003.002/AI2501.WW_Phone-35.2410.2410.218-0:user/release-keys",
         props = mapOf(
-            "ro.product.name"                    to "ASUS_ROG_9",
-            "ro.product.device"                  to "ASUSAI2501",
-            "ro.product.brand"                   to "asus",
-            "ro.product.model"                   to "ASUSAI2501",
-            "ro.soc.model.external_name"         to "Snapdragon™ 8 Elite",
-            "ro.soc.manufacturer"                to "Qualcomm Technologies, Inc.",
-            "ro.hardware.chipname"               to "Snapdragon™ 8 Elite",
-            "ro.product.cpu.abi"                 to "arm64-v8a",
-            "ro.vendor.qti.soc_model"            to "SM8750",
-            "persist.sys.gaming.xmode"           to "true",
-            "persist.sys.gaming.xmode.level"     to "3",
-            "persist.sys.gaming.gputurbo"        to "on",
-            "persist.sys.gaming.touch.acceleration" to "1",
-            "persist.sys.gaming.lag_reduction"   to "enabled",
-            "persist.sys.gaming.performance.boost" to "ultra",
-            "ro.config.battery_capacity"         to "6000",
-            "ro.battery.charging.tech"           to "HyperCharge 65W",
-            "ro.display.panel.manufacturer"      to "Samsung E6 AMOLED",
-            "ro.cooling.system"                  to "3D Vapor Chamber, AeroActive Cooler X",
-            "persist.sys.cooling.fan_support"    to "true"
+            "ro.product.name"                        to "ASUS_AI2501",
+            "ro.product.device"                      to "ASUS_AI2501",
+            "ro.product.brand"                       to "asus",
+            "ro.product.manufacturer"                to "asus",
+            "ro.product.model"                       to "ASUS_AI2501",
+            "ro.product.system.brand"                to "asus",
+            "ro.product.system.manufacturer"         to "asus",
+            "ro.product.vendor.brand"                to "asus",
+            "ro.product.vendor.manufacturer"         to "asus",
+            "ro.product.brand_for_attestation"       to "asus",
+            "ro.product.model_for_attestation"       to "ASUS_AI2501",
+            "ro.product.manufacturer_for_attestation" to "asus",
+            "ro.soc.model"                           to "SM8750",
+            "ro.soc.model.external_name"             to "Snapdragon 8 Elite",
+            "ro.soc.manufacturer"                    to "Qualcomm Technologies, Inc.",
+            "ro.hardware.chipname"                   to "SM8750",
+            "ro.board.platform"                      to "sun",
+            "ro.vendor.qti.soc_model"                to "SM8750",
+            "ro.vendor.qti.soc_name"                 to "SM8750-AB",
+            "ro.product.cpu.abi"                     to "arm64-v8a",
+            "persist.sys.gaming.xmode"               to "true",
+            "persist.sys.gaming.xmode.level"         to "3",
+            "persist.sys.gaming.gputurbo"            to "on",
+            "persist.sys.gaming.touch.acceleration"  to "1",
+            "persist.sys.gaming.lag_reduction"       to "enabled",
+            "persist.sys.gaming.performance.boost"   to "ultra",
+            "ro.config.battery_capacity"             to "6000",
+            "ro.display.panel.manufacturer"          to "Samsung E6 AMOLED",
+            "persist.sys.cooling.fan_support"        to "true"
         )
     ),
     SpoofDevice(
         name        = "ASUS ROG Phone 8 Pro",
-        model       = "ASUSAI2401_B",
+        model       = "ASUS_AI2401_B",
         brand       = "asus",
-        chipset     = "Snapdragon™ 8 Gen 3",
+        chipset     = "Snapdragon 8 Gen 3",
         fingerprint = "asus/ASUS_AI2401_B/ASUS_AI2401_B:14/UKQ1.231003.002/AI2401_B.WW_Phone-34.2410.2410.218-0:user/release-keys",
         props = mapOf(
-            "ro.product.name"                    to "ASUS_ROG_8_PRO",
-            "ro.product.device"                  to "ASUSAI2401_B",
-            "ro.product.brand"                   to "asus",
-            "ro.product.model"                   to "ASUSAI2401_B",
-            "ro.soc.model.external_name"         to "Snapdragon™ 8 Gen 3",
-            "ro.soc.manufacturer"                to "Qualcomm Technologies, Inc.",
-            "ro.hardware.chipname"               to "Snapdragon™ 8 Gen 3",
-            "ro.product.cpu.abi"                 to "arm64-v8a",
-            "ro.vendor.qti.soc_model"            to "SM8650",
-            "persist.sys.gaming.xmode"           to "true",
-            "persist.sys.gaming.xmode.level"     to "2",
-            "persist.sys.gaming.gputurbo"        to "on",
-            "ro.config.battery_capacity"         to "5800",
-            "ro.battery.charging.tech"           to "HyperCharge 65W",
-            "ro.display.panel.manufacturer"      to "Samsung E6 AMOLED"
+            "ro.product.name"                        to "ASUS_AI2401_B",
+            "ro.product.device"                      to "ASUS_AI2401_B",
+            "ro.product.brand"                       to "asus",
+            "ro.product.manufacturer"                to "asus",
+            "ro.product.model"                       to "ASUS_AI2401_B",
+            "ro.product.system.brand"                to "asus",
+            "ro.product.system.manufacturer"         to "asus",
+            "ro.product.vendor.brand"                to "asus",
+            "ro.product.vendor.manufacturer"         to "asus",
+            "ro.product.brand_for_attestation"       to "asus",
+            "ro.product.model_for_attestation"       to "ASUS_AI2401_B",
+            "ro.product.manufacturer_for_attestation" to "asus",
+            "ro.soc.model"                           to "SM8650",
+            "ro.soc.model.external_name"             to "Snapdragon 8 Gen 3",
+            "ro.soc.manufacturer"                    to "Qualcomm Technologies, Inc.",
+            "ro.hardware.chipname"                   to "SM8650",
+            "ro.board.platform"                      to "kalama",
+            "ro.vendor.qti.soc_model"                to "SM8650",
+            "ro.vendor.qti.soc_name"                 to "SM8650-AB",
+            "ro.product.cpu.abi"                     to "arm64-v8a",
+            "persist.sys.gaming.xmode"               to "true",
+            "persist.sys.gaming.xmode.level"         to "2",
+            "persist.sys.gaming.gputurbo"            to "on",
+            "ro.config.battery_capacity"             to "5800",
+            "ro.display.panel.manufacturer"          to "Samsung E6 AMOLED",
+            "persist.sys.cooling.fan_support"        to "true"
         )
     ),
     SpoofDevice(
         name        = "ASUS ROG Phone 7 Ultimate",
-        model       = "ASUSAI2205_D",
+        model       = "ASUS_AI2205_D",
         brand       = "asus",
-        chipset     = "Snapdragon™ 8 Gen 2",
+        chipset     = "Snapdragon 8 Gen 2",
         fingerprint = "asus/ASUS_AI2205_D/ASUS_AI2205_D:13/TKQ1.221013.001/AI2205_D.WW_Phone-33.2040.2040.294-0:user/release-keys",
         props = mapOf(
-            "ro.product.name"                to "ASUS_ROG_7_ULTIMATE",
-            "ro.product.device"              to "ASUSAI2205_D",
-            "ro.product.brand"               to "asus",
-            "ro.product.model"               to "ASUSAI2205_D",
-            "ro.soc.model.external_name"     to "Snapdragon™ 8 Gen 2",
-            "ro.soc.manufacturer"            to "Qualcomm Technologies, Inc.",
-            "ro.hardware.chipname"           to "Snapdragon™ 8 Gen 2",
-            "ro.product.cpu.abi"             to "arm64-v8a",
-            "ro.vendor.qti.soc_model"        to "SM8550",
-            "persist.sys.gaming.xmode"       to "true",
-            "persist.sys.gaming.xmode.level" to "3",
-            "persist.sys.gaming.gputurbo"    to "on",
-            "ro.config.battery_capacity"     to "6000"
+            "ro.product.name"                        to "ASUS_AI2205_D",
+            "ro.product.device"                      to "ASUS_AI2205_D",
+            "ro.product.brand"                       to "asus",
+            "ro.product.manufacturer"                to "asus",
+            "ro.product.model"                       to "ASUS_AI2205_D",
+            "ro.product.system.brand"                to "asus",
+            "ro.product.system.manufacturer"         to "asus",
+            "ro.product.vendor.brand"                to "asus",
+            "ro.product.vendor.manufacturer"         to "asus",
+            "ro.product.brand_for_attestation"       to "asus",
+            "ro.product.model_for_attestation"       to "ASUS_AI2205_D",
+            "ro.product.manufacturer_for_attestation" to "asus",
+            "ro.soc.model"                           to "SM8550",
+            "ro.soc.model.external_name"             to "Snapdragon 8 Gen 2",
+            "ro.soc.manufacturer"                    to "Qualcomm Technologies, Inc.",
+            "ro.hardware.chipname"                   to "SM8550",
+            "ro.board.platform"                      to "taro",
+            "ro.vendor.qti.soc_model"                to "SM8550",
+            "ro.vendor.qti.soc_name"                 to "SM8550-AB",
+            "ro.product.cpu.abi"                     to "arm64-v8a",
+            "persist.sys.gaming.xmode"               to "true",
+            "persist.sys.gaming.xmode.level"         to "3",
+            "persist.sys.gaming.gputurbo"            to "on",
+            "ro.config.battery_capacity"             to "6000",
+            "persist.sys.cooling.fan_support"        to "true"
         )
     )
 )
@@ -137,8 +169,11 @@ private fun samsungDevices(): List<SpoofDevice> = listOf(
         fingerprint = "samsung/q5qzhucu/q5q:14/UP1A.231005.007/F9460ZHU3CXB1:user/release-keys",
         props = mapOf(
             "ro.product.brand"                     to "samsung",
+            "ro.product.brand_for_attestation"     to "samsung",
             "ro.product.manufacturer"              to "samsung",
             "ro.product.model"                     to "SM-F9460",
+            "ro.product.name"                      to "q5qzhucu",
+            "ro.product.device"                    to "q5q",
             "ro.product.odm.model"                 to "SM-F9460",
             "ro.product.system.model"              to "SM-F9460",
             "ro.product.vendor.model"              to "SM-F9460",
@@ -147,10 +182,18 @@ private fun samsungDevices(): List<SpoofDevice> = listOf(
             "ro.product.system.marketname"         to "Galaxy Z Fold5",
             "ro.product.vendor.marketname"         to "Galaxy Z Fold5",
             "ro.product.marketname"                to "Galaxy Z Fold5",
-            "ro.product.name"                      to "Galaxy Z Fold5",
-            "ro.product.device"                    to "q5q",
+            "ro.product.system.brand"              to "samsung",
+            "ro.product.vendor.brand"              to "samsung",
+            "ro.product.odm.brand"                 to "samsung",
+            "ro.product.system.manufacturer"       to "samsung",
+            "ro.product.vendor.manufacturer"       to "samsung",
             "ro.soc.manufacturer"                  to "Qualcomm",
             "ro.soc.model"                         to "SM8650",
+            "ro.soc.model.external_name"           to "Snapdragon 8 Gen 2",
+            "ro.hardware.chipname"                 to "SM8650",
+            "ro.board.platform"                    to "kalama",
+            "ro.vendor.qti.soc_model"              to "SM8650",
+            "ro.vendor.qti.soc_name"               to "SM8650-AB",
             "sys.fps_unlock_allowed"               to "120"
         )
     )
@@ -164,18 +207,29 @@ private fun oneplusDevices(): List<SpoofDevice> = listOf(
         chipset     = "Snapdragon 8 Elite",
         fingerprint = "OnePlus/OP611FL1/OP611FL1:15/AQ3A.240812.002/R.1726726127OP611FL1:user/release-keys",
         props = mapOf(
-            "ro.product.device"                      to "OnePlus 15",
-            "ro.product.system.brand"                to "OnePlus",
-            "ro.product.system.manufacturer"         to "OnePlus",
-            "ro.product.product.manufacturer"        to "OnePlus",
-            "ro.system.manufacturer"                 to "OnePlus",
-            "ro.product.model"                       to "OP611FL1",
-            "ro.product.name"                        to "OnePlus 15",
-            "ro.product.brand"                       to "OnePlus",
-            "ro.product.brand_for_attestation"       to "oneplus",
-            "ro.product.device_for_attestation"      to "OP611FL1",
+            "ro.product.brand"                        to "OnePlus",
+            "ro.product.manufacturer"                 to "OnePlus",
+            "ro.product.model"                        to "OP611FL1",
+            "ro.product.name"                         to "OP611FL1",
+            "ro.product.device"                       to "OP611FL1",
+            "ro.product.system.brand"                 to "OnePlus",
+            "ro.product.system.manufacturer"          to "OnePlus",
+            "ro.product.product.manufacturer"         to "OnePlus",
+            "ro.product.vendor.brand"                 to "OnePlus",
+            "ro.product.vendor.manufacturer"          to "OnePlus",
+            "ro.system.manufacturer"                  to "OnePlus",
+            "ro.product.brand_for_attestation"        to "oneplus",
+            "ro.product.device_for_attestation"       to "OP611FL1",
             "ro.product.manufacturer_for_attestation" to "OnePlus",
-            "ro.product.model_for_attestation"       to "OnePlus 15"
+            "ro.product.model_for_attestation"        to "OP611FL1",
+            "ro.soc.model"                            to "SM8750",
+            "ro.soc.model.external_name"              to "Snapdragon 8 Elite",
+            "ro.soc.manufacturer"                     to "Qualcomm Technologies, Inc.",
+            "ro.hardware.chipname"                    to "SM8750",
+            "ro.board.platform"                       to "sun",
+            "ro.vendor.qti.soc_model"                 to "SM8750",
+            "ro.vendor.qti.soc_name"                  to "SM8750-AB",
+            "ro.product.cpu.abi"                      to "arm64-v8a"
         )
     )
 )
@@ -201,18 +255,63 @@ private fun isRooted(): Boolean {
 
 private fun applySpoof(context: Context, device: SpoofDevice): Boolean {
     return try {
-        val sb = StringBuilder()
+        val commands = mutableListOf<String>()
         device.props.forEach { (k, v) ->
-            sb.append("resetprop $k \"$v\"\n")
+            commands.add("resetprop $k \"$v\"")
         }
         if (device.fingerprint.isNotEmpty()) {
-            sb.append("resetprop ro.build.fingerprint \"${device.fingerprint}\"\n")
-            sb.append("resetprop ro.product.build.fingerprint \"${device.fingerprint}\"\n")
-            sb.append("resetprop ro.system.build.fingerprint \"${device.fingerprint}\"\n")
-            sb.append("resetprop ro.vendor.build.fingerprint \"${device.fingerprint}\"\n")
+            commands.add("resetprop ro.build.fingerprint \"${device.fingerprint}\"")
+            commands.add("resetprop ro.product.build.fingerprint \"${device.fingerprint}\"")
+            commands.add("resetprop ro.system.build.fingerprint \"${device.fingerprint}\"")
+            commands.add("resetprop ro.vendor.build.fingerprint \"${device.fingerprint}\"")
+            commands.add("resetprop ro.bootimage.build.fingerprint \"${device.fingerprint}\"")
+            commands.add("resetprop ro.odm.build.fingerprint \"${device.fingerprint}\"")
         }
-        val process = Runtime.getRuntime().exec(arrayOf("su", "-c", sb.toString()))
+        val script = commands.joinToString("\n")
+        val process = Runtime.getRuntime().exec(arrayOf("su", "-c", script))
         process.waitFor() == 0
+    } catch (_: Exception) { false }
+}
+
+private fun resetSpoof(): Boolean {
+    return try {
+        val propsToDelete = listOf(
+            "ro.product.model",
+            "ro.product.brand",
+            "ro.product.device",
+            "ro.product.name",
+            "ro.product.manufacturer",
+            "ro.product.odm.model",
+            "ro.product.system.model",
+            "ro.product.vendor.model",
+            "ro.product.marketname",
+            "ro.product.odm.marketname",
+            "ro.product.system.brand",
+            "ro.product.system.manufacturer",
+            "ro.product.product.manufacturer",
+            "ro.system.manufacturer",
+            "ro.build.fingerprint",
+            "ro.product.build.fingerprint",
+            "ro.system.build.fingerprint",
+            "ro.vendor.build.fingerprint",
+            "ro.bootimage.build.fingerprint",
+            "ro.odm.build.fingerprint",
+            "ro.soc.model",
+            "ro.soc.model.external_name",
+            "ro.soc.manufacturer",
+            "ro.hardware.chipname",
+            "ro.board.platform",
+            "ro.vendor.qti.soc_model",
+            "ro.vendor.qti.soc_name",
+            "persist.sys.gaming.xmode",
+            "persist.sys.gaming.xmode.level",
+            "persist.sys.gaming.gputurbo",
+            "persist.sys.cooling.fan_support"
+        )
+        val script = propsToDelete.joinToString("\n") { "resetprop -d $it 2>/dev/null || true" }
+        val process = Runtime.getRuntime().exec(arrayOf("su", "-c", script))
+        process.waitFor()
+        true
     } catch (_: Exception) { false }
 }
 
@@ -228,16 +327,20 @@ fun DeviceSpoofScreen(
     val isRoot     = remember { isRooted() }
     val scope      = rememberCoroutineScope()
     val brands     = remember { allBrands() }
+    val prefs      = remember { context.getSharedPreferences("javapro_settings", android.content.Context.MODE_PRIVATE) }
 
-    var showDyworSheet    by remember { mutableStateOf(true) }
-    var selectedBrand     by remember { mutableStateOf<SpoofBrand?>(null) }
-    var selectedDevice    by remember { mutableStateOf<SpoofDevice?>(null) }
-    var showDeviceSheet   by remember { mutableStateOf(false) }
-    var isApplying        by remember { mutableStateOf(false) }
-    var appliedDevice     by remember { mutableStateOf<String?>(null) }
+    var showDyworSheet  by remember { mutableStateOf(!prefs.getBoolean("spoof_dywor_shown", false)) }
+    var selectedBrand   by remember { mutableStateOf<SpoofBrand?>(null) }
+    var selectedDevice  by remember { mutableStateOf<SpoofDevice?>(null) }
+    var showDeviceSheet by remember { mutableStateOf(false) }
+    var isApplying      by remember { mutableStateOf(false) }
+    var appliedDevice   by remember { mutableStateOf(prefs.getString("spoof_active_device", null)) }
 
     if (showDyworSheet) {
-        DyworBottomSheet(onDismiss = { showDyworSheet = false })
+        DyworBottomSheet(onDismiss = {
+            prefs.edit().putBoolean("spoof_dywor_shown", true).apply()
+            showDyworSheet = false
+        })
     }
 
     if (showDeviceSheet && selectedDevice != null) {
@@ -259,6 +362,7 @@ fun DeviceSpoofScreen(
                         if (ok) {
                             appliedDevice   = device.name
                             showDeviceSheet = false
+                            prefs.edit().putString("spoof_active_device", device.name).apply()
                             Toast.makeText(context, context.getString(R.string.spoof_applied_success, device.name), Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(context, context.getString(R.string.spoof_apply_failed), Toast.LENGTH_SHORT).show()
@@ -275,6 +379,7 @@ fun DeviceSpoofScreen(
                                     if (ok) {
                                         appliedDevice   = device.name
                                         showDeviceSheet = false
+                                        prefs.edit().putString("spoof_active_device", device.name).apply()
                                         Toast.makeText(context, context.getString(R.string.spoof_applied_success, device.name), Toast.LENGTH_SHORT).show()
                                     } else {
                                         Toast.makeText(context, context.getString(R.string.spoof_apply_failed), Toast.LENGTH_SHORT).show()
@@ -331,20 +436,9 @@ fun DeviceSpoofScreen(
                         deviceName = appliedDevice!!,
                         onReset    = {
                             scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    try {
-                                        Runtime.getRuntime().exec(arrayOf("su", "-c",
-                                            "resetprop --delete ro.product.model;" +
-                                            "resetprop --delete ro.product.brand;" +
-                                            "resetprop --delete ro.product.device;" +
-                                            "resetprop --delete ro.product.name;" +
-                                            "resetprop --delete ro.build.fingerprint;" +
-                                            "resetprop --delete ro.soc.model.external_name;" +
-                                            "resetprop --delete ro.hardware.chipname"
-                                        )).waitFor()
-                                    } catch (_: Exception) {}
-                                }
+                                withContext(Dispatchers.IO) { resetSpoof() }
                                 appliedDevice = null
+                                prefs.edit().remove("spoof_active_device").apply()
                                 Toast.makeText(context, context.getString(R.string.spoof_reset_success), Toast.LENGTH_SHORT).show()
                             }
                         }

@@ -696,5 +696,7 @@
     <string name="spoof_reboot_now">अभी रीबूट करें</string>
     <string name="spoof_reboot_later">बाद में</string>
     <string name="spoof_reboot_failed">स्वचालित रीबूट विफल रहा।</string>
+    <string name="spoof_btn_reset">रीसेट करें</string>
+<string name="spoof_reset_success">स्पूफ को डिफ़ॉल्ट पर रीसेट कर दिया गया।</string>
     
 </resources>

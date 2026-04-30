@@ -344,8 +344,9 @@ private fun NavContent(
                 navController = navController,
                 lang          = lang,
                 onWatchAd     = { onAdStarted, onAdFinished ->
-                    AdManager.showRewardedForExclusive(
+                    AdManager.showRewardedForSpoof(
                         activity    = activity,
+                        onStart     = onAdStarted,
                         onCompleted = { onAdFinished(AdWatchResult.COMPLETED) },
                         onSkipped   = { onAdFinished(AdWatchResult.UNAVAILABLE) }
                     )

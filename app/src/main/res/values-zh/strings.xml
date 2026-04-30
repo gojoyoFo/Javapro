@@ -697,5 +697,7 @@
     <string name="spoof_reboot_now">立即重启</string>
     <string name="spoof_reboot_later">稍后</string>
     <string name="spoof_reboot_failed">自动重启失败。</string>
+    <string name="spoof_btn_reset">重置</string>
+<string name="spoof_reset_success">已成功将伪装重置为默认值。</string>
     
 </resources>

@@ -294,6 +294,47 @@ object AdManager {
         )
     }
 
+    fun showRewardedForSpoof(
+        activity    : Activity,
+        onStart     : () -> Unit = {},
+        onCompleted : () -> Unit,
+        onSkipped   : () -> Unit
+    ) {
+        if (isShowingAd) {
+            onSkipped()
+            return
+        }
+        var adStartTime = 0L
+        showReadyAd(
+            activity  = activity,
+            slot      = SLOT_EXCLUSIVE,
+            onStart   = {
+                adStartTime = System.currentTimeMillis()
+                onStart()
+            },
+            onSuccess = {
+                val watched = System.currentTimeMillis() - adStartTime
+                if (adStartTime > 0L && watched >= 8_000L) {
+                    Log.d(TAG, "[spoof] rewarded completed. watched=${watched}ms")
+                    onCompleted()
+                } else {
+                    Log.w(TAG, "[spoof] ad closed too early. watched=${watched}ms")
+                    onSkipped()
+                }
+            },
+            onFail = {
+                val watched = System.currentTimeMillis() - adStartTime
+                if (adStartTime > 0L && watched >= 8_000L) {
+                    Log.d(TAG, "[spoof] ad closed after 8s, treating as completed.")
+                    onCompleted()
+                } else {
+                    Log.w(TAG, "[spoof] rewarded skipped/unavailable.")
+                    onSkipped()
+                }
+            }
+        )
+    }
+
     fun showRewardedForDailyReward(
         activity  : Activity,
         onStart   : () -> Unit = {},

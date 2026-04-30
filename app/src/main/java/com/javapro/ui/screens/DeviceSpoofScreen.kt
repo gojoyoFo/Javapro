@@ -224,7 +224,6 @@ fun DeviceSpoofScreen(
     onWatchAd     : (onAdStarted: () -> Unit, onAdFinished: (AdWatchResult) -> Unit) -> Unit
 ) {
     val context    = LocalContext.current
-    val isPremium  = remember { PremiumManager.isPremium(context) }
     val isRoot     = remember { isRooted() }
     val scope      = rememberCoroutineScope()
     val brands     = remember { allBrands() }
@@ -243,12 +242,11 @@ fun DeviceSpoofScreen(
 
     if (showDeviceSheet && selectedDevice != null) {
         DeviceDetailSheet(
-            device    = selectedDevice!!,
-            isPremium = isPremium,
-            isRoot    = isRoot,
+            device     = selectedDevice!!,
+            isRoot     = isRoot,
             isApplying = isApplying,
-            onDismiss = { showDeviceSheet = false; selectedDevice = null },
-            onApply   = { device ->
+            onDismiss  = { showDeviceSheet = false; selectedDevice = null },
+            onApply    = { device ->
                 if (!isRoot) {
                     Toast.makeText(context, context.getString(R.string.spoof_root_required), Toast.LENGTH_SHORT).show()
                     return@DeviceDetailSheet
@@ -262,7 +260,7 @@ fun DeviceSpoofScreen(
                                 val ok = withContext(Dispatchers.IO) { applySpoof(context, device) }
                                 isApplying = false
                                 if (ok) {
-                                    appliedDevice = device.name
+                                    appliedDevice   = device.name
                                     showDeviceSheet = false
                                     showRebootDialog = true
                                 } else {
@@ -362,7 +360,28 @@ fun DeviceSpoofScreen(
 
             if (appliedDevice != null) {
                 item {
-                    ActiveSpoofCard(deviceName = appliedDevice!!)
+                    ActiveSpoofCard(
+                        deviceName = appliedDevice!!,
+                        onReset    = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    try {
+                                        Runtime.getRuntime().exec(arrayOf("su", "-c",
+                                            "resetprop --delete ro.product.model;" +
+                                            "resetprop --delete ro.product.brand;" +
+                                            "resetprop --delete ro.product.device;" +
+                                            "resetprop --delete ro.product.name;" +
+                                            "resetprop --delete ro.build.fingerprint;" +
+                                            "resetprop --delete ro.soc.model.external_name;" +
+                                            "resetprop --delete ro.hardware.chipname"
+                                        )).waitFor()
+                                    } catch (_: Exception) {}
+                                }
+                                appliedDevice = null
+                                Toast.makeText(context, context.getString(R.string.spoof_reset_success), Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
                 }
             }
 
@@ -401,10 +420,9 @@ fun DeviceSpoofScreen(
                     ) {
                         brand.devices.forEach { device ->
                             DeviceItem(
-                                device      = device,
-                                isPremium   = isPremium,
-                                isApplied   = appliedDevice == device.name,
-                                onClick     = {
+                                device    = device,
+                                isApplied = appliedDevice == device.name,
+                                onClick   = {
                                     selectedDevice  = device
                                     showDeviceSheet = true
                                 }
@@ -457,7 +475,7 @@ private fun RootWarningCard() {
 }
 
 @Composable
-private fun ActiveSpoofCard(deviceName: String) {
+private fun ActiveSpoofCard(deviceName: String, onReset: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
     Card(
         colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -483,7 +501,7 @@ private fun ActiveSpoofCard(deviceName: String) {
                     modifier           = Modifier.size(22.dp)
                 )
             }
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text       = stringResource(R.string.spoof_active_label),
                     style      = MaterialTheme.typography.labelSmall,
@@ -496,15 +514,26 @@ private fun ActiveSpoofCard(deviceName: String) {
                     color      = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
-            Spacer(Modifier.weight(1f))
-            Text(
-                text  = stringResource(R.string.spoof_active_badge),
-                style = MaterialTheme.typography.labelSmall,
-                color = primary,
-                modifier = Modifier
-                    .background(primary.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            )
+            OutlinedButton(
+                onClick = onReset,
+                shape   = RoundedCornerShape(10.dp),
+                border  = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Icon(
+                    imageVector        = Icons.Filled.Refresh,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.error,
+                    modifier           = Modifier.size(14.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text  = stringResource(R.string.spoof_btn_reset),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }
@@ -585,7 +614,6 @@ private fun BrandCard(
 @Composable
 private fun DeviceItem(
     device    : SpoofDevice,
-    isPremium : Boolean,
     isApplied : Boolean,
     onClick   : () -> Unit
 ) {
@@ -608,30 +636,17 @@ private fun DeviceItem(
             verticalAlignment     = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment     = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text       = device.name,
-                        style      = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = if (isApplied)
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        else
-                            MaterialTheme.colorScheme.onSurface,
-                        maxLines   = 1,
-                        overflow   = TextOverflow.Ellipsis
-                    )
-                    if (!isPremium) {
-                        Icon(
-                            imageVector        = Icons.Filled.Lock,
-                            contentDescription = null,
-                            tint               = MaterialTheme.colorScheme.primary,
-                            modifier           = Modifier.size(14.dp)
-                        )
-                    }
-                }
+                Text(
+                    text       = device.name,
+                    style      = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = if (isApplied)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurface,
+                    maxLines   = 1,
+                    overflow   = TextOverflow.Ellipsis
+                )
                 if (device.chipset.isNotEmpty()) {
                     Text(
                         text  = device.chipset,
@@ -666,7 +681,6 @@ private fun DeviceItem(
 @Composable
 private fun DeviceDetailSheet(
     device     : SpoofDevice,
-    isPremium  : Boolean,
     isRoot     : Boolean,
     isApplying : Boolean,
     onDismiss  : () -> Unit,
@@ -754,31 +768,6 @@ private fun DeviceDetailSheet(
                 }
             }
 
-            if (!isPremium) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                    shape  = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier              = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment     = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Lock,
-                            contentDescription = null,
-                            tint        = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier    = Modifier.size(18.dp)
-                        )
-                        Text(
-                            text  = stringResource(R.string.spoof_premium_required),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    }
-                }
-            }
-
             if (!isRoot) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -819,7 +808,7 @@ private fun DeviceDetailSheet(
                     onClick  = { onApply(device) },
                     modifier = Modifier.weight(1f),
                     shape    = RoundedCornerShape(14.dp),
-                    enabled  = isPremium && isRoot && !isApplying
+                    enabled  = isRoot && !isApplying
                 ) {
                     if (isApplying) {
                         CircularProgressIndicator(

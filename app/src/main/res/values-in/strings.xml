@@ -758,6 +758,8 @@
     <string name="spoof_reboot_body">%1$s berhasil diterapkan. Reboot diperlukan agar spoof berjalan optimal.</string>
     <string name="spoof_reboot_now">Reboot Sekarang</string>
     <string name="spoof_reboot_later">Nanti</string>
-    <string name="spoof_reboot_failed">Gagal melakukan reboot otomatis.</string>
+    <string name="spoof_reboot_failed">Gagal melakukan reboot otomatis</string>
+    <string name="spoof_btn_reset">Reset</string>
+<string name="spoof_reset_success">Spoof berhasil direset ke default.</string>
 
 </resources>

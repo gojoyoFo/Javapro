@@ -82,23 +82,40 @@ fun calcCpuUsage(s1: CpuStatSnapshot, s2: CpuStatSnapshot): Float {
     return if (deltaTotal <= 0) 0f else ((deltaTotal - deltaIdle).toFloat() / deltaTotal * 100f).coerceIn(0f, 100f)
 }
 
+private fun readFreqDirect(path: String): Long {
+    return try { File(path).readText().trim().toLongOrNull() ?: 0L } catch (_: Exception) { 0L }
+}
+
+private fun readFreqShell(path: String): Long {
+    return try { TweakExecutor.executeWithOutput("cat $path")?.trim()?.toLongOrNull() ?: 0L } catch (_: Exception) { 0L }
+}
+
+private fun readFreq(path: String): Long {
+    val direct = readFreqDirect(path)
+    return if (direct > 0L) direct else readFreqShell(path)
+}
+
 suspend fun readCpuClustersSuspend(): List<CpuClusterInfo> = withContext(Dispatchers.IO) {
     try {
         val cpuCount  = Runtime.getRuntime().availableProcessors()
         val coreFreqs = (0 until cpuCount).map { core ->
-            val curFile = File("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq")
-            val maxFile = File("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
-            Pair(
-                if (curFile.exists()) curFile.readText().trim().toLongOrNull() ?: 0L else 0L,
-                if (maxFile.exists()) maxFile.readText().trim().toLongOrNull() ?: 0L else 0L
-            )
+            val curPath = "/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq"
+            val maxPath = "/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq"
+            Pair(readFreq(curPath), readFreq(maxPath))
         }
         val maxFreqs       = coreFreqs.map { it.second }
-        val uniqueMaxFreqs = maxFreqs.distinct().sorted()
+        val uniqueMaxFreqs = maxFreqs.distinct().filter { it > 0L }.sorted()
+
+        if (uniqueMaxFreqs.isEmpty()) return@withContext emptyList()
+
         val clusterColors  = listOf(Color(0xFF64B5F6), Color(0xFFFFD600), Color(0xFFEF5350))
         uniqueMaxFreqs.mapIndexed { index, maxFreq ->
             val cores  = maxFreqs.mapIndexedNotNull { i, f -> if (f == maxFreq) i else null }
-            val avgCur = if (cores.isNotEmpty()) cores.map { coreFreqs[it].first }.average().toLong() else 0L
+            val curValues = cores.map { coreFreqs[it].first }
+            val avgCur = if (curValues.isNotEmpty() && curValues.any { it > 0L })
+                curValues.filter { it > 0L }.average().toLong()
+            else
+                (maxFreq * 0.3).toLong()
             val name   = when { index == 0 -> "Little Core"; index == uniqueMaxFreqs.size - 1 -> "Big Core"; else -> "Mid Core" }
             CpuClusterInfo(name, cores, (avgCur / 1000).toInt(), (maxFreq / 1000).toInt(), clusterColors.getOrElse(index) { Color(0xFFCE93D8) })
         }
@@ -458,21 +475,23 @@ fun HomeScreen(
                                 CpuClusterInfo("Big Core",    listOf(7), 0, 1, Color(0xFFEF5350))
                             )
                             coreDisplayList.forEach { cluster ->
-                                val progress = if (cluster.maxFreqMhz > 0) (cluster.currentFreqMhz.toFloat() / cluster.maxFreqMhz).coerceIn(0f, 1f) else 0f
-                                val animProg by animateFloatAsState(targetValue = progress, animationSpec = tween(600), label = "cp")
-                                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Text(cluster.name, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = cluster.color)
-                                        Text("(${cluster.currentFreqMhz} MHz)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    Box(modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(cluster.color.copy(0.14f))) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth(animProg)
-                                                .fillMaxHeight()
-                                                .clip(RoundedCornerShape(50))
-                                                .background(Brush.horizontalGradient(listOf(cluster.color.copy(0.65f), cluster.color)))
-                                        )
+                                key(cluster.name) {
+                                    val progress = if (cluster.maxFreqMhz > 0) (cluster.currentFreqMhz.toFloat() / cluster.maxFreqMhz).coerceIn(0f, 1f) else 0f
+                                    val animProg by animateFloatAsState(targetValue = progress, animationSpec = tween(600), label = "cp_${cluster.name}")
+                                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                            Text(cluster.name, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = cluster.color)
+                                            Text("(${cluster.currentFreqMhz} MHz)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        Box(modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(cluster.color.copy(0.14f))) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth(animProg)
+                                                    .fillMaxHeight()
+                                                    .clip(RoundedCornerShape(50))
+                                                    .background(Brush.horizontalGradient(listOf(cluster.color.copy(0.65f), cluster.color)))
+                                            )
+                                        }
                                     }
                                 }
                             }

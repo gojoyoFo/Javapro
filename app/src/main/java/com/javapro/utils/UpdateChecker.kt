@@ -131,6 +131,7 @@ object UpdateChecker {
         onFinished : () -> Unit,
         onError    : () -> Unit
     ) {
+        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
         try {
             val destFile = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
@@ -152,37 +153,58 @@ object UpdateChecker {
             val dlId = dm.enqueue(request)
 
             val progressThread = Thread {
-                var downloading = true
+                var downloading  = true
+                var lastProgress = -1
                 while (downloading) {
-                    val q      = DownloadManager.Query().setFilterById(dlId)
-                    val cursor = dm.query(q)
-                    if (cursor.moveToFirst()) {
-                        val statusCol     = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val downloadedCol = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                        val totalCol      = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                    try {
+                        val q      = DownloadManager.Query().setFilterById(dlId)
+                        val cursor = dm.query(q)
+                        if (cursor != null && cursor.moveToFirst()) {
+                            val statusCol     = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                            val downloadedCol = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                            val totalCol      = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
 
-                        val status     = if (statusCol >= 0)     cursor.getInt(statusCol)      else -1
-                        val downloaded = if (downloadedCol >= 0) cursor.getLong(downloadedCol) else 0L
-                        val total      = if (totalCol >= 0)      cursor.getLong(totalCol)       else 1L
+                            val status     = if (statusCol >= 0)     cursor.getInt(statusCol)      else -1
+                            val downloaded = if (downloadedCol >= 0) cursor.getLong(downloadedCol) else 0L
+                            val total      = if (totalCol >= 0)      cursor.getLong(totalCol)       else -1L
 
-                        if (total > 0) onProgress((downloaded * 100L / total).toInt())
+                            if (total > 0L && downloaded >= 0L) {
+                                val pct = (downloaded * 100L / total).toInt().coerceIn(0, 100)
+                                if (pct != lastProgress) {
+                                    lastProgress = pct
+                                    mainHandler.post { onProgress(pct) }
+                                }
+                            }
 
-                        when (status) {
-                            DownloadManager.STATUS_SUCCESSFUL -> downloading = false
-                            DownloadManager.STATUS_FAILED     -> { downloading = false; onError(); return@Thread }
+                            when (status) {
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    downloading = false
+                                    mainHandler.post { onProgress(100) }
+                                }
+                                DownloadManager.STATUS_FAILED -> {
+                                    downloading = false
+                                    cursor.close()
+                                    mainHandler.post { onError() }
+                                    return@Thread
+                                }
+                            }
+                            cursor.close()
+                        } else {
+                            cursor?.close()
                         }
-                    }
-                    cursor.close()
+                    } catch (_: Exception) { }
                     Thread.sleep(300)
                 }
-                onFinished()
-                installApk(context, destFile)
+                mainHandler.post {
+                    onFinished()
+                    installApk(context, destFile)
+                }
             }
             progressThread.isDaemon = true
             progressThread.start()
 
         } catch (e: Exception) {
-            onError()
+            mainHandler.post { onError() }
         }
     }
 

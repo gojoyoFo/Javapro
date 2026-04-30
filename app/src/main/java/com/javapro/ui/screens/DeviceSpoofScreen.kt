@@ -2,6 +2,7 @@ package com.javapro.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,12 +16,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +35,7 @@ import com.javapro.spoof.SpoofExecutor
 import com.javapro.spoof.allBrands
 import com.javapro.utils.PremiumManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -51,35 +55,45 @@ fun DeviceSpoofScreen(
         context.getSharedPreferences("javapro_settings", android.content.Context.MODE_PRIVATE)
     }
 
-    var showDyworSheet       by remember { mutableStateOf(!prefs.getBoolean("spoof_dywor_shown", false)) }
-    var selectedBrand        by remember { mutableStateOf<SpoofBrand?>(null) }
-    var selectedDevice       by remember { mutableStateOf<SpoofDevice?>(null) }
-    var showDeviceSheet      by remember { mutableStateOf(false) }
-    var isApplying           by remember { mutableStateOf(false) }
-    var appliedDevice        by remember { mutableStateOf(prefs.getString("spoof_active_device", null)) }
-    var pendingReboot        by remember { mutableStateOf(prefs.getBoolean("spoof_pending_reboot", false)) }
-    var showRebootDialog     by remember { mutableStateOf(false) }
+    var showDyworSheet         by remember { mutableStateOf(!prefs.getBoolean("spoof_dywor_shown", false)) }
+    var selectedBrand          by remember { mutableStateOf<SpoofBrand?>(null) }
+    var selectedDevice         by remember { mutableStateOf<SpoofDevice?>(null) }
+    var showDeviceSheet        by remember { mutableStateOf(false) }
+    var isApplying             by remember { mutableStateOf(false) }
+    var appliedDevice          by remember { mutableStateOf(prefs.getString("spoof_active_device", null)) }
+    var showRebootDialog       by remember { mutableStateOf(false) }
     var rebootDialogDeviceName by remember { mutableStateOf("") }
     var showResetRebootDialog  by remember { mutableStateOf(false) }
+
+    var showPendingReboot by remember {
+        val saved = prefs.getBoolean("spoof_pending_reboot", false)
+        val resolved = if (saved) {
+            val moduleActive = SpoofExecutor.isSpoofActive()
+            if (!moduleActive) {
+                prefs.edit().putBoolean("spoof_pending_reboot", false).apply()
+                false
+            } else true
+        } else false
+        mutableStateOf(resolved)
+    }
 
     fun doApply(device: SpoofDevice) {
         scope.launch {
             isApplying = true
-            val ok = withContext(Dispatchers.IO) {
-                SpoofExecutor.applySpoof(device)
-            }
+            val ok = withContext(Dispatchers.IO) { SpoofExecutor.applySpoof(device) }
             isApplying = false
             if (ok) {
-                appliedDevice      = device.name
-                pendingReboot      = true
-                showDeviceSheet    = false
-                selectedDevice     = null
+                appliedDevice          = device.name
+                showPendingReboot      = true
+                showDeviceSheet        = false
+                selectedDevice         = null
                 rebootDialogDeviceName = device.name
-                showRebootDialog   = true
                 prefs.edit()
                     .putString("spoof_active_device", device.name)
                     .putBoolean("spoof_pending_reboot", true)
                     .apply()
+                delay(600)
+                showRebootDialog = true
             } else {
                 Toast.makeText(context, context.getString(R.string.spoof_apply_failed), Toast.LENGTH_SHORT).show()
             }
@@ -88,17 +102,16 @@ fun DeviceSpoofScreen(
 
     fun doReset() {
         scope.launch {
-            val ok = withContext(Dispatchers.IO) {
-                SpoofExecutor.removeSpoof()
-            }
+            val ok = withContext(Dispatchers.IO) { SpoofExecutor.removeSpoof() }
             if (ok) {
                 appliedDevice     = null
-                pendingReboot     = true
-                showResetRebootDialog = true
+                showPendingReboot = true
                 prefs.edit()
                     .remove("spoof_active_device")
                     .putBoolean("spoof_pending_reboot", true)
                     .apply()
+                delay(600)
+                showResetRebootDialog = true
             } else {
                 Toast.makeText(context, context.getString(R.string.spoof_apply_failed), Toast.LENGTH_SHORT).show()
             }
@@ -107,19 +120,18 @@ fun DeviceSpoofScreen(
 
     if (showRebootDialog) {
         RebootConfirmDialog(
-            title   = stringResource(R.string.spoof_reboot_title),
-            body    = stringResource(R.string.spoof_reboot_body, rebootDialogDeviceName),
+            title    = stringResource(R.string.spoof_reboot_title),
+            body     = stringResource(R.string.spoof_reboot_body, rebootDialogDeviceName),
             onReboot = {
-                showRebootDialog = false
-                try {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
-                } catch (e: Exception) {
+                showRebootDialog  = false
+                showPendingReboot = false
+                prefs.edit().putBoolean("spoof_pending_reboot", false).apply()
+                try { Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot")) }
+                catch (e: Exception) {
                     Toast.makeText(context, context.getString(R.string.spoof_reboot_failed), Toast.LENGTH_SHORT).show()
                 }
             },
-            onLater = {
-                showRebootDialog = false
-            }
+            onLater = { showRebootDialog = false }
         )
     }
 
@@ -129,15 +141,14 @@ fun DeviceSpoofScreen(
             body     = stringResource(R.string.spoof_reset_reboot_body),
             onReboot = {
                 showResetRebootDialog = false
-                try {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot"))
-                } catch (e: Exception) {
+                showPendingReboot     = false
+                prefs.edit().putBoolean("spoof_pending_reboot", false).apply()
+                try { Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot")) }
+                catch (e: Exception) {
                     Toast.makeText(context, context.getString(R.string.spoof_reboot_failed), Toast.LENGTH_SHORT).show()
                 }
             },
-            onLater = {
-                showResetRebootDialog = false
-            }
+            onLater = { showResetRebootDialog = false }
         )
     }
 
@@ -162,13 +173,13 @@ fun DeviceSpoofScreen(
                 if (isPremium) {
                     doApply(device)
                 } else {
-                    onWatchAd({}, { result ->
+                    onWatchAd({}) { result ->
                         if (result == AdWatchResult.COMPLETED) doApply(device)
                         else {
                             isApplying = false
                             Toast.makeText(context, context.getString(R.string.spoof_ad_skipped), Toast.LENGTH_SHORT).show()
                         }
-                    })
+                    }
                 }
             }
         )
@@ -195,13 +206,25 @@ fun DeviceSpoofScreen(
         ) {
             if (!isRoot) item { RootWarningCard() }
 
-            if (pendingReboot) {
-                item { PendingRebootBanner() }
+            if (showPendingReboot) {
+                item {
+                    PendingRebootBanner(onDismiss = {
+                        showPendingReboot = false
+                        prefs.edit().putBoolean("spoof_pending_reboot", false).apply()
+                    })
+                }
             }
 
             if (appliedDevice != null) {
                 item {
-                    ActiveSpoofCard(deviceName = appliedDevice!!, onReset = { doReset() })
+                    ActiveSpoofCard(
+                        deviceName = appliedDevice!!,
+                        onReset    = { doReset() },
+                        onReboot   = {
+                            rebootDialogDeviceName = appliedDevice ?: ""
+                            showRebootDialog = true
+                        }
+                    )
                 }
             }
 
@@ -229,11 +252,11 @@ fun DeviceSpoofScreen(
 
                 AnimatedVisibility(
                     visible = selectedBrand?.name == brand.name && !brand.isSoon,
-                    enter   = expandVertically() + fadeIn(),
-                    exit    = shrinkVertically() + fadeOut()
+                    enter   = expandVertically(animationSpec = tween(300)) + fadeIn(),
+                    exit    = shrinkVertically(animationSpec = tween(250)) + fadeOut()
                 ) {
                     Column(
-                        modifier            = Modifier.padding(start = 16.dp, top = 8.dp),
+                        modifier            = Modifier.padding(top = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         brand.devices.forEach { device ->
@@ -261,41 +284,97 @@ private fun RebootConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onLater,
-        icon             = { Icon(Icons.Filled.Refresh, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp)) },
-        title            = { Text(title, fontWeight = FontWeight.Bold) },
-        text             = { Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-        confirmButton    = {
-            Button(onClick = onReboot, shape = RoundedCornerShape(12.dp)) {
-                Text(stringResource(R.string.spoof_reboot_now))
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Refresh, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             }
         },
-        dismissButton    = {
-            OutlinedButton(onClick = onLater, shape = RoundedCornerShape(12.dp)) {
-                Text(stringResource(R.string.spoof_reboot_later))
+        title = {
+            Text(title, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        },
+        text = {
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        },
+        confirmButton = {
+            Column(
+                modifier            = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(onClick = onReboot, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.spoof_reboot_now), fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(onClick = onLater, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.spoof_reboot_later))
+                }
             }
         },
-        shape = RoundedCornerShape(20.dp)
+        shape          = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface
     )
 }
 
 @Composable
-private fun PendingRebootBanner() {
+private fun PendingRebootBanner(onDismiss: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue  = 0.65f,
+        targetValue   = 1f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label         = "alpha"
+    )
     Card(
-        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-        shape    = RoundedCornerShape(14.dp),
+        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        shape    = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier              = Modifier.padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onTertiaryContainer, modifier = Modifier.size(20.dp))
-            Text(
-                text  = stringResource(R.string.spoof_pending_reboot_banner),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer
-            )
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.Refresh,
+                    null,
+                    tint     = MaterialTheme.colorScheme.secondary.copy(alpha = pulseAlpha),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.spoof_pending_reboot_title),
+                    style      = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color      = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    stringResource(R.string.spoof_pending_reboot_banner),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                )
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    Icons.Filled.Close,
+                    null,
+                    tint     = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
@@ -312,7 +391,15 @@ private fun RootWarningCard() {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(24.dp))
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
+            }
             Column {
                 Text(stringResource(R.string.spoof_root_only_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
                 Text(stringResource(R.string.spoof_root_only_desc),  style = MaterialTheme.typography.bodySmall,  color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f))
@@ -322,38 +409,94 @@ private fun RootWarningCard() {
 }
 
 @Composable
-private fun ActiveSpoofCard(deviceName: String, onReset: () -> Unit) {
-    val primary = MaterialTheme.colorScheme.primary
+private fun ActiveSpoofCard(deviceName: String, onReset: () -> Unit, onReboot: () -> Unit) {
+    val primary   = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
     Card(
-        colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        shape    = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        shape    = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors   = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border   = BorderStroke(1.dp, primary.copy(alpha = 0.3f))
     ) {
-        Row(
-            modifier              = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment     = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(primary.copy(alpha = 0.12f), secondary.copy(alpha = 0.06f))
+                    )
+                )
         ) {
-            Box(
-                modifier         = Modifier.size(40.dp).clip(CircleShape).background(primary.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Filled.CheckCircle, null, tint = primary, modifier = Modifier.size(22.dp))
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.spoof_active_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
-                Text(deviceName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-            OutlinedButton(
-                onClick        = onReset,
-                shape          = RoundedCornerShape(10.dp),
-                border         = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                modifier       = Modifier.height(34.dp)
-            ) {
-                Icon(Icons.Filled.Refresh, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(stringResource(R.string.spoof_btn_reset), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(primary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, null, tint = primary, modifier = Modifier.size(26.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.spoof_active_label),
+                            style      = MaterialTheme.typography.labelSmall,
+                            color      = primary.copy(alpha = 0.8f),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            deviceName,
+                            style      = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color      = MaterialTheme.colorScheme.onSurface,
+                            maxLines   = 1,
+                            overflow   = TextOverflow.Ellipsis
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(primary.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.spoof_active_badge),
+                            style      = MaterialTheme.typography.labelSmall,
+                            color      = primary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+                HorizontalDivider(color = primary.copy(alpha = 0.12f))
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick        = onReset,
+                        modifier       = Modifier.weight(1f),
+                        shape          = RoundedCornerShape(12.dp),
+                        border         = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f)),
+                        contentPadding = PaddingValues(vertical = 10.dp)
+                    ) {
+                        Icon(Icons.Filled.DeleteOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.spoof_btn_reset), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick        = onReboot,
+                        modifier       = Modifier.weight(1f),
+                        shape          = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 10.dp)
+                    ) {
+                        Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.spoof_reboot_now), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
     }
@@ -361,40 +504,83 @@ private fun ActiveSpoofCard(deviceName: String, onReset: () -> Unit) {
 
 @Composable
 private fun BrandCard(brand: SpoofBrand, isSelected: Boolean, isRoot: Boolean, onClick: () -> Unit) {
+    val primary = MaterialTheme.colorScheme.primary
+    val arrowRotation by animateFloatAsState(
+        targetValue   = if (isSelected) 180f else 0f,
+        animationSpec = tween(300),
+        label         = "arrow"
+    )
     val containerColor = when {
-        brand.isSoon -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        isSelected   -> MaterialTheme.colorScheme.secondaryContainer
+        brand.isSoon -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        isSelected   -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
         else         -> MaterialTheme.colorScheme.surfaceVariant
-    }
-    val contentColor = when {
-        brand.isSoon -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-        isSelected   -> MaterialTheme.colorScheme.onSecondaryContainer
-        else         -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Card(
         onClick  = onClick,
         colors   = CardDefaults.cardColors(containerColor = containerColor),
         shape    = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth(),
-        enabled  = !brand.isSoon && isRoot
+        enabled  = !brand.isSoon && isRoot,
+        border   = if (isSelected) BorderStroke(1.dp, primary.copy(alpha = 0.4f)) else null
     ) {
         Row(
             modifier              = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Icon(brand.icon, null, tint = contentColor, modifier = Modifier.size(24.dp))
-            Text(brand.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = contentColor, modifier = Modifier.weight(1f))
-            if (brand.isSoon) {
+            val iconTint = if (brand.isSoon)
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+            else if (isSelected) primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(
+                        if (isSelected) primary.copy(alpha = 0.15f)
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(brand.icon, null, tint = iconTint, modifier = Modifier.size(21.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text     = stringResource(R.string.spoof_soon_badge),
-                    style    = MaterialTheme.typography.labelSmall,
-                    color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.background(MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 3.dp)
+                    brand.name,
+                    style      = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = if (brand.isSoon) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                 else if (isSelected) primary
+                                 else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (!brand.isSoon) {
+                    Text(
+                        "${brand.devices.size} ${stringResource(R.string.spoof_devices_count)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                }
+            }
+            if (brand.isSoon) {
+                Box(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.spoof_soon_badge),
+                        style      = MaterialTheme.typography.labelSmall,
+                        color      = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             } else {
-                Text("${brand.devices.size} ${stringResource(R.string.spoof_devices_count)}", style = MaterialTheme.typography.labelSmall, color = contentColor.copy(alpha = 0.7f))
-                Icon(if (isSelected) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = contentColor, modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    null,
+                    tint     = if (isSelected) primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                    modifier = Modifier.size(22.dp).rotate(arrowRotation)
+                )
             }
         }
     }
@@ -405,45 +591,207 @@ private fun DeviceItem(device: SpoofDevice, isApplied: Boolean, onClick: () -> U
     val primary = MaterialTheme.colorScheme.primary
     Card(
         onClick  = onClick,
-        colors   = CardDefaults.cardColors(containerColor = if (isApplied) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface),
+        colors   = CardDefaults.cardColors(
+            containerColor = if (isApplied)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            else
+                MaterialTheme.colorScheme.surface
+        ),
         shape    = RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth(),
-        border   = if (isApplied) BorderStroke(1.5.dp, primary.copy(alpha = 0.5f)) else null
+        border   = if (isApplied)
+            BorderStroke(1.5.dp, primary.copy(alpha = 0.4f))
+        else
+            BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(device.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = if (isApplied) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (device.chipset.isNotEmpty())
-                    Text(device.chipset, style = MaterialTheme.typography.bodySmall, color = if (isApplied) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier              = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(
+                        if (isApplied) primary.copy(alpha = 0.15f)
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (isApplied) Icons.Filled.CheckCircle else Icons.Filled.PhoneAndroid,
+                    null,
+                    tint     = if (isApplied) primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
             }
-            Icon(if (isApplied) Icons.Filled.CheckCircle else Icons.Filled.ChevronRight, null, tint = if (isApplied) primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    device.name,
+                    style      = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = if (isApplied) primary else MaterialTheme.colorScheme.onSurface,
+                    maxLines   = 1,
+                    overflow   = TextOverflow.Ellipsis
+                )
+                if (device.chipset.isNotEmpty()) {
+                    Text(
+                        device.chipset,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Icon(
+                Icons.Filled.ChevronRight,
+                null,
+                tint     = if (isApplied) primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DeviceDetailSheet(device: SpoofDevice, isRoot: Boolean, isApplying: Boolean, onDismiss: () -> Unit, onApply: (SpoofDevice) -> Unit) {
+private fun DeviceDetailSheet(
+    device     : SpoofDevice,
+    isRoot     : Boolean,
+    isApplying : Boolean,
+    onDismiss  : () -> Unit,
+    onApply    : (SpoofDevice) -> Unit
+) {
+    val primary   = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape            = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor   = MaterialTheme.colorScheme.surface
+        shape            = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor   = MaterialTheme.colorScheme.surface,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 4.dp)
+                    .width(40.dp).height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+        }
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()),
+            modifier            = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(device.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            if (device.chipset.isNotEmpty())     SpoofInfoRow(Icons.Filled.Memory,       stringResource(R.string.spoof_detail_chipset),      device.chipset)
-            SpoofInfoRow(Icons.Filled.PhoneAndroid, stringResource(R.string.spoof_detail_model), device.model)
-            if (device.fingerprint.isNotEmpty()) SpoofInfoRow(Icons.Filled.Fingerprint,  stringResource(R.string.spoof_detail_fingerprint),  device.fingerprint, maxLines = 2)
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(primary.copy(alpha = 0.25f), secondary.copy(alpha = 0.15f))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.PhoneAndroid, null, tint = primary, modifier = Modifier.size(32.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        device.name,
+                        style      = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color      = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (device.chipset.isNotEmpty()) {
+                        Text(device.chipset, style = MaterialTheme.typography.bodySmall, color = primary)
+                    }
+                }
+            }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape  = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (device.chipset.isNotEmpty())
+                        SpoofInfoRow(Icons.Filled.Memory,       stringResource(R.string.spoof_detail_chipset),     device.chipset)
+                    SpoofInfoRow(Icons.Filled.PhoneAndroid,     stringResource(R.string.spoof_detail_model),       device.model)
+                    if (device.fingerprint.isNotEmpty())
+                        SpoofInfoRow(Icons.Filled.Fingerprint,  stringResource(R.string.spoof_detail_fingerprint), device.fingerprint, maxLines = 3)
+                }
+            }
+
+            Text(
+                stringResource(R.string.spoof_detail_props_title),
+                style      = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color      = MaterialTheme.colorScheme.onSurface
+            )
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape  = RoundedCornerShape(14.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val previewEntries = device.props.entries.take(8).toList()
+                    previewEntries.forEachIndexed { idx, (key, value) ->
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                key.substringAfterLast("."),
+                                style    = MaterialTheme.typography.labelSmall,
+                                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(0.45f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                value,
+                                style      = MaterialTheme.typography.labelSmall,
+                                color      = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium,
+                                modifier   = Modifier.weight(0.55f),
+                                maxLines   = 1,
+                                overflow   = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (idx < previewEntries.lastIndex) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+                        }
+                    }
+                    if (device.props.size > 8) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "+${device.props.size - 8} ${stringResource(R.string.spoof_more_props)}",
+                            style  = MaterialTheme.typography.labelSmall,
+                            color  = primary.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
 
             if (!isRoot) {
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), shape = RoundedCornerShape(12.dp)) {
-                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape  = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier              = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
                         Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(18.dp))
                         Text(stringResource(R.string.spoof_root_required), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                     }
@@ -451,26 +799,44 @@ private fun DeviceDetailSheet(device: SpoofDevice, isRoot: Boolean, isApplying: 
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
+                OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
                     Text(stringResource(R.string.spoof_btn_cancel))
                 }
-                Button(onClick = { onApply(device) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), enabled = isRoot && !isApplying) {
-                    if (isApplying) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                    else { Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.spoof_btn_apply)) }
+                Button(
+                    onClick  = { onApply(device) },
+                    modifier = Modifier.weight(1f),
+                    shape    = RoundedCornerShape(16.dp),
+                    enabled  = isRoot && !isApplying
+                ) {
+                    if (isApplying) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.spoof_btn_apply), fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(28.dp))
         }
     }
 }
 
 @Composable
 private fun SpoofInfoRow(icon: ImageVector, label: String, value: String, maxLines: Int = 1) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp).padding(top = 2.dp))
-        Column {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -478,30 +844,66 @@ private fun SpoofInfoRow(icon: ImageVector, label: String, value: String, maxLin
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DyworBottomSheet(onDismiss: () -> Unit) {
+    val primary   = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape            = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor   = MaterialTheme.colorScheme.surface
+        containerColor   = MaterialTheme.colorScheme.surface,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp, bottom = 4.dp)
+                    .width(40.dp).height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+        }
     ) {
         Column(
-            modifier            = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+            modifier            = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(modifier = Modifier.size(64.dp).clip(CircleShape).background(Brush.radialGradient(listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)))), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+            Box(
+                modifier = Modifier
+                    .size(76.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(primary.copy(alpha = 0.3f), secondary.copy(alpha = 0.12f))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Warning, null, tint = primary, modifier = Modifier.size(38.dp))
             }
             Text(stringResource(R.string.spoof_dywor_title), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.spoof_dywor_body),  style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.spoof_dywor_body),
+                style     = MaterialTheme.typography.bodyMedium,
+                color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Card(
+                colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape    = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     DyworPoint(Icons.Filled.Android,       stringResource(R.string.spoof_dywor_point1))
                     DyworPoint(Icons.Filled.SportsEsports, stringResource(R.string.spoof_dywor_point2))
                     DyworPoint(Icons.Filled.Warning,       stringResource(R.string.spoof_dywor_point3))
                 }
             }
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
+            Button(
+                onClick  = onDismiss,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape    = RoundedCornerShape(16.dp)
+            ) {
                 Text(stringResource(R.string.spoof_dywor_btn), fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
             Spacer(Modifier.height(16.dp))
@@ -511,8 +913,19 @@ private fun DyworBottomSheet(onDismiss: () -> Unit) {
 
 @Composable
 private fun DyworPoint(icon: ImageVector, text: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment     = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(15.dp))
+        }
+        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f))
     }
 }

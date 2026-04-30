@@ -239,5 +239,35 @@ fun allBrands(): List<SpoofBrand> = listOf(
                 )
             )
         )
+    ),
+    SpoofBrand(
+        name    = "Xiaomi",
+        icon    = Icons.Filled.PhoneAndroid,
+        devices = emptyList(),
+        isSoon  = true
+    ),
+    SpoofBrand(
+        name    = "POCO",
+        icon    = Icons.Filled.PhoneAndroid,
+        devices = emptyList(),
+        isSoon  = true
+    ),
+    SpoofBrand(
+        name    = "Realme",
+        icon    = Icons.Filled.PhoneAndroid,
+        devices = emptyList(),
+        isSoon  = true
+    ),
+    SpoofBrand(
+        name    = "Vivo",
+        icon    = Icons.Filled.Smartphone,
+        devices = emptyList(),
+        isSoon  = true
+    ),
+    SpoofBrand(
+        name    = "OPPO",
+        icon    = Icons.Filled.Smartphone,
+        devices = emptyList(),
+        isSoon  = true
     )
 )

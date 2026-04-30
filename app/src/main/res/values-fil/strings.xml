@@ -680,5 +680,13 @@
     <string name="spoof_reboot_failed">Nabigo ang awtomatikong reboot.</string>
     <string name="spoof_btn_reset">I-reset</string>
 <string name="spoof_reset_success">Matagumpay na na-reset ang spoof sa default.</string>
+<string name="spoof_reboot_title">Kailangan ng Reboot</string>
+    <string name="spoof_reboot_body">Ang spoof na "%1$s" ay magiging aktibo pagkatapos ng reboot.</string>
+    <string name="spoof_reset_reboot_title">Kailangan ng Reboot</string>
+    <string name="spoof_reset_reboot_body">Ang spoof ay ide-disable pagkatapos ng reboot.</string>
+    <string name="spoof_reboot_now">I-reboot Ngayon</string>
+    <string name="spoof_reboot_later">Mamaya</string>
+    <string name="spoof_reboot_failed">Nabigo ang reboot, mag-reboot nang manu-mano.</string>
+    <string name="spoof_pending_reboot_banner">Naghihintay ng reboot para ilapat ang mga pagbabago sa spoof.</string>
 
 </resources>

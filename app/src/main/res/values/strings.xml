@@ -766,5 +766,13 @@
     <string name="spoof_reboot_failed">Failed to perform automatic reboot</string>
     <string name="spoof_btn_reset">Reset</string>
 <string name="spoof_reset_success">Spoof has been reset to default.</string>
+ <string name="spoof_reboot_title">Reboot Required</string>
+    <string name="spoof_reboot_body">Spoof "%1$s" will be active after reboot.</string>
+    <string name="spoof_reset_reboot_title">Reboot Required</string>
+    <string name="spoof_reset_reboot_body">Spoof will be disabled after reboot.</string>
+    <string name="spoof_reboot_now">Reboot Now</string>
+    <string name="spoof_reboot_later">Later</string>
+    <string name="spoof_reboot_failed">Reboot failed, please reboot manually.</string>
+    <string name="spoof_pending_reboot_banner">Waiting for reboot to apply spoof changes.</string>
 
 </resources>

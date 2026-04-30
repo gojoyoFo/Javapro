@@ -698,5 +698,12 @@
     <string name="spoof_reboot_failed">स्वचालित रीबूट विफल रहा।</string>
     <string name="spoof_btn_reset">रीसेट करें</string>
 <string name="spoof_reset_success">स्पूफ को डिफ़ॉल्ट पर रीसेट कर दिया गया।</string>
-    
+     <string name="spoof_reboot_title">रीबूट आवश्यक है</string>
+    <string name="spoof_reboot_body">"%1$s" स्पूफ रीबूट के बाद सक्रिय होगा।</string>
+    <string name="spoof_reset_reboot_title">रीबूट आवश्यक है</string>
+    <string name="spoof_reset_reboot_body">रीबूट के बाद स्पूफ निष्क्रिय हो जाएगा।</string>
+    <string name="spoof_reboot_now">अभी रीबूट करें</string>
+    <string name="spoof_reboot_later">बाद में</string>
+    <string name="spoof_reboot_failed">रीबूट विफल, मैन्युअल रीबूट करें।</string>
+    <string name="spoof_pending_reboot_banner">स्पूफ परिवर्तन लागू करने के लिए रीबूट की प्रतीक्षा है।</string>
 </resources>

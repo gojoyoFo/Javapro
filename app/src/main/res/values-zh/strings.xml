@@ -699,5 +699,13 @@
     <string name="spoof_reboot_failed">自动重启失败。</string>
     <string name="spoof_btn_reset">重置</string>
 <string name="spoof_reset_success">已成功将伪装重置为默认值。</string>
+<string name="spoof_reboot_title">需要重启</string>
+    <string name="spoof_reboot_body">伪装"%1$s"将在重启后生效。</string>
+    <string name="spoof_reset_reboot_title">需要重启</string>
+    <string name="spoof_reset_reboot_body">伪装将在重启后停用。</string>
+    <string name="spoof_reboot_now">立即重启</string>
+    <string name="spoof_reboot_later">稍后</string>
+    <string name="spoof_reboot_failed">重启失败，请手动重启。</string>
+    <string name="spoof_pending_reboot_banner">等待重启以应用伪装更改。</string>
     
 </resources>

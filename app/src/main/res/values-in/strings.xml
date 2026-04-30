@@ -761,5 +761,13 @@
     <string name="spoof_reboot_failed">Gagal melakukan reboot otomatis</string>
     <string name="spoof_btn_reset">Reset</string>
 <string name="spoof_reset_success">Spoof berhasil direset ke default.</string>
+<string name="spoof_reboot_title">Reboot Diperlukan</string>
+    <string name="spoof_reboot_body">Spoof "%1$s" akan aktif setelah reboot.</string>
+    <string name="spoof_reset_reboot_title">Reboot Diperlukan</string>
+    <string name="spoof_reset_reboot_body">Spoof akan dinonaktifkan setelah reboot.</string>
+    <string name="spoof_reboot_now">Reboot Sekarang</string>
+    <string name="spoof_reboot_later">Nanti</string>
+    <string name="spoof_reboot_failed">Gagal reboot, lakukan reboot manual.</string>
+    <string name="spoof_pending_reboot_banner">Menunggu reboot untuk menerapkan perubahan spoof.</string>
 
 </resources>

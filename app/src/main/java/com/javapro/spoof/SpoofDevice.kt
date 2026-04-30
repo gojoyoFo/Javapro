@@ -280,44 +280,8 @@ fun allBrands(): List<SpoofBrand> = listOf(
     SpoofBrand(
         name    = "Xiaomi",
         icon    = Icons.Filled.PhoneAndroid,
-        devices = listOf(
-            SpoofDevice(
-                name        = "Xiaomi 14 Ultra",
-                chipset     = "Snapdragon 8 Gen 3",
-                model       = "24030PN60G",
-                fingerprint = "",
-                props       = mapOf(
-                    "ro.product.brand"                        to "Xiaomi",
-                    "ro.product.manufacturer"                 to "Xiaomi",
-                    "ro.product.marketname"                   to "Xiaomi 14 Ultra",
-                    "ro.product.model"                        to "24030PN60G",
-                    "ro.product.odm.brand"                    to "Xiaomi",
-                    "ro.product.odm.manufacturer"             to "Xiaomi",
-                    "ro.product.odm.marketname"               to "Xiaomi 14 Ultra",
-                    "ro.product.odm.model"                    to "24030PN60G",
-                    "ro.product.product.brand"                to "Xiaomi",
-                    "ro.product.product.manufacturer"         to "Xiaomi",
-                    "ro.product.product.marketname"           to "Xiaomi 14 Ultra",
-                    "ro.product.product.model"                to "24030PN60G",
-                    "ro.product.system.brand"                 to "Xiaomi",
-                    "ro.product.system.manufacturer"          to "Xiaomi",
-                    "ro.product.system.marketname"            to "Xiaomi 14 Ultra",
-                    "ro.product.system.model"                 to "24030PN60G",
-                    "ro.product.system_ext.brand"             to "Xiaomi",
-                    "ro.product.system_ext.manufacturer"      to "Xiaomi",
-                    "ro.product.system_ext.marketname"        to "Xiaomi 14 Ultra",
-                    "ro.product.system_ext.model"             to "24030PN60G",
-                    "ro.product.vendor.brand"                 to "Xiaomi",
-                    "ro.product.vendor.manufacturer"          to "Xiaomi",
-                    "ro.product.vendor.marketname"            to "Xiaomi 14 Ultra",
-                    "ro.product.vendor.model"                 to "24030PN60G",
-                    "ro.soc.manufacturer"                     to "Qualcomm",
-                    "ro.soc.model"                            to "SM8650",
-                    "sys.fps_unlock_allowed"                  to "120",
-                    "ro.vendor.display.default_fps"           to "120"
-                )
-            )
-        )
+        devices = emptyList(),
+        isSoon  = true
     ),
 
     SpoofBrand(

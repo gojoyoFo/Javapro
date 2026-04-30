@@ -9,7 +9,7 @@ import com.javapro.utils.PremiumManager
 import com.unity3d.ads.IUnityAdsLoadListener
 import com.unity3d.ads.IUnityAdsShowListener
 import com.unity3d.ads.UnityAds
-import com.unity3d.ads.metadata.MetaData
+import com.unity3d.ads.UnityAdsShowOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -113,15 +113,9 @@ object AdManager {
         isShowingAd = true
         Log.d(TAG, "[$slot] showing preloaded ad...")
 
-        // MetaData HARUS di-set sebelum UnityAds.show() dipanggil
-        // supaya sid terkirim ke SSV callback
-        if (customData != null) {
-            MetaData(activity).apply {
-                set("unity.customdata", customData)
-                commit()
-            }
-        }
-        UnityAds.show(activity, PLACEMENT_ID, object : IUnityAdsShowListener {
+        val showOptions = UnityAdsShowOptions()
+        if (customData != null) showOptions.customData = customData
+        UnityAds.show(activity, PLACEMENT_ID, showOptions, object : IUnityAdsShowListener {
             override fun onUnityAdsShowStart(placementId: String) {
                 Log.d(TAG, "[$slot] show started.")
                 onStart()
@@ -176,14 +170,9 @@ object AdManager {
                 fallbackTimeout?.cancel()
                 Log.d(TAG, "[$slot] fallback loaded. Showing...")
                 isShowingAd = true
-                // MetaData HARUS di-set sebelum UnityAds.show() dipanggil
-                if (customData != null) {
-                    MetaData(activity).apply {
-                        set("unity.customdata", customData)
-                        commit()
-                    }
-                }
-                UnityAds.show(activity, PLACEMENT_ID, object : IUnityAdsShowListener {
+                val fallbackOptions = UnityAdsShowOptions()
+                if (customData != null) fallbackOptions.customData = customData
+                UnityAds.show(activity, PLACEMENT_ID, fallbackOptions, object : IUnityAdsShowListener {
                     override fun onUnityAdsShowStart(placementId: String) { onStart() }
                     override fun onUnityAdsShowClick(placementId: String) {}
                     override fun onUnityAdsShowComplete(
@@ -290,47 +279,6 @@ object AdManager {
             onFail = {
                 Log.d(TAG, "[exclusive] rewarded unavailable/skipped.")
                 onSkipped()
-            }
-        )
-    }
-
-    fun showRewardedForSpoof(
-        activity    : Activity,
-        onStart     : () -> Unit = {},
-        onCompleted : () -> Unit,
-        onSkipped   : () -> Unit
-    ) {
-        if (isShowingAd) {
-            onSkipped()
-            return
-        }
-        var adStartTime = 0L
-        showReadyAd(
-            activity  = activity,
-            slot      = SLOT_EXCLUSIVE,
-            onStart   = {
-                adStartTime = System.currentTimeMillis()
-                onStart()
-            },
-            onSuccess = {
-                val watched = System.currentTimeMillis() - adStartTime
-                if (adStartTime > 0L && watched >= 8_000L) {
-                    Log.d(TAG, "[spoof] rewarded completed. watched=${watched}ms")
-                    onCompleted()
-                } else {
-                    Log.w(TAG, "[spoof] ad closed too early. watched=${watched}ms")
-                    onSkipped()
-                }
-            },
-            onFail = {
-                val watched = System.currentTimeMillis() - adStartTime
-                if (adStartTime > 0L && watched >= 8_000L) {
-                    Log.d(TAG, "[spoof] ad closed after 8s, treating as completed.")
-                    onCompleted()
-                } else {
-                    Log.w(TAG, "[spoof] rewarded skipped/unavailable.")
-                    onSkipped()
-                }
             }
         )
     }

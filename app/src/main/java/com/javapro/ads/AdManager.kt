@@ -114,7 +114,7 @@ object AdManager {
         Log.d(TAG, "[$slot] showing preloaded ad...")
 
         val showOptions = UnityAdsShowOptions()
-        if (customData != null) showOptions.customData = customData
+        if (customData != null) showOptions.setCustomData(customData)
         UnityAds.show(activity, PLACEMENT_ID, showOptions, object : IUnityAdsShowListener {
             override fun onUnityAdsShowStart(placementId: String) {
                 Log.d(TAG, "[$slot] show started.")
@@ -171,7 +171,7 @@ object AdManager {
                 Log.d(TAG, "[$slot] fallback loaded. Showing...")
                 isShowingAd = true
                 val fallbackOptions = UnityAdsShowOptions()
-                if (customData != null) fallbackOptions.customData = customData
+                if (customData != null) fallbackOptions.setCustomData(customData)
                 UnityAds.show(activity, PLACEMENT_ID, fallbackOptions, object : IUnityAdsShowListener {
                     override fun onUnityAdsShowStart(placementId: String) { onStart() }
                     override fun onUnityAdsShowClick(placementId: String) {}
@@ -282,6 +282,48 @@ object AdManager {
             }
         )
     }
+
+    fun showRewardedForSpoof(
+        activity    : Activity,
+        onStart     : () -> Unit = {},
+        onCompleted : () -> Unit,
+        onSkipped   : () -> Unit
+    ) {
+        if (isShowingAd) {
+            onSkipped()
+            return
+        }
+        var adStartTime = 0L
+        showReadyAd(
+            activity  = activity,
+            slot      = SLOT_EXCLUSIVE,
+            onStart   = {
+                adStartTime = System.currentTimeMillis()
+                onStart()
+            },
+            onSuccess = {
+                val watched = System.currentTimeMillis() - adStartTime
+                if (adStartTime > 0L && watched >= 8_000L) {
+                    Log.d(TAG, "[spoof] rewarded completed. watched=${watched}ms")
+                    onCompleted()
+                } else {
+                    Log.w(TAG, "[spoof] ad closed too early. watched=${watched}ms")
+                    onSkipped()
+                }
+            },
+            onFail = {
+                val watched = System.currentTimeMillis() - adStartTime
+                if (adStartTime > 0L && watched >= 8_000L) {
+                    Log.d(TAG, "[spoof] ad closed after 8s, treating as completed.")
+                    onCompleted()
+                } else {
+                    Log.w(TAG, "[spoof] rewarded skipped/unavailable.")
+                    onSkipped()
+                }
+            }
+        )
+    }
+
 
     fun showRewardedForDailyReward(
         activity  : Activity,

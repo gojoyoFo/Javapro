@@ -87,7 +87,10 @@ private fun readFreqDirect(path: String): Long {
 }
 
 private fun readFreqShell(path: String): Long {
-    return try { TweakExecutor.executeWithOutput("cat $path")?.trim()?.toLongOrNull() ?: 0L } catch (_: Exception) { 0L }
+    return try {
+        val process = Runtime.getRuntime().exec(arrayOf("cat", path))
+        process.inputStream.bufferedReader().readLine()?.trim()?.toLongOrNull() ?: 0L
+    } catch (_: Exception) { 0L }
 }
 
 private fun readFreq(path: String): Long {

@@ -60,7 +60,14 @@ fun DeviceSpoofScreen(
     var selectedDevice         by remember { mutableStateOf<SpoofDevice?>(null) }
     var showDeviceSheet        by remember { mutableStateOf(false) }
     var isApplying             by remember { mutableStateOf(false) }
-    var appliedDevice          by remember { mutableStateOf(prefs.getString("spoof_active_device", null)) }
+    var appliedDevice          by remember {
+        val saved = prefs.getString("spoof_active_device", null)
+        val resolved = if (saved != null && !SpoofExecutor.isSpoofActive()) {
+            prefs.edit().remove("spoof_active_device").putBoolean("spoof_pending_reboot", false).apply()
+            null
+        } else saved
+        mutableStateOf(resolved)
+    }
     var showRebootDialog       by remember { mutableStateOf(false) }
     var rebootDialogDeviceName by remember { mutableStateOf("") }
     var showResetRebootDialog  by remember { mutableStateOf(false) }
@@ -68,12 +75,9 @@ fun DeviceSpoofScreen(
     var showPendingReboot by remember {
         val saved = prefs.getBoolean("spoof_pending_reboot", false)
         val resolved = if (saved) {
-            // Cek apakah device sudah reboot sejak spoof/reset di-apply.
-            // Boot time = waktu sekarang - elapsed since boot (ms sejak epoch saat boot).
             val applyTime = prefs.getLong("spoof_apply_time", 0L)
             val bootTime  = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
             if (applyTime > 0L && bootTime > applyTime) {
-                // Sudah reboot setelah apply → clear flag
                 prefs.edit().putBoolean("spoof_pending_reboot", false).remove("spoof_apply_time").apply()
                 false
             } else true
@@ -107,7 +111,10 @@ fun DeviceSpoofScreen(
 
     fun doReset() {
         scope.launch {
-            val ok = withContext(Dispatchers.IO) { SpoofExecutor.removeSpoof() }
+            // Kalau module sudah tidak ada (dihapus manual), tetap lanjut clear prefs
+            val moduleExists = withContext(Dispatchers.IO) { SpoofExecutor.isSpoofActive() }
+            val ok = if (!moduleExists) true
+                     else withContext(Dispatchers.IO) { SpoofExecutor.removeSpoof() }
             if (ok) {
                 appliedDevice     = null
                 showPendingReboot = true

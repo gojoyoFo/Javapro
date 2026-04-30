@@ -701,4 +701,5 @@
     <string name="spoof_reboot_later">बाद में</string>
     <string name="spoof_reboot_failed">रीबूट विफल, मैन्युअल रीबूट करें।</string>
     <string name="spoof_pending_reboot_banner">स्पूफ परिवर्तन लागू करने के लिए रीबूट की प्रतीक्षा है।</string>
+    <string name="spoof_pending_reboot_title">रीबूट की प्रतीक्षा</string>
 </resources>

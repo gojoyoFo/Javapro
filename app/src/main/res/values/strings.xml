@@ -769,5 +769,6 @@
     <string name="spoof_reboot_later">Later</string>
     <string name="spoof_reboot_failed">Reboot failed, please reboot manually.</string>
     <string name="spoof_pending_reboot_banner">Waiting for reboot to apply spoof changes.</string>
+    <string name="spoof_pending_reboot_title">Pending Reboot</string>
 
 </resources>

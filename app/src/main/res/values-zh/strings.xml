@@ -702,5 +702,6 @@
     <string name="spoof_reboot_now">立即重启</string>
     <string name="spoof_reboot_later">稍后</string>
     <string name="spoof_pending_reboot_banner">等待重启以应用伪装更改。</string>
-    
+    <string name="spoof_pending_reboot_title">等待重启</string>
+
 </resources>

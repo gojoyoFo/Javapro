@@ -683,5 +683,6 @@
     <string name="spoof_reboot_later">Mamaya</string>
     <string name="spoof_reboot_failed">Nabigo ang reboot, mag-reboot nang manu-mano.</string>
     <string name="spoof_pending_reboot_banner">Naghihintay ng reboot para ilapat ang mga pagbabago sa spoof.</string>
+    <string name="spoof_pending_reboot_title">Naghihintay ng Reboot</string>
 
 </resources>

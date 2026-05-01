@@ -8,8 +8,13 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,7 +28,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -480,24 +487,145 @@ private fun PremiumPackageCard(
     buttonLabel : String,
     onClick     : () -> Unit
 ) {
-    Card(
-        onClick  = onClick,
-        modifier = modifier,
-        colors   = CardDefaults.cardColors(containerColor = accentColor.copy(alpha = 0.08f)),
-        border   = BorderStroke(1.5.dp, accentColor.copy(alpha = 0.5f)),
-        shape    = RoundedCornerShape(16.dp)
+    val context = LocalContext.current
+
+    var tiltX by remember { mutableStateOf(0f) }
+    var tiltY by remember { mutableStateOf(0f) }
+
+    val animTiltX by animateFloatAsState(targetValue = tiltX, animationSpec = spring(dampingRatio = 0.6f, stiffness = 200f), label = "tx")
+    val animTiltY by animateFloatAsState(targetValue = tiltY, animationSpec = spring(dampingRatio = 0.6f, stiffness = 200f), label = "ty")
+
+    val infiniteTransition = rememberInfiniteTransition(label = "shimmer")
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue   = -1f,
+        targetValue    = 2f,
+        animationSpec  = infiniteRepeatable(tween(2200, easing = LinearEasing), RepeatMode.Restart),
+        label          = "shimmerOffset"
+    )
+
+    DisposableEffect(Unit) {
+        val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val sensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                tiltY =  (event.values[0] / 9.8f).coerceIn(-1f, 1f) * 12f
+                tiltX = -(event.values[1] / 9.8f).coerceIn(-1f, 1f) * 12f
+            }
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
+        onDispose { sm.unregisterListener(listener) }
+    }
+
+    Box(
+        modifier = modifier
+            .aspectRatio(0.72f)
+            .graphicsLayer {
+                rotationX     = animTiltX
+                rotationY     = animTiltY
+                cameraDistance = 12f * density
+            }
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        accentColor.copy(alpha = 0.22f),
+                        MaterialTheme.colorScheme.surfaceContainer,
+                        accentColor.copy(alpha = 0.10f)
+                    )
+                )
+            )
+            .clickable { onClick() }
     ) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    Brush.linearGradient(
+                        colors    = listOf(Color.Transparent, accentColor.copy(0.18f), Color.Transparent),
+                        start     = androidx.compose.ui.geometry.Offset(shimmerOffset * 600f - 200f, 0f),
+                        end       = androidx.compose.ui.geometry.Offset(shimmerOffset * 600f + 200f, 600f)
+                    )
+                )
+        )
+
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    Brush.radialGradient(
+                        colors  = listOf(accentColor.copy(0.08f), Color.Transparent),
+                        radius  = 400f
+                    )
+                )
+        )
+
         Column(
-            modifier            = Modifier.padding(12.dp).fillMaxWidth(),
+            modifier            = Modifier
+                .fillMaxSize()
+                .padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(icon, null, tint = accentColor, modifier = Modifier.size(28.dp))
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = accentColor)
-            Text(price, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-            Text(duration, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Surface(shape = RoundedCornerShape(8.dp), color = accentColor) {
-                Text(buttonLabel, modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp), fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(accentColor.copy(0.18f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = accentColor, modifier = Modifier.size(28.dp))
+                }
+                Text(
+                    title,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize   = 15.sp,
+                    color      = accentColor
+                )
+                Text(
+                    price,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize   = 16.sp,
+                    color      = MaterialTheme.colorScheme.onSurface,
+                    textAlign  = TextAlign.Center
+                )
+                Text(
+                    duration,
+                    fontSize  = 11.sp,
+                    color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Surface(
+                shape  = RoundedCornerShape(10.dp),
+                color  = accentColor,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    buttonLabel,
+                    modifier   = Modifier.padding(vertical = 8.dp),
+                    fontSize   = 13.sp,
+                    color      = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign  = TextAlign.Center
+                )
+            }
+        }
+
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.Transparent)
+        ) {
+            androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+                drawRoundRect(
+                    color        = accentColor.copy(alpha = 0.35f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx()),
+                    style        = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx())
+                )
             }
         }
     }

@@ -81,7 +81,7 @@ object SpoofExecutor {
             "ro.product.model_for_attestation","ro.product.device_for_attestation","ro.product.name_for_attestation",
             "ro.system.manufacturer",
             "ro.soc.model","ro.soc.model.external_name","ro.soc.manufacturer",
-            "ro.hardware.chipname","ro.hardware","ro.board.platform","ro.chipname","ro.chip.model",
+            "ro.hardware.chipname","ro.board.platform","ro.chipname","ro.chip.model",
             "ro.vendor.soc.model","ro.vendor.soc.manufacturer","ro.vendor.soc.model.external_name",
             "ro.build.fingerprint","ro.product.build.fingerprint","ro.system.build.fingerprint",
             "ro.vendor.build.fingerprint","ro.bootimage.build.fingerprint",
@@ -189,7 +189,6 @@ object SpoofExecutor {
         result["ro.soc.model.external_name"]            = targetSocName
         result["ro.soc.manufacturer"]                   = targetSocMfr
         result["ro.hardware.chipname"]                  = targetChipname
-        result["ro.hardware"]                           = targetChipname.lowercase()
         result["ro.board.platform"]                     = targetBoard
         result["ro.chipname"]                           = targetSocModel
         result["ro.chip.model"]                         = targetSocModel

@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.javapro.FpsService
 import com.javapro.R
+import com.javapro.utils.SystemInfoReader
+import com.javapro.utils.SystemSnapshot
 import com.javapro.ads.AdManager
 import com.javapro.utils.PreferenceManager
 import com.javapro.utils.PremiumManager
@@ -145,9 +147,9 @@ fun HomeScreen(
     val expiryMs        = remember { PremiumManager.getExpiryMs(context) }
 
     val isPerfModeActive by TweakManager.isPerformanceActive.collectAsState()
-    val fpsEnabled       by prefManager.fpsEnabledFlow.collectAsState(initial = false)
-    val fpsMode          by prefManager.fpsModeFlow.collectAsState(initial = "universal_devices")
-    val isDark           by prefManager.darkModeFlow.collectAsState()
+    val fpsEnabled  by prefManager.fpsEnabledFlow.collectAsState(initial = false)
+    val isDark      by prefManager.darkModeFlow.collectAsState()
+    var sysSnapshot by remember { mutableStateOf<SystemSnapshot?>(null) }
 
     var showMenu     by remember { mutableStateOf(false) }
     var cpuUsage     by remember { mutableStateOf(0f) }
@@ -212,15 +214,21 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
-        prevSnapshot = readCpuStatSnapshot()
-        cpuClusters  = readCpuClustersSuspend()
         while (true) {
+            val snap = withContext(Dispatchers.IO) { SystemInfoReader.read(context) }
+            sysSnapshot = snap
+            cpuUsage    = snap.cpuUsagePct
+            cpuClusters = snap.clusters.map { c ->
+                CpuClusterInfo(c.label, c.cores, c.curFreqMhz, c.maxFreqMhz,
+                    when (c.label) {
+                        "Little" -> Color(0xFF64B5F6)
+                        "Mid"    -> Color(0xFFFFD600)
+                        else     -> Color(0xFFEF5350)
+                    }
+                )
+            }
+            cpuHistory  = (cpuHistory + cpuUsage).takeLast(60)
             delay(1000)
-            val snap2 = readCpuStatSnapshot()
-            val prev  = prevSnapshot
-            if (prev != null) { cpuUsage = calcCpuUsage(prev, snap2); cpuHistory = (cpuHistory + cpuUsage).takeLast(60) }
-            prevSnapshot = snap2
-            cpuClusters  = readCpuClustersSuspend()
         }
     }
 
@@ -592,33 +600,7 @@ fun HomeScreen(
                 }
             }
 
-            if (fpsEnabled && isRooted) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.tertiary.copy(0.25f)), RoundedCornerShape(32.dp))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp).selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Row(
-                            verticalAlignment     = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                            modifier              = Modifier.padding(bottom = 8.dp)
-                        ) {
-                            Icon(Icons.Default.Tune, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
-                            Text(
-                                stringResource(R.string.home_fps_reader_mode),
-                                fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.tertiary
-                            )
-                        }
-                        FpsModeItem(fpsMode == "page_flip",   { prefManager.setFpsMode("page_flip");   context.startService(Intent(context, FpsService::class.java)) }, "Page Flip",   "Global · Hardware Level",  null, isDark)
-                        FpsModeItem(fpsMode == "sf_latency",  { prefManager.setFpsMode("sf_latency");  context.startService(Intent(context, FpsService::class.java)) }, "SF Latency",  "Per-app · SurfaceFlinger", null, isDark)
-                        FpsModeItem(fpsMode == "kernel_node", { prefManager.setFpsMode("kernel_node"); context.startService(Intent(context, FpsService::class.java)) }, "Kernel Node", "GPU Driver · Direct Read", null, isDark)
-                    }
-                }
-            }
+            SystemMonitorCard(snap = sysSnapshot, isDark = isDark)
 
             Row(
                 modifier              = Modifier
@@ -962,6 +944,210 @@ fun InfoItem(icon: ImageVector, title: String, value: String, modifier: Modifier
         }
     }
 }
+
+@Composable
+private fun SystemMonitorCard(snap: SystemSnapshot?, isDark: Boolean) {
+    val surface  = MaterialTheme.colorScheme.surface
+    val outline  = MaterialTheme.colorScheme.outlineVariant
+    val onSurf   = MaterialTheme.colorScheme.onSurface
+    val onSurfV  = MaterialTheme.colorScheme.onSurfaceVariant
+    val primary  = MaterialTheme.colorScheme.primary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val error    = MaterialTheme.colorScheme.error
+
+    val colCpuTemp  = Color(0xFFEF5350)
+    val colGpu      = Color(0xFFAB47BC)
+    val colGpuFreq  = Color(0xFFCE93D8)
+    val colRam      = Color(0xFF26C6DA)
+    val colBat      = Color(0xFF66BB6A)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(surface)
+            .border(BorderStroke(0.8.dp, outline), RoundedCornerShape(28.dp))
+            .padding(14.dp)
+    ) {
+        if (snap == null) {
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Text("Reading system info…", fontSize = 12.sp, color = onSurfV)
+            }
+            return@Box
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(Icons.Default.MonitorHeart, null, tint = primary, modifier = Modifier.size(14.dp))
+                Text(
+                    "SYSTEM MONITOR",
+                    fontSize      = 10.sp,
+                    fontWeight    = FontWeight.ExtraBold,
+                    color         = primary,
+                    letterSpacing = 1.2.sp
+                )
+            }
+
+            val cpuTempColor = when {
+                snap.cpuTempC >= 70f -> error
+                snap.cpuTempC >= 50f -> tertiary
+                else                 -> colCpuTemp
+            }
+            MonitorRow(
+                label = "CPU Temp",
+                value = if (snap.cpuTempC > 0f) "${"%.1f".format(snap.cpuTempC)}°C" else "—",
+                icon  = Icons.Default.Thermostat,
+                color = cpuTempColor
+            )
+
+            if (snap.clusters.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    snap.clusters.forEach { cluster ->
+                        val clusterColor = when (cluster.label) {
+                            "Little" -> Color(0xFF64B5F6)
+                            "Mid"    -> Color(0xFFFFD600)
+                            else     -> Color(0xFFEF5350)
+                        }
+                        val progress = if (cluster.maxFreqMhz > 0)
+                            (cluster.curFreqMhz.toFloat() / cluster.maxFreqMhz).coerceIn(0f, 1f)
+                        else 0f
+                        val animProg by animateFloatAsState(
+                            targetValue = progress,
+                            animationSpec = tween(500),
+                            label = "clusterProg_${cluster.label}"
+                        )
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment     = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                Modifier.size(8.dp).background(clusterColor, CircleShape)
+                            )
+                            Text(
+                                cluster.label,
+                                fontSize   = 10.sp,
+                                color      = clusterColor,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier   = Modifier.width(38.dp)
+                            )
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Box(
+                                    Modifier.fillMaxWidth().height(4.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(clusterColor.copy(0.15f))
+                                ) {
+                                    Box(
+                                        Modifier.fillMaxWidth(animProg).fillMaxHeight()
+                                            .clip(RoundedCornerShape(50))
+                                            .background(Brush.horizontalGradient(listOf(clusterColor.copy(0.6f), clusterColor)))
+                                    )
+                                }
+                            }
+                            Text(
+                                if (cluster.curFreqMhz > 0) "${cluster.curFreqMhz} MHz" else "—",
+                                fontSize = 10.sp,
+                                color    = onSurfV,
+                                modifier = Modifier.width(60.dp),
+                                textAlign = TextAlign.End
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = outline.copy(0.4f), thickness = 0.5.dp)
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MonitorChip(
+                    modifier = Modifier.weight(1f),
+                    label    = "GPU",
+                    value    = if (snap.gpuUsagePct > 0f) "${snap.gpuUsagePct.toInt()}%" else "—",
+                    sub      = if (snap.gpuFreqMhz > 0) "${snap.gpuFreqMhz} MHz" else "—",
+                    color    = colGpu
+                )
+                MonitorChip(
+                    modifier = Modifier.weight(1f),
+                    label    = "GPU Temp",
+                    value    = if (snap.gpuTempC > 0f) "${"%.1f".format(snap.gpuTempC)}°C" else "—",
+                    sub      = "",
+                    color    = when {
+                        snap.gpuTempC >= 70f -> error
+                        snap.gpuTempC >= 50f -> tertiary
+                        else                 -> colGpuFreq
+                    }
+                )
+            }
+
+            HorizontalDivider(color = outline.copy(0.4f), thickness = 0.5.dp)
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val ramPct = if (snap.ramTotalMb > 0) snap.ramUsedMb.toFloat() / snap.ramTotalMb else 0f
+                MonitorChip(
+                    modifier = Modifier.weight(1f),
+                    label    = "RAM",
+                    value    = if (snap.ramTotalMb > 0) "${snap.ramUsedMb} MB" else "—",
+                    sub      = if (snap.ramTotalMb > 0) "/ ${snap.ramTotalMb} MB" else "—",
+                    color    = colRam
+                )
+                val batColor = when {
+                    snap.batteryPct <= 15 -> error
+                    snap.batteryPct <= 30 -> tertiary
+                    else                  -> colBat
+                }
+                MonitorChip(
+                    modifier = Modifier.weight(1f),
+                    label    = "Battery",
+                    value    = "${snap.batteryPct}%",
+                    sub      = if (snap.isCharging) "⚡ ${snap.batteryTempC}°C" else "${snap.batteryTempC}°C",
+                    color    = batColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonitorRow(label: String, value: String, icon: ImageVector, color: Color) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment     = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(13.dp))
+            Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = color)
+    }
+}
+
+@Composable
+private fun MonitorChip(modifier: Modifier, label: String, value: String, sub: String, color: Color) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(color.copy(0.09f))
+            .border(BorderStroke(0.8.dp, color.copy(0.25f)), RoundedCornerShape(14.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, fontSize = 9.sp, color = color.copy(0.75f), fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp)
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = color)
+            if (sub.isNotBlank()) Text(sub, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
 
 @Composable
 fun FpsModeItem(selected: Boolean, onClick: () -> Unit, title: String, subtitle: String, badge: String?, isDark: Boolean) {

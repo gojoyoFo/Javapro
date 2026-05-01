@@ -727,4 +727,16 @@
 <string name="charger_usb">USB</string>
 <string name="charger_wireless">वायरलेस</string>
 <string name="charger_unplugged">जुड़ा नहीं</string>
+<string name="info_key_current">करंट</string>
+<string name="info_key_wattage">वाटेज</string>
+<string name="info_key_charge_type">चार्ज प्रकार</string>
+<string name="info_key_resistance">प्रतिरोध</string>
+<string name="info_key_input_current">इनपुट करंट</string>
+<string name="info_key_remaining_charge">शेष चार्ज</string>
+<string name="notif_big_current">करंट    : %dmA</string>
+<string name="notif_big_watt">पावर    : %.1fW</string>
+<string name="notif_feature_current">करंट (mA)</string>
+<string name="notif_feature_watt">पावर (W)</string>
+<string name="battery_clear_history_title">इतिहास साफ़ करें</string>
+<string name="battery_clear_history_body">बैटरी का सारा इतिहास डेटा हटा दिया जाएगा।</string>
 </resources>

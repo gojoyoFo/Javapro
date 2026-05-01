@@ -727,4 +727,16 @@
 <string name="charger_usb">USB</string>
 <string name="charger_wireless">Wireless</string>
 <string name="charger_unplugged">Unplugged</string>
+<string name="info_key_current">Current</string>
+<string name="info_key_wattage">Wattage</string>
+<string name="info_key_charge_type">Charge Type</string>
+<string name="info_key_resistance">Resistance</string>
+<string name="info_key_input_current">Input Current</string>
+<string name="info_key_remaining_charge">Remaining Charge</string>
+<string name="notif_big_current">Current  : %dmA</string>
+<string name="notif_big_watt">Power    : %.1fW</string>
+<string name="notif_feature_current">Current (mA)</string>
+<string name="notif_feature_watt">Power (W)</string>
+<string name="battery_clear_history_title">Clear History</string>
+<string name="battery_clear_history_body">All battery history data will be deleted.</string>
 </resources>

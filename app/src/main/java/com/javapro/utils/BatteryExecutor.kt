@@ -19,7 +19,9 @@ data class BatterySnapshot(
     val level: Int,
     val temperature: Float,
     val voltage: Int,
-    val isCharging: Boolean
+    val isCharging: Boolean,
+    val currentMa: Int = 0,
+    val watt: Float = 0f
 )
 
 object BatteryExecutor {
@@ -40,15 +42,25 @@ object BatteryExecutor {
         "/sys/class/power_supply/battery/charge_stop_level",
         "/sys/class/power_supply/battery/batt_slate_mode",
         "/sys/class/power_supply/sm5414-battery/charge_stop_level",
-        "/sys/class/power_supply/battery/charge_full_design",
         "/sys/class/power_supply/bms/charge_control_limit",
         "/sys/class/power_supply/battery/constant_charge_current_max",
         "/sys/class/power_supply/battery/charge_control_limit_max",
-        "/sys/class/power_supply/battery/input_suspend",
         "/sys/class/power_supply/wireless/charge_stop_level",
         "/sys/class/power_supply/usb/charge_stop_level",
         "/sys/kernel/debug/regulator/battery/charge_stop_level",
         "/sys/devices/platform/battery/charge_stop_level"
+    )
+
+    private val SYSFS_CHARGING_ENABLED_PATHS = listOf(
+        "/sys/class/power_supply/battery/charging_enabled",
+        "/sys/class/power_supply/main/charging_enabled",
+        "/sys/class/power_supply/battery/battery_charging_enabled"
+    )
+
+    private val SYSFS_INPUT_SUSPEND_PATHS = listOf(
+        "/sys/class/power_supply/battery/input_suspend",
+        "/sys/class/power_supply/usb/input_suspend",
+        "/sys/class/power_supply/battery/charge_enabled"
     )
 
     private val SYSFS_CYCLE_PATHS = listOf(
@@ -60,7 +72,7 @@ object BatteryExecutor {
         "/sys/class/power_supply/max170xx_battery/cycle_count",
         "/sys/class/power_supply/ds2780-battery/cycle_count",
         "/sys/class/power_supply/fg-battery/cycle_count",
-        "/sys/class/power_supply/battery/ChargerStatus"
+        "/sys/class/power_supply/main/cycle_count"
     )
 
     private val SYSFS_DESIGN_CAPACITY_PATHS = listOf(
@@ -68,6 +80,7 @@ object BatteryExecutor {
         "/sys/class/power_supply/bms/charge_full_design",
         "/sys/class/power_supply/battery/energy_full_design",
         "/sys/class/power_supply/bms/energy_full_design",
+        "/sys/class/power_supply/battery/capacity_design_uah",
         "/sys/class/power_supply/max170xx_battery/charge_full_design",
         "/sys/class/power_supply/ds2780-battery/charge_full_design",
         "/sys/class/power_supply/fg-battery/charge_full_design"
@@ -86,7 +99,10 @@ object BatteryExecutor {
     private val SYSFS_CURRENT_NOW_PATHS = listOf(
         "/sys/class/power_supply/battery/current_now",
         "/sys/class/power_supply/bms/current_now",
+        "/sys/class/power_supply/main/current_now",
         "/sys/class/power_supply/battery/BatteryCurrent",
+        "/sys/class/power_supply/battery/batt_current_now",
+        "/sys/class/power_supply/usb/current_now",
         "/sys/class/power_supply/max170xx_battery/current_now",
         "/sys/class/power_supply/fg-battery/current_now"
     )
@@ -112,16 +128,16 @@ object BatteryExecutor {
         "/sys/class/power_supply/ac/charge_type"
     )
 
-    private val SYSFS_USB_SUSPEND_PATHS = listOf(
-        "/sys/class/power_supply/battery/input_suspend",
-        "/sys/class/power_supply/usb/input_suspend",
-        "/sys/class/power_supply/battery/charge_enabled"
-    )
-
     private val SYSFS_BATTERY_RESISTANCE_PATHS = listOf(
         "/sys/class/power_supply/battery/resistance",
         "/sys/class/power_supply/bms/resistance",
         "/sys/class/power_supply/battery/resistance_id"
+    )
+
+    private val SYSFS_TECHNOLOGY_PATHS = listOf(
+        "/sys/class/power_supply/battery/technology",
+        "/sys/class/power_supply/battery/type",
+        "/sys/class/power_supply/bms/battery_type"
     )
 
     private fun readSysfs(path: String): String? {
@@ -130,6 +146,22 @@ object BatteryExecutor {
 
     private fun findFirstSysfs(paths: List<String>): String? {
         return paths.firstNotNullOfOrNull { readSysfs(it) }
+    }
+
+    fun getCurrentMa(isCharging: Boolean): Int {
+        val raw = findFirstSysfs(SYSFS_CURRENT_NOW_PATHS)?.toLongOrNull() ?: return 0
+        var mA = raw.toFloat()
+        if (kotlin.math.abs(mA) > 10_000_000) mA /= 1_000_000f
+        else if (kotlin.math.abs(mA) > 10_000) mA /= 1_000f
+        return if (isCharging) kotlin.math.abs(mA).toInt() else -kotlin.math.abs(mA).toInt()
+    }
+
+    fun getWattage(context: Context, isCharging: Boolean): Float {
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val voltageRaw = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
+        val volt = voltageRaw / 1000f
+        val amp  = kotlin.math.abs(getCurrentMa(isCharging)) / 1000f
+        return volt * amp
     }
 
     fun getBatteryInfo(context: Context): Map<String, String> {
@@ -145,8 +177,11 @@ object BatteryExecutor {
         val health  = intent.getIntExtra(BatteryManager.EXTRA_HEALTH, -1)
         val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
         val tech    = intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY)
+            ?: findFirstSysfs(SYSFS_TECHNOLOGY_PATHS)
 
-        val levelPct = if (scale > 0) (level * 100 / scale) else level
+        val levelPct   = if (scale > 0) (level * 100 / scale) else level
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                         status == BatteryManager.BATTERY_STATUS_FULL
 
         result[context.getString(R.string.info_key_level)]       = "$levelPct%"
         result[context.getString(R.string.info_key_temperature)] = "$temp°C"
@@ -168,48 +203,53 @@ object BatteryExecutor {
             else                                               -> context.getString(R.string.status_unknown)
         }
         result[context.getString(R.string.info_key_charger)] = when (plugged) {
-            BatteryManager.BATTERY_PLUGGED_AC      -> context.getString(R.string.charger_ac)
-            BatteryManager.BATTERY_PLUGGED_USB     -> context.getString(R.string.charger_usb)
+            BatteryManager.BATTERY_PLUGGED_AC       -> context.getString(R.string.charger_ac)
+            BatteryManager.BATTERY_PLUGGED_USB      -> context.getString(R.string.charger_usb)
             BatteryManager.BATTERY_PLUGGED_WIRELESS -> context.getString(R.string.charger_wireless)
-            else                                   -> context.getString(R.string.charger_unplugged)
+            else                                    -> context.getString(R.string.charger_unplugged)
         }
         if (!tech.isNullOrBlank()) result[context.getString(R.string.info_key_technology)] = tech
 
         findFirstSysfs(SYSFS_CYCLE_PATHS)?.let {
-            result[context.getString(R.string.info_key_cycle_count)] = it
+            if (it != "0") result[context.getString(R.string.info_key_cycle_count)] = it
         }
 
-        findFirstSysfs(SYSFS_CURRENT_NOW_PATHS)?.toLongOrNull()?.let { uA ->
-            val mA = uA / 1000L
-            if (mA != 0L) result["Current"] = "${mA}mA"
+        val currentMa = getCurrentMa(isCharging)
+        if (currentMa != 0) {
+            result[context.getString(R.string.info_key_current)] = "${currentMa}mA"
+            val watt = getWattage(context, isCharging)
+            if (watt > 0f) result[context.getString(R.string.info_key_wattage)] = "%.2fW".format(watt)
         }
 
         findFirstSysfs(SYSFS_INPUT_CURRENT_PATHS)?.toLongOrNull()?.let { uA ->
             val mA = uA / 1000L
-            if (mA > 0) result["Input Current"] = "${mA}mA"
+            if (mA > 0) result[context.getString(R.string.info_key_input_current)] = "${mA}mA"
         }
 
         findFirstSysfs(SYSFS_CHARGE_TYPE_PATHS)?.let { chargeType ->
-            if (chargeType.isNotBlank() && chargeType != "Unknown") result["Charge Type"] = chargeType
+            if (chargeType.isNotBlank() && chargeType != "Unknown")
+                result[context.getString(R.string.info_key_charge_type)] = chargeType
         }
 
         findFirstSysfs(SYSFS_BATTERY_RESISTANCE_PATHS)?.toIntOrNull()?.let { mohm ->
-            if (mohm > 0) result["Resistance"] = "${mohm}mΩ"
+            if (mohm > 0) result[context.getString(R.string.info_key_resistance)] = "${mohm}mΩ"
         }
 
         findFirstSysfs(SYSFS_CHARGE_COUNTER_PATHS)?.toLongOrNull()?.let { uAh ->
             val mAh = uAh / 1000L
-            if (mAh > 0) result["Remaining Charge"] = "${mAh}mAh"
+            if (mAh > 0) result[context.getString(R.string.info_key_remaining_charge)] = "${mAh}mAh"
         }
 
         val designRaw = findFirstSysfs(SYSFS_DESIGN_CAPACITY_PATHS)
         val fullRaw   = findFirstSysfs(SYSFS_FULL_CAPACITY_PATHS)
         if (designRaw != null) {
-            val designMah = designRaw.toLongOrNull()?.div(1000)
-            if (designMah != null) result[context.getString(R.string.info_key_design_capacity)] = "${designMah}mAh"
+            val raw = designRaw.toLongOrNull() ?: 0L
+            val designMah = if (raw > 100_000) raw / 1000 else raw
+            if (designMah > 0) result[context.getString(R.string.info_key_design_capacity)] = "${designMah}mAh"
             if (fullRaw != null) {
-                val fullMah = fullRaw.toLongOrNull()?.div(1000)
-                if (fullMah != null && designMah != null && designMah > 0) {
+                val rawFull = fullRaw.toLongOrNull() ?: 0L
+                val fullMah = if (rawFull > 100_000) rawFull / 1000 else rawFull
+                if (fullMah > 0 && designMah > 0) {
                     result[context.getString(R.string.info_key_current_capacity)] = "${fullMah}mAh"
                     val wear = 100 - (fullMah * 100 / designMah)
                     result[context.getString(R.string.info_key_wear_level)] = "$wear%"
@@ -222,6 +262,11 @@ object BatteryExecutor {
 
     fun getChargeLimitPath(): String? {
         return SYSFS_CHARGE_LIMIT_PATHS.firstOrNull { File(it).exists() }
+    }
+
+    fun getChargingEnabledPath(): String? {
+        return (SYSFS_CHARGING_ENABLED_PATHS + SYSFS_INPUT_SUSPEND_PATHS)
+            .firstOrNull { File(it).exists() }
     }
 
     suspend fun applyChargeLimit(limit: Int): Boolean = withContext(Dispatchers.IO) {
@@ -277,7 +322,9 @@ object BatteryExecutor {
                     o.getInt("level"),
                     o.getDouble("temp").toFloat(),
                     o.getInt("voltage"),
-                    o.getBoolean("charging")
+                    o.getBoolean("charging"),
+                    o.optInt("currentMa", 0),
+                    o.optDouble("watt", 0.0).toFloat()
                 )
             }
         } catch (_: Exception) { emptyList() }
@@ -292,6 +339,8 @@ object BatteryExecutor {
                 put("temp", s.temperature.toDouble())
                 put("voltage", s.voltage)
                 put("charging", s.isCharging)
+                put("currentMa", s.currentMa)
+                put("watt", s.watt.toDouble())
             })
         }
         prefs.edit().putString(KEY_HISTORY, arr.toString()).apply()

@@ -51,6 +51,7 @@ private val BatGreen  = Color(0xFF66BB6A)
 private val BatYellow = Color(0xFFFFCA28)
 private val BatRed    = Color(0xFFEF5350)
 private val BatBlue   = Color(0xFF42A5F5)
+private val BatPurple = Color(0xFFAB47BC)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,9 +73,10 @@ fun BatteryScreen(navController: NavController, lang: String) {
     var overheatThresh  by remember { mutableStateOf(BatteryExecutor.getOverheatThreshold(context)) }
     var lowThresh       by remember { mutableStateOf(BatteryExecutor.getLowBatteryThreshold(context).toFloat()) }
     var serviceRunning  by remember { mutableStateOf(BatteryMonitorService.isRunning(context)) }
+    var showClearDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        while (true) {
+    fun refresh() {
+        scope.launch {
             batteryInfo = withContext(Dispatchers.IO) { BatteryExecutor.getBatteryInfo(context) }
             val intent  = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
             if (intent != null) {
@@ -84,13 +86,45 @@ fun BatteryScreen(navController: NavController, lang: String) {
                 val voltage  = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
                 val status   = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
                 val levelPct = if (scale > 0) (level * 100 / scale) else level
-                val charging = status == BatteryManager.BATTERY_STATUS_CHARGING
-                val snap     = BatterySnapshot(System.currentTimeMillis(), levelPct, temp, voltage, charging)
+                val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                               status == BatteryManager.BATTERY_STATUS_FULL
+                val currentMa = withContext(Dispatchers.IO) { BatteryExecutor.getCurrentMa(charging) }
+                val watt      = withContext(Dispatchers.IO) { BatteryExecutor.getWattage(context, charging) }
+                val snap      = BatterySnapshot(System.currentTimeMillis(), levelPct, temp, voltage, charging, currentMa, watt)
                 withContext(Dispatchers.IO) { BatteryExecutor.recordSnapshot(context, snap) }
             }
-            history = withContext(Dispatchers.IO) { BatteryExecutor.loadHistoryFromContext(context) }
-            delay(30_000L)
+            history      = withContext(Dispatchers.IO) { BatteryExecutor.loadHistoryFromContext(context) }
+            limitPath    = BatteryExecutor.getChargeLimitPath()
+            serviceRunning = BatteryMonitorService.isRunning(context)
         }
+    }
+
+    LaunchedEffect(Unit) {
+        refresh()
+        while (true) {
+            delay(5_000L)
+            refresh()
+        }
+    }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            title = { Text(stringResource(R.string.battery_clear_history_title)) },
+            text  = { Text(stringResource(R.string.battery_clear_history_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    BatteryExecutor.clearHistory(context)
+                    history = emptyList()
+                    showClearDialog = false
+                }) { Text(stringResource(R.string.action_delete), color = BatRed) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -109,6 +143,14 @@ fun BatteryScreen(navController: NavController, lang: String) {
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Default.ArrowBack, null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { refresh() }) {
+                        Icon(Icons.Default.Refresh, null, tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    IconButton(onClick = { showClearDialog = true }) {
+                        Icon(Icons.Default.DeleteOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -171,11 +213,7 @@ fun BatteryScreen(navController: NavController, lang: String) {
                     onStartTime = { schedStart = it },
                     onStopTime  = { schedStop = it },
                     onApply     = {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.charge_schedule_saved),
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, context.getString(R.string.charge_schedule_saved), Toast.LENGTH_SHORT).show()
                     }
                 )
             } else {
@@ -263,12 +301,7 @@ private fun BatteryStatusCard(info: Map<String, String>) {
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        "$level",
-                        fontSize   = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color      = levelColor
-                    )
+                    Text("$level", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = levelColor)
                     Text("%", fontSize = 10.sp, color = levelColor.copy(0.7f), fontWeight = FontWeight.Bold)
                 }
             }
@@ -278,11 +311,18 @@ private fun BatteryStatusCard(info: Map<String, String>) {
                     stringResource(R.string.info_key_status),
                     stringResource(R.string.info_key_temperature),
                     stringResource(R.string.info_key_voltage),
+                    stringResource(R.string.info_key_current),
+                    stringResource(R.string.info_key_wattage),
                     stringResource(R.string.info_key_charger)
                 )
                 primaryKeys.forEach { key ->
                     info[key]?.let { value ->
-                        BatInfoRow(key, value)
+                        val accent = when (key) {
+                            stringResource(R.string.info_key_wattage)  -> BatPurple
+                            stringResource(R.string.info_key_current)  -> BatBlue
+                            else -> null
+                        }
+                        BatInfoRow(key, value, accent)
                     }
                 }
             }
@@ -300,7 +340,11 @@ private fun BatteryHealthCard(info: Map<String, String>) {
                 stringResource(R.string.info_key_cycle_count),
                 stringResource(R.string.info_key_design_capacity),
                 stringResource(R.string.info_key_current_capacity),
-                stringResource(R.string.info_key_wear_level)
+                stringResource(R.string.info_key_wear_level),
+                stringResource(R.string.info_key_charge_type),
+                stringResource(R.string.info_key_resistance),
+                stringResource(R.string.info_key_input_current),
+                stringResource(R.string.info_key_remaining_charge)
             )
             val available = healthKeys.filter { info.containsKey(it) }
 
@@ -324,11 +368,7 @@ private fun BatteryHealthCard(info: Map<String, String>) {
                             val pct = value.replace("%", "").toIntOrNull() ?: 0
                             when { pct < 10 -> BatGreen; pct < 25 -> BatYellow; else -> BatRed }
                         }
-                        healthKey -> when (value) {
-                            goodStr -> BatGreen
-                            else    -> if (value.contains("Over") || value.contains("Panas") ||
-                                           value.contains("热") || value.contains("गर्म")) BatRed else BatYellow
-                        }
+                        healthKey -> if (value == goodStr) BatGreen else BatRed
                         else -> null
                     }
                     BatInfoRow(key, value, accent)
@@ -354,9 +394,17 @@ private fun BatteryHistoryCard(history: List<BatterySnapshot>) {
 
             val last = history.last()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                BatStatChip("${last.level}%",          stringResource(R.string.info_key_level),       BatGreen)
-                BatStatChip("${last.temperature}°C",   stringResource(R.string.info_key_temperature), BatYellow)
-                BatStatChip("${last.voltage}mV",       stringResource(R.string.info_key_voltage),     BatBlue)
+                BatStatChip("${last.level}%",        stringResource(R.string.info_key_level),       BatGreen)
+                BatStatChip("${last.temperature}°C", stringResource(R.string.info_key_temperature), BatYellow)
+                BatStatChip("${last.voltage}mV",     stringResource(R.string.info_key_voltage),     BatBlue)
+            }
+            if (last.currentMa != 0 || last.watt > 0f) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    if (last.currentMa != 0)
+                        BatStatChip("${last.currentMa}mA", stringResource(R.string.info_key_current), BatBlue)
+                    if (last.watt > 0f)
+                        BatStatChip("${"%.1f".format(last.watt)}W", stringResource(R.string.info_key_wattage), BatPurple)
+                }
             }
         }
     }
@@ -364,9 +412,9 @@ private fun BatteryHistoryCard(history: List<BatterySnapshot>) {
 
 @Composable
 private fun BatteryLineChart(snapshots: List<BatterySnapshot>, modifier: Modifier) {
-    val lineColor  = BatGreen
-    val fillColor  = BatGreen.copy(alpha = 0.15f)
-    val axisColor  = MaterialTheme.colorScheme.outlineVariant.copy(0.4f)
+    val lineColor = BatGreen
+    val fillColor = BatGreen.copy(alpha = 0.15f)
+    val axisColor = MaterialTheme.colorScheme.outlineVariant.copy(0.4f)
 
     Canvas(modifier) {
         if (snapshots.size < 2) return@Canvas
@@ -454,11 +502,7 @@ private fun ChargeLimitCard(
                     verticalAlignment     = Alignment.CenterVertically
                 ) {
                     Icon(Icons.Default.Warning, null, tint = BatYellow, modifier = Modifier.size(14.dp))
-                    Text(
-                        stringResource(R.string.charge_limit_path_not_found),
-                        fontSize = 11.sp,
-                        color    = BatYellow
-                    )
+                    Text(stringResource(R.string.charge_limit_path_not_found), fontSize = 11.sp, color = BatYellow)
                 }
             } else {
                 Row(
@@ -793,18 +837,9 @@ private fun BatteryNotifCard(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Thermostat, null, tint = BatRed, modifier = Modifier.size(14.dp))
-                            Text(
-                                stringResource(R.string.notif_overheat_alert),
-                                fontSize   = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text(stringResource(R.string.notif_overheat_alert), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         }
-                        Text(
-                            "${overheatThresh.toInt()}°C",
-                            fontSize   = 14.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color      = BatRed
-                        )
+                        Text("${overheatThresh.toInt()}°C", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = BatRed)
                     }
                     Slider(
                         value         = overheatThresh,
@@ -827,18 +862,9 @@ private fun BatteryNotifCard(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.BatteryAlert, null, tint = BatYellow, modifier = Modifier.size(14.dp))
-                            Text(
-                                stringResource(R.string.notif_low_battery_alert),
-                                fontSize   = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text(stringResource(R.string.notif_low_battery_alert), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                         }
-                        Text(
-                            "${lowThresh.toInt()}%",
-                            fontSize   = 14.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color      = BatYellow
-                        )
+                        Text("${lowThresh.toInt()}%", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = BatYellow)
                     }
                     Slider(
                         value         = lowThresh,
@@ -864,14 +890,16 @@ private fun BatteryNotifCard(
                 )
 
                 val notifFeatures = listOf(
-                    Icons.Default.BatteryFull   to stringResource(R.string.notif_feature_level),
-                    Icons.Default.Thermostat    to stringResource(R.string.notif_feature_temp),
-                    Icons.Default.ElectricBolt  to stringResource(R.string.notif_feature_voltage),
-                    Icons.Default.Timer         to stringResource(R.string.notif_feature_estimate),
-                    Icons.Default.Power         to stringResource(R.string.notif_feature_charger_type),
-                    Icons.Default.Warning       to stringResource(R.string.notif_feature_overheat),
-                    Icons.Default.BatteryAlert  to stringResource(R.string.notif_feature_low_battery),
-                    Icons.Default.CheckCircle   to stringResource(R.string.notif_feature_charge_limit)
+                    Icons.Default.BatteryFull  to stringResource(R.string.notif_feature_level),
+                    Icons.Default.Thermostat   to stringResource(R.string.notif_feature_temp),
+                    Icons.Default.ElectricBolt to stringResource(R.string.notif_feature_voltage),
+                    Icons.Default.Speed        to stringResource(R.string.notif_feature_current),
+                    Icons.Default.FlashOn      to stringResource(R.string.notif_feature_watt),
+                    Icons.Default.Timer        to stringResource(R.string.notif_feature_estimate),
+                    Icons.Default.Power        to stringResource(R.string.notif_feature_charger_type),
+                    Icons.Default.Warning      to stringResource(R.string.notif_feature_overheat),
+                    Icons.Default.BatteryAlert to stringResource(R.string.notif_feature_low_battery),
+                    Icons.Default.CheckCircle  to stringResource(R.string.notif_feature_charge_limit)
                 )
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

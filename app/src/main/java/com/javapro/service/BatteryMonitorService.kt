@@ -52,7 +52,11 @@ class BatteryMonitorService : Service() {
             addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(ACTION_STOP)
         }
-        registerReceiver(batteryReceiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(batteryReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(batteryReceiver, filter)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -63,7 +67,9 @@ class BatteryMonitorService : Service() {
             voltage    = 0,
             isCharging = false,
             charger    = "—",
-            timeLabel  = "—"
+            timeLabel  = "—",
+            currentMa  = 0,
+            watt       = 0f
         )
         startForeground(NOTIF_ID_MONITOR, placeholder)
         val current = applicationContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -76,6 +82,8 @@ class BatteryMonitorService : Service() {
         try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIF_ID_ALERT)
+        nm.cancel(NOTIF_ID_ALERT + 1)
+        nm.cancel(NOTIF_ID_ALERT + 2)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -99,7 +107,9 @@ class BatteryMonitorService : Service() {
             else                                    -> ""
         }
 
-        val now = System.currentTimeMillis()
+        val now       = System.currentTimeMillis()
+        val currentMa = BatteryExecutor.getCurrentMa(isCharging)
+        val watt      = BatteryExecutor.getWattage(applicationContext, isCharging)
 
         if (lastLevel == -1) {
             lastLevel        = levelPct
@@ -117,13 +127,15 @@ class BatteryMonitorService : Service() {
             dischargeSince = now; levelAtDischarge = levelPct
         }
 
-        val snap = BatterySnapshot(now, levelPct, temp, voltage, isCharging)
+        val snap = BatterySnapshot(now, levelPct, temp, voltage, isCharging, currentMa, watt)
         BatteryExecutor.recordSnapshot(applicationContext, snap)
 
-        val timeLabel = estimateTime(levelPct, temp, isCharging, now)
+        val timeLabel = estimateTime(levelPct, isCharging)
 
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIF_ID_MONITOR, buildMonitorNotification(levelPct, temp, voltage, isCharging, chargerStr, timeLabel))
+        nm.notify(NOTIF_ID_MONITOR, buildMonitorNotification(
+            levelPct, temp, voltage, isCharging, chargerStr, timeLabel, currentMa, watt
+        ))
 
         checkAlerts(levelPct, temp, isCharging, nm)
 
@@ -131,34 +143,28 @@ class BatteryMonitorService : Service() {
         lastCharging = isCharging
     }
 
-    private fun estimateTime(level: Int, temp: Float, isCharging: Boolean, now: Long): String {
+    private fun estimateTime(level: Int, isCharging: Boolean): String {
         val history = BatteryExecutor.loadHistoryFromContext(applicationContext)
         if (history.size < 3) return "—"
 
         if (isCharging) {
-            val chargingHistory = history.filter { it.isCharging }.takeLast(10)
-            if (chargingHistory.size < 2) return "—"
-            val oldest  = chargingHistory.first()
-            val newest  = chargingHistory.last()
-            val elapsed = (newest.timestamp - oldest.timestamp) / 1000f / 60f
-            val gained  = newest.level - oldest.level
+            val h = history.filter { it.isCharging }.takeLast(10)
+            if (h.size < 2) return "—"
+            val elapsed = (h.last().timestamp - h.first().timestamp) / 1000f / 60f
+            val gained  = h.last().level - h.first().level
             if (gained <= 0 || elapsed <= 0) return "—"
-            val ratePerMin = gained / elapsed
-            val remaining  = (100 - level) / ratePerMin
+            val remaining = (100 - level) / (gained / elapsed)
             return if (remaining < 60)
                 getString(R.string.notif_time_min_to_full, remaining.toInt())
             else
                 getString(R.string.notif_time_hour_to_full, (remaining / 60).toInt(), (remaining % 60).toInt())
         } else {
-            val dischargeHistory = history.filter { !it.isCharging }.takeLast(10)
-            if (dischargeHistory.size < 2) return "—"
-            val oldest  = dischargeHistory.first()
-            val newest  = dischargeHistory.last()
-            val elapsed = (newest.timestamp - oldest.timestamp) / 1000f / 60f
-            val lost    = oldest.level - newest.level
+            val h = history.filter { !it.isCharging }.takeLast(10)
+            if (h.size < 2) return "—"
+            val elapsed = (h.last().timestamp - h.first().timestamp) / 1000f / 60f
+            val lost    = h.first().level - h.last().level
             if (lost <= 0 || elapsed <= 0) return "—"
-            val ratePerMin = lost / elapsed
-            val remaining  = level / ratePerMin
+            val remaining = level / (lost / elapsed)
             return if (remaining < 60)
                 getString(R.string.notif_time_min_left, remaining.toInt())
             else
@@ -168,7 +174,8 @@ class BatteryMonitorService : Service() {
 
     private fun buildMonitorNotification(
         level: Int, temp: Float, voltage: Int,
-        isCharging: Boolean, charger: String, timeLabel: String
+        isCharging: Boolean, charger: String, timeLabel: String,
+        currentMa: Int, watt: Float
     ): Notification {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             putExtra("nav_to", "battery")
@@ -178,35 +185,31 @@ class BatteryMonitorService : Service() {
             this, 0, launchIntent ?: Intent(),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
         val stopPi = PendingIntent.getBroadcast(
             this, 1,
-            Intent(ACTION_STOP),
+            Intent(ACTION_STOP).setPackage(packageName),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val tempIcon = when {
-            temp >= 45f -> "🔴"
-            temp >= 38f -> "🟡"
-            else        -> "🟢"
-        }
-
+        val tempIcon     = when { temp >= 45f -> "🔴"; temp >= 38f -> "🟡"; else -> "🟢" }
         val chargeIcon   = if (isCharging) "⚡" else "🔋"
         val chargerLabel = if (charger.isNotBlank()) " · $charger" else ""
         val titleText    = "$chargeIcon $level%$chargerLabel · ${temp}°C $tempIcon"
 
-        val lines = mutableListOf<String>()
-        if (voltage > 0) lines.add("${voltage}mV")
-        if (timeLabel != "—") lines.add(timeLabel)
-
-        val contentText = if (lines.isNotEmpty()) lines.joinToString(" · ")
-        else if (isCharging) getString(R.string.notif_content_charging)
-        else getString(R.string.notif_content_discharging)
+        val contentText = buildString {
+            if (voltage > 0) append("${voltage}mV")
+            if (currentMa != 0) { if (isNotEmpty()) append(" · "); append("${currentMa}mA") }
+            if (watt > 0f) { if (isNotEmpty()) append(" · "); append("${"%.1f".format(watt)}W") }
+            if (timeLabel != "—") { if (isNotEmpty()) append(" · "); append(timeLabel) }
+            if (isEmpty()) append(if (isCharging) getString(R.string.notif_content_charging) else getString(R.string.notif_content_discharging))
+        }
 
         val bigText = buildString {
             appendLine(getString(R.string.notif_big_level, level))
             appendLine(getString(R.string.notif_big_temp, temp))
             if (voltage > 0) appendLine(getString(R.string.notif_big_voltage, voltage))
+            if (currentMa != 0) appendLine(getString(R.string.notif_big_current, currentMa))
+            if (watt > 0f) appendLine(getString(R.string.notif_big_watt, watt))
             if (timeLabel != "—") appendLine(getString(R.string.notif_big_estimate, timeLabel))
             if (isCharging && charger.isNotBlank()) appendLine(getString(R.string.notif_big_charger, charger))
         }.trimEnd()
@@ -235,8 +238,8 @@ class BatteryMonitorService : Service() {
         if (temp >= overheatThreshold && !alertedOverheat) {
             alertedOverheat = true
             nm.notify(NOTIF_ID_ALERT, buildAlertNotification(
-                title = getString(R.string.alert_overheat_title),
-                body  = getString(R.string.alert_overheat_body, temp)
+                getString(R.string.alert_overheat_title),
+                getString(R.string.alert_overheat_body, temp)
             ))
         } else if (temp < overheatThreshold - 3f) {
             alertedOverheat = false
@@ -245,8 +248,8 @@ class BatteryMonitorService : Service() {
         if (!isCharging && level <= lowThreshold && level != lastLevel && !alertedLow) {
             alertedLow = true
             nm.notify(NOTIF_ID_ALERT + 1, buildAlertNotification(
-                title = getString(R.string.alert_low_title, level),
-                body  = getString(R.string.alert_low_body)
+                getString(R.string.alert_low_title, level),
+                getString(R.string.alert_low_body)
             ))
         } else if (level > lowThreshold + 5) {
             alertedLow = false
@@ -255,8 +258,8 @@ class BatteryMonitorService : Service() {
         if (isCharging && limitEnabled && level >= limitValue && !alertedLimit) {
             alertedLimit = true
             nm.notify(NOTIF_ID_ALERT + 2, buildAlertNotification(
-                title = getString(R.string.alert_limit_title, level),
-                body  = getString(R.string.alert_limit_body, limitValue)
+                getString(R.string.alert_limit_title, level),
+                getString(R.string.alert_limit_body, limitValue)
             ))
         }
     }

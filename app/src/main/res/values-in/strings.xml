@@ -727,4 +727,16 @@
 <string name="charger_usb">USB</string>
 <string name="charger_wireless">Nirkabel</string>
 <string name="charger_unplugged">Tidak Terhubung</string>
+<string name="info_key_current">Arus</string>
+<string name="info_key_wattage">Daya</string>
+<string name="info_key_charge_type">Tipe Pengisian</string>
+<string name="info_key_resistance">Resistansi</string>
+<string name="info_key_input_current">Arus Masuk</string>
+<string name="info_key_remaining_charge">Muatan Tersisa</string>
+<string name="notif_big_current">Arus     : %dmA</string>
+<string name="notif_big_watt">Daya     : %.1fW</string>
+<string name="notif_feature_current">Arus (mA)</string>
+<string name="notif_feature_watt">Daya (W)</string>
+<string name="battery_clear_history_title">Hapus Riwayat</string>
+<string name="battery_clear_history_body">Semua data riwayat baterai akan dihapus</string>
 </resources>

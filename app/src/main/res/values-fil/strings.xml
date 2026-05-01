@@ -727,4 +727,16 @@
 <string name="charger_usb">USB</string>
 <string name="charger_wireless">Wireless</string>
 <string name="charger_unplugged">Hindi Nakakonekta</string>
+<string name="info_key_current">Agos</string>
+<string name="info_key_wattage">Kapangyarihan</string>
+<string name="info_key_charge_type">Uri ng Pag-charge</string>
+<string name="info_key_resistance">Resistansya</string>
+<string name="info_key_input_current">Agos ng Input</string>
+<string name="info_key_remaining_charge">Natitirang Karga</string>
+<string name="notif_big_current">Agos     : %dmA</string>
+<string name="notif_big_watt">Lakas    : %.1fW</string>
+<string name="notif_feature_current">Agos (mA)</string>
+<string name="notif_feature_watt">Lakas (W)</string>
+<string name="battery_clear_history_title">Burahin ang Kasaysayan</string>
+<string name="battery_clear_history_body">Lahat ng data ng kasaysayan ng baterya ay mabubura.</string>
 </resources>

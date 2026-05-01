@@ -727,4 +727,16 @@
 <string name="charger_usb">USB</string>
 <string name="charger_wireless">无线</string>
 <string name="charger_unplugged">未连接</string>
+<string name="info_key_current">电流</string>
+<string name="info_key_wattage">功率</string>
+<string name="info_key_charge_type">充电类型</string>
+<string name="info_key_resistance">内阻</string>
+<string name="info_key_input_current">输入电流</string>
+<string name="info_key_remaining_charge">剩余电量</string>
+<string name="notif_big_current">电流     : %dmA</string>
+<string name="notif_big_watt">功率     : %.1fW</string>
+<string name="notif_feature_current">电流 (mA)</string>
+<string name="notif_feature_watt">功率 (W)</string>
+<string name="battery_clear_history_title">清除历史记录</string>
+<string name="battery_clear_history_body">所有电池历史数据将被删除。</string>
 </resources>

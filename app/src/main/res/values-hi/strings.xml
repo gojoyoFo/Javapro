@@ -739,4 +739,8 @@
 <string name="notif_feature_watt">पावर (W)</string>
 <string name="battery_clear_history_title">इतिहास साफ़ करें</string>
 <string name="battery_clear_history_body">बैटरी का सारा इतिहास डेटा हटा दिया जाएगा।</string>
+<string name="info_key_watt_out">पावर आउट</string>
+<string name="info_key_watt_in">पावर इन</string>
+<string name="notif_big_watt_out" formatted="false">पावर ↓   : %.2fW</string>
+<string name="notif_big_watt_in" formatted="false">पावर ↑   : %.2fW</string>
 </resources>

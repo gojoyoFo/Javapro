@@ -739,4 +739,8 @@
 <string name="notif_feature_watt">功率 (W)</string>
 <string name="battery_clear_history_title">清除历史记录</string>
 <string name="battery_clear_history_body">所有电池历史数据将被删除。</string>
+<string name="info_key_watt_out">输出功率</string>
+<string name="info_key_watt_in">输入功率</string>
+<string name="notif_big_watt_out" formatted="false">功率 ↓   : %.2fW</string>
+<string name="notif_big_watt_in" formatted="false">功率 ↑   : %.2fW</string>
 </resources>

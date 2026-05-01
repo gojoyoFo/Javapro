@@ -739,4 +739,8 @@
 <string name="notif_feature_watt">Daya (W)</string>
 <string name="battery_clear_history_title">Hapus Riwayat</string>
 <string name="battery_clear_history_body">Semua data riwayat baterai akan dihapus</string>
+<string name="info_key_watt_out">Daya Keluar</string>
+<string name="info_key_watt_in">Daya Masuk</string>
+<string name="notif_big_watt_out" formatted="false">Daya ↓   : %.2fW</string>
+<string name="notif_big_watt_in" formatted="false">Daya ↑   : %.2fW</string>
 </resources>

@@ -312,13 +312,15 @@ private fun BatteryStatusCard(info: Map<String, String>) {
                     stringResource(R.string.info_key_temperature),
                     stringResource(R.string.info_key_voltage),
                     stringResource(R.string.info_key_current),
-                    stringResource(R.string.info_key_wattage),
+                    stringResource(R.string.info_key_watt_out),
+                    stringResource(R.string.info_key_watt_in),
                     stringResource(R.string.info_key_charger)
                 )
                 primaryKeys.forEach { key ->
                     info[key]?.let { value ->
                         val accent = when (key) {
-                            stringResource(R.string.info_key_wattage)  -> BatPurple
+                            stringResource(R.string.info_key_watt_out) -> BatRed
+                            stringResource(R.string.info_key_watt_in)  -> BatPurple
                             stringResource(R.string.info_key_current)  -> BatBlue
                             else -> null
                         }
@@ -403,7 +405,7 @@ private fun BatteryHistoryCard(history: List<BatterySnapshot>) {
                     if (last.currentMa != 0)
                         BatStatChip("${last.currentMa}mA", stringResource(R.string.info_key_current), BatBlue)
                     if (last.watt > 0f)
-                        BatStatChip("${"%.1f".format(last.watt)}W", stringResource(R.string.info_key_wattage), BatPurple)
+                        BatStatChip("${"%.1f".format(last.watt)}W", stringResource(R.string.info_key_watt_out), BatRed)
                 }
             }
         }

@@ -739,4 +739,8 @@
 <string name="notif_feature_watt">Power (W)</string>
 <string name="battery_clear_history_title">Clear History</string>
 <string name="battery_clear_history_body">All battery history data will be deleted.</string>
+<string name="info_key_watt_out">Power Out</string>
+<string name="info_key_watt_in">Power In</string>
+<string name="notif_big_watt_out" formatted="false">Power ↓  : %.2fW</string>
+<string name="notif_big_watt_in" formatted="false">Power ↑  : %.2fW</string>
 </resources>

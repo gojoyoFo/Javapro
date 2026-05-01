@@ -738,5 +738,9 @@
 <string name="notif_feature_current">Agos (mA)</string>
 <string name="notif_feature_watt">Lakas (W)</string>
 <string name="battery_clear_history_title">Burahin ang Kasaysayan</string>
-<string name="battery_clear_history_body">Lahat ng data ng kasaysayan ng baterya ay mabubura.</string>
+<string name="battery_clear_history_body">Lahat ng data ng kasaysayan ng baterya ay mabubura</string>
+<string name="info_key_watt_out">Lakas Palabas</string>
+<string name="info_key_watt_in">Lakas Pasok</string>
+<string name="notif_big_watt_out" formatted="false">Lakas ↓  : %.2fW</string>
+<string name="notif_big_watt_in" formatted="false">Lakas ↑  : %.2fW</string>
 </resources>

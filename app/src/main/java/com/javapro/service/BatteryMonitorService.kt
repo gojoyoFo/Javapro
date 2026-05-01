@@ -107,9 +107,10 @@ class BatteryMonitorService : Service() {
             else                                    -> ""
         }
 
-        val now       = System.currentTimeMillis()
-        val currentMa = BatteryExecutor.getCurrentMa(isCharging)
-        val watt      = BatteryExecutor.getWattage(applicationContext, isCharging)
+        val now        = System.currentTimeMillis()
+        val currentMa  = BatteryExecutor.getCurrentMa(isCharging)
+        val watt       = BatteryExecutor.getWattage(applicationContext, isCharging)
+        val inputWatt  = if (isCharging) BatteryExecutor.getInputWattage(applicationContext) else 0f
 
         if (lastLevel == -1) {
             lastLevel        = levelPct
@@ -134,7 +135,7 @@ class BatteryMonitorService : Service() {
 
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIF_ID_MONITOR, buildMonitorNotification(
-            levelPct, temp, voltage, isCharging, chargerStr, timeLabel, currentMa, watt
+            levelPct, temp, voltage, isCharging, chargerStr, timeLabel, currentMa, watt, inputWatt
         ))
 
         checkAlerts(levelPct, temp, isCharging, nm)
@@ -175,7 +176,7 @@ class BatteryMonitorService : Service() {
     private fun buildMonitorNotification(
         level: Int, temp: Float, voltage: Int,
         isCharging: Boolean, charger: String, timeLabel: String,
-        currentMa: Int, watt: Float
+        currentMa: Int, watt: Float, inputWatt: Float = 0f
     ): Notification {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             putExtra("nav_to", "battery")
@@ -199,7 +200,8 @@ class BatteryMonitorService : Service() {
         val contentText = buildString {
             if (voltage > 0) append("${voltage}mV")
             if (currentMa != 0) { if (isNotEmpty()) append(" · "); append("${currentMa}mA") }
-            if (watt > 0f) { if (isNotEmpty()) append(" · "); append("${"%.1f".format(watt)}W") }
+            if (watt > 0f) { if (isNotEmpty()) append(" · "); append("↓${"%.1f".format(watt)}W") }
+            if (inputWatt > 0f) { if (isNotEmpty()) append(" · "); append("↑${"%.1f".format(inputWatt)}W") }
             if (timeLabel != "—") { if (isNotEmpty()) append(" · "); append(timeLabel) }
             if (isEmpty()) append(if (isCharging) getString(R.string.notif_content_charging) else getString(R.string.notif_content_discharging))
         }
@@ -209,7 +211,8 @@ class BatteryMonitorService : Service() {
             appendLine(getString(R.string.notif_big_temp, temp))
             if (voltage > 0) appendLine(getString(R.string.notif_big_voltage, voltage))
             if (currentMa != 0) appendLine(getString(R.string.notif_big_current, currentMa))
-            if (watt > 0f) appendLine(getString(R.string.notif_big_watt, watt))
+            if (watt > 0f) appendLine(getString(R.string.notif_big_watt_out, watt))
+            if (inputWatt > 0f) appendLine(getString(R.string.notif_big_watt_in, inputWatt))
             if (timeLabel != "—") appendLine(getString(R.string.notif_big_estimate, timeLabel))
             if (isCharging && charger.isNotBlank()) appendLine(getString(R.string.notif_big_charger, charger))
         }.trimEnd()

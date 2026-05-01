@@ -140,9 +140,24 @@ object BatteryExecutor {
         "/sys/class/power_supply/bms/battery_type"
     )
 
-    private fun readSysfs(path: String): String? {
-        return try { File(path).readText().trim().takeIf { it.isNotBlank() } } catch (_: Exception) { null }
+    private fun readSysfsRoot(path: String): String? {
+        return try {
+            val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
+            val out = p.inputStream.bufferedReader().readText().trim()
+            p.waitFor()
+            out.takeIf { it.isNotBlank() && !it.startsWith("cat:") }
+        } catch (_: Exception) { null }
     }
+
+    private fun readSysfs(path: String): String? {
+        return try {
+            File(path).readText().trim().takeIf { it.isNotBlank() }
+        } catch (_: Exception) {
+            readSysfsRoot(path)
+        }
+    }
+
+    private fun sysfsExists(path: String): Boolean = readSysfs(path) != null
 
     private fun findFirstSysfs(paths: List<String>): String? {
         return paths.firstNotNullOfOrNull { readSysfs(it) }
@@ -156,12 +171,24 @@ object BatteryExecutor {
         return if (isCharging) kotlin.math.abs(mA).toInt() else -kotlin.math.abs(mA).toInt()
     }
 
+    fun getInputCurrentMa(): Int {
+        val raw = findFirstSysfs(SYSFS_INPUT_CURRENT_PATHS)?.toLongOrNull() ?: return 0
+        return (raw / 1000L).toInt()
+    }
+
     fun getWattage(context: Context, isCharging: Boolean): Float {
         val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val voltageRaw = intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
-        val volt = voltageRaw / 1000f
+        val volt = (intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0) / 1000f
         val amp  = kotlin.math.abs(getCurrentMa(isCharging)) / 1000f
         return volt * amp
+    }
+
+    fun getInputWattage(context: Context): Float {
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val volt = (intent?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0) / 1000f
+        val inputMa = getInputCurrentMa()
+        if (inputMa <= 0) return 0f
+        return volt * (inputMa / 1000f)
     }
 
     fun getBatteryInfo(context: Context): Map<String, String> {
@@ -218,7 +245,15 @@ object BatteryExecutor {
         if (currentMa != 0) {
             result[context.getString(R.string.info_key_current)] = "${currentMa}mA"
             val watt = getWattage(context, isCharging)
-            if (watt > 0f) result[context.getString(R.string.info_key_wattage)] = "%.2fW".format(watt)
+            if (watt > 0f) {
+                if (isCharging) {
+                    result[context.getString(R.string.info_key_watt_out)] = "%.2fW".format(watt)
+                    val inputWatt = getInputWattage(context)
+                    if (inputWatt > 0f) result[context.getString(R.string.info_key_watt_in)] = "%.2fW".format(inputWatt)
+                } else {
+                    result[context.getString(R.string.info_key_watt_out)] = "%.2fW".format(watt)
+                }
+            }
         }
 
         findFirstSysfs(SYSFS_INPUT_CURRENT_PATHS)?.toLongOrNull()?.let { uA ->
@@ -261,12 +296,12 @@ object BatteryExecutor {
     }
 
     fun getChargeLimitPath(): String? {
-        return SYSFS_CHARGE_LIMIT_PATHS.firstOrNull { File(it).exists() }
+        return SYSFS_CHARGE_LIMIT_PATHS.firstOrNull { sysfsExists(it) }
     }
 
     fun getChargingEnabledPath(): String? {
         return (SYSFS_CHARGING_ENABLED_PATHS + SYSFS_INPUT_SUSPEND_PATHS)
-            .firstOrNull { File(it).exists() }
+            .firstOrNull { sysfsExists(it) }
     }
 
     suspend fun applyChargeLimit(limit: Int): Boolean = withContext(Dispatchers.IO) {

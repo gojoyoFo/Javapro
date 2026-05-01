@@ -684,5 +684,116 @@
     <string name="spoof_reboot_failed">Nabigo ang reboot, mag-reboot nang manu-mano.</string>
     <string name="spoof_pending_reboot_banner">Naghihintay ng reboot para ilapat ang mga pagbabago sa spoof.</string>
     <string name="spoof_pending_reboot_title">Naghihintay ng Reboot</string>
+    <string name="battery_monitor_title">Monitor ng Baterya</string>
+
+    <!-- BatteryScreen - Section Labels -->
+    <string name="label_battery_status">KATAYUAN NG BATERYA</string>
+    <string name="label_history">KASAYSAYAN</string>
+    <string name="label_health">KALUSUGAN</string>
+    <string name="label_charge_limit">LIMITASYON SA PAG-CHARGE</string>
+    <string name="label_charge_schedule">ISKEDYUL NG PAG-CHARGE</string>
+    <string name="label_battery_notification">ABISO NG BATERYA</string>
+
+    <!-- BatteryScreen - Health Card -->
+    <string name="health_data_unavailable">Hindi available ang datos ng kalusugan sa device na ito</string>
+
+    <!-- BatteryScreen - Root Warning -->
+    <string name="root_required_message">Ang Charge Limit &amp; Iskedyul ay nangangailangan ng root access</string>
+
+    <!-- BatteryScreen - Charge Limit Card -->
+    <string name="charge_limit_description">Awtomatikong ihinto ang pag-charge kapag naabot ng baterya ang itinakdang limitasyon. Nagpapahaba ng pangmatagalang buhay ng baterya.</string>
+    <string name="charge_limit_path_not_found">Hindi nahanap ang sysfs charge limit path sa device na ito</string>
+    <string name="charge_limit_enable_label">I-enable ang Charge Limit</string>
+    <string name="charge_limit_current">Kasalukuyang limitasyon: %d%%</string>
+    <string name="charge_limit_slider_label">Charge Limit</string>
+    <string name="charge_limit_apply">Ilapat</string>
+    <string name="charge_limit_apply_success">Matagumpay na nailapat</string>
+    <string name="charge_limit_apply_failed">Nabigo — hindi nahanap ang path</string>
+
+    <!-- BatteryScreen - Charge Schedule Card -->
+    <string name="charge_schedule_description">I-enable ang pag-charge sa loob lamang ng isang partikular na oras. Kapaki-pakinabang para mapanatiling malusog ang baterya sa magdamag na pag-charge.</string>
+    <string name="charge_schedule_enable_label">I-enable ang Iskedyul</string>
+    <string name="charge_schedule_start">Simulan ang Pag-charge</string>
+    <string name="charge_schedule_stop">Ihinto ang Pag-charge</string>
+    <string name="charge_schedule_save">I-save ang Iskedyul</string>
+    <string name="charge_schedule_saved">Nai-save ang iskedyul</string>
+
+    <!-- BatteryScreen - Notification Card -->
+    <string name="notif_description">Ipakita ang real-time na katayuan ng baterya sa notification panel. Kasama ang overheat, mababang baterya, at charge limit na mga alerto.</string>
+    <string name="notif_monitor_label">Monitor ng Abiso</string>
+    <string name="notif_status_running">Tumatakbo</string>
+    <string name="notif_status_inactive">Hindi aktibo</string>
+    <string name="notif_alert_settings">MGA SETTING NG ALERTO</string>
+    <string name="notif_overheat_alert">Alerto sa Sobrang Init</string>
+    <string name="notif_low_battery_alert">Alerto sa Mababang Baterya</string>
+    <string name="notif_includes_title">NILALAMAN NG ABISO</string>
+    <string name="notif_feature_level">Real-time na antas + progress bar</string>
+    <string name="notif_feature_temp">Temperatura + berde/dilaw/pulang tagapagpahiwatig</string>
+    <string name="notif_feature_voltage">Boltahe (mV)</string>
+    <string name="notif_feature_estimate">Tinatayang oras na natitira / hanggang puno</string>
+    <string name="notif_feature_charger_type">Uri ng charger (AC / USB / Wireless)</string>
+    <string name="notif_feature_overheat">Awtomatikong alerto sa sobrang init</string>
+    <string name="notif_feature_low_battery">Awtomatikong alerto sa mababang baterya</string>
+    <string name="notif_feature_charge_limit">Alerto kapag naabot ang charge limit</string>
+
+    <!-- BatteryMonitorService - Notifications -->
+    <string name="notif_channel_monitor_name">Monitor ng Baterya</string>
+    <string name="notif_channel_monitor_desc">Patuloy na abiso sa katayuan ng baterya</string>
+    <string name="notif_channel_alert_name">Mga Alerto ng Baterya</string>
+    <string name="notif_channel_alert_desc">Mga alerto sa overheat, mababang baterya, at charge limit</string>
+    <string name="notif_action_stop">Itigil</string>
+    <string name="notif_content_charging">Nagcha-charge</string>
+    <string name="notif_content_discharging">Gumagamit ng Baterya</string>
+    <string name="notif_big_level">Antas    : %d%%</string>
+    <string name="notif_big_temp">Temp     : %.1f°C</string>
+    <string name="notif_big_voltage">Boltahe  : %dmV</string>
+    <string name="notif_big_estimate">Tinatayang : %s</string>
+    <string name="notif_big_charger">Charger  : %s</string>
+    <string name="notif_time_min_to_full">%dm hanggang puno</string>
+    <string name="notif_time_hour_to_full">%dh %dm hanggang puno</string>
+    <string name="notif_time_min_left">%dm natitira</string>
+    <string name="notif_time_hour_left">%dh %dm natitira</string>
+
+    <!-- BatteryMonitorService - Alerts -->
+    <string name="alert_overheat_title">⚠️ Sobrang Init ng Baterya!</string>
+    <string name="alert_overheat_body">Naabot ng temperatura ang %.1f°C. Isaalang-alang ang pagbabawas ng load o pag-aalis ng case.</string>
+    <string name="alert_low_title">🔋 Mababang Baterya — %d%%</string>
+    <string name="alert_low_body">Mababa na ang baterya. Pakikonekta ang charger.</string>
+    <string name="alert_limit_title">✅ Naabot ang Charge Limit — %d%%</string>
+    <string name="alert_limit_body">Naabot ng baterya ang %d%% na limitasyon. Maaari mo nang i-unplug.</string>
+
+    <!-- BatteryExecutor - Battery Info Keys -->
+    <string name="info_key_level">Antas</string>
+    <string name="info_key_temperature">Temperatura</string>
+    <string name="info_key_voltage">Boltahe</string>
+    <string name="info_key_status">Katayuan</string>
+    <string name="info_key_health">Kalusugan</string>
+    <string name="info_key_charger">Charger</string>
+    <string name="info_key_technology">Teknolohiya</string>
+    <string name="info_key_cycle_count">Bilang ng Siklo</string>
+    <string name="info_key_design_capacity">Kapasidad ng Disenyo</string>
+    <string name="info_key_current_capacity">Kasalukuyang Kapasidad</string>
+    <string name="info_key_wear_level">Antas ng Pagkasira</string>
+
+    <!-- BatteryExecutor - Status Values -->
+    <string name="status_charging">Nagcha-charge</string>
+    <string name="status_discharging">Gumagamit ng Baterya</string>
+    <string name="status_full">Puno</string>
+    <string name="status_not_charging">Hindi Nagcha-charge</string>
+    <string name="status_unknown">Hindi Kilala</string>
+
+    <!-- BatteryExecutor - Health Values -->
+    <string name="health_good">Maayos</string>
+    <string name="health_overheat">Sobrang Init</string>
+    <string name="health_dead">Patay</string>
+    <string name="health_over_voltage">Sobrang Boltahe</string>
+    <string name="health_failure">Sira</string>
+    <string name="health_cold">Masyadong Malamig</string>
+
+    <!-- BatteryExecutor - Charger Values -->
+    <string name="charger_ac">AC</string>
+    <string name="charger_usb">USB</string>
+    <string name="charger_wireless">Wireless</string>
+    <string name="charger_unplugged">Hindi Nakakonekta</string>
 
 </resources>

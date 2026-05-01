@@ -320,6 +320,7 @@ private fun NavContent(
         composable("exclusive_features") { ExclusiveFeaturesScreen(navController = navController, prefManager = prefManager, lang = lang) }
         composable("debug_tools")   { DebugToolsScreen(navController = navController, prefManager = prefManager, lang = lang) }
         composable("screen_record") { ScreenRecordScreen(navController = navController, lang = lang) }
+        composable("battery")       { BatteryScreen(navController = navController, lang = lang) }
 
         // ── Daily Reward Screen ──────────────────────────────────────
         composable("daily_reward") {

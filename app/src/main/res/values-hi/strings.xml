@@ -702,4 +702,115 @@
     <string name="spoof_reboot_failed">रीबूट विफल, मैन्युअल रीबूट करें।</string>
     <string name="spoof_pending_reboot_banner">स्पूफ परिवर्तन लागू करने के लिए रीबूट की प्रतीक्षा है।</string>
     <string name="spoof_pending_reboot_title">रीबूट की प्रतीक्षा</string>
+    <string name="battery_monitor_title">बैटरी मॉनिटर</string>
+
+    <!-- BatteryScreen - Section Labels -->
+    <string name="label_battery_status">बैटरी स्थिति</string>
+    <string name="label_history">इतिहास</string>
+    <string name="label_health">स्वास्थ्य</string>
+    <string name="label_charge_limit">चार्ज सीमा</string>
+    <string name="label_charge_schedule">चार्ज शेड्यूल</string>
+    <string name="label_battery_notification">बैटरी सूचना</string>
+
+    <!-- BatteryScreen - Health Card -->
+    <string name="health_data_unavailable">इस डिवाइस पर स्वास्थ्य डेटा उपलब्ध नहीं है</string>
+
+    <!-- BatteryScreen - Root Warning -->
+    <string name="root_required_message">चार्ज सीमा और शेड्यूल के लिए रूट एक्सेस आवश्यक है</string>
+
+    <!-- BatteryScreen - Charge Limit Card -->
+    <string name="charge_limit_description">बैटरी निर्धारित सीमा तक पहुंचने पर चार्जिंग स्वचालित रूप से रोकें। दीर्घकालिक बैटरी जीवन बढ़ाता है।</string>
+    <string name="charge_limit_path_not_found">इस डिवाइस पर Sysfs चार्ज सीमा पथ नहीं मिला</string>
+    <string name="charge_limit_enable_label">चार्ज सीमा सक्षम करें</string>
+    <string name="charge_limit_current">वर्तमान सीमा: %d%%</string>
+    <string name="charge_limit_slider_label">चार्ज सीमा</string>
+    <string name="charge_limit_apply">लागू करें</string>
+    <string name="charge_limit_apply_success">सफलतापूर्वक लागू किया गया</string>
+    <string name="charge_limit_apply_failed">विफल — पथ नहीं मिला</string>
+
+    <!-- BatteryScreen - Charge Schedule Card -->
+    <string name="charge_schedule_description">केवल एक निश्चित समय सीमा में चार्जिंग सक्षम करें। रात भर चार्जिंग के दौरान बैटरी स्वस्थ रखने के लिए उपयोगी।</string>
+    <string name="charge_schedule_enable_label">शेड्यूल सक्षम करें</string>
+    <string name="charge_schedule_start">चार्जिंग शुरू करें</string>
+    <string name="charge_schedule_stop">चार्जिंग रोकें</string>
+    <string name="charge_schedule_save">शेड्यूल सहेजें</string>
+    <string name="charge_schedule_saved">शेड्यूल सहेजा गया</string>
+
+    <!-- BatteryScreen - Notification Card -->
+    <string name="notif_description">अधिसूचना पैनल में रियल-टाइम बैटरी स्थिति दिखाएं। ओवरहीट, कम बैटरी और चार्ज सीमा अलर्ट शामिल हैं।</string>
+    <string name="notif_monitor_label">अधिसूचना मॉनिटर</string>
+    <string name="notif_status_running">चल रहा है</string>
+    <string name="notif_status_inactive">निष्क्रिय</string>
+    <string name="notif_alert_settings">अलर्ट सेटिंग</string>
+    <string name="notif_overheat_alert">ओवरहीट अलर्ट</string>
+    <string name="notif_low_battery_alert">कम बैटरी अलर्ट</string>
+    <string name="notif_includes_title">अधिसूचना में शामिल</string>
+    <string name="notif_feature_level">रियल-टाइम स्तर + प्रगति बार</string>
+    <string name="notif_feature_temp">तापमान + हरा/पीला/लाल संकेतक</string>
+    <string name="notif_feature_voltage">वोल्टेज (mV)</string>
+    <string name="notif_feature_estimate">शेष समय / पूर्ण होने तक</string>
+    <string name="notif_feature_charger_type">चार्जर प्रकार (AC / USB / वायरलेस)</string>
+    <string name="notif_feature_overheat">स्वतः ओवरहीट अलर्ट</string>
+    <string name="notif_feature_low_battery">स्वतः कम बैटरी अलर्ट</string>
+    <string name="notif_feature_charge_limit">चार्ज सीमा पहुंचने पर अलर्ट</string>
+
+    <!-- BatteryMonitorService - Notifications -->
+    <string name="notif_channel_monitor_name">बैटरी मॉनिटर</string>
+    <string name="notif_channel_monitor_desc">निरंतर बैटरी स्थिति अधिसूचना</string>
+    <string name="notif_channel_alert_name">बैटरी अलर्ट</string>
+    <string name="notif_channel_alert_desc">ओवरहीट, कम बैटरी और चार्ज सीमा अलर्ट</string>
+    <string name="notif_action_stop">रोकें</string>
+    <string name="notif_content_charging">चार्ज हो रहा है</string>
+    <string name="notif_content_discharging">बैटरी उपयोग में</string>
+    <string name="notif_big_level">स्तर    : %d%%</string>
+    <string name="notif_big_temp">तापमान : %.1f°C</string>
+    <string name="notif_big_voltage">वोल्टेज : %dmV</string>
+    <string name="notif_big_estimate">अनुमान : %s</string>
+    <string name="notif_big_charger">चार्जर  : %s</string>
+    <string name="notif_time_min_to_full">%d मिनट में पूर्ण</string>
+    <string name="notif_time_hour_to_full">%d घंटे %d मिनट में पूर्ण</string>
+    <string name="notif_time_min_left">%d मिनट शेष</string>
+    <string name="notif_time_hour_left">%d घंटे %d मिनट शेष</string>
+
+    <!-- BatteryMonitorService - Alerts -->
+    <string name="alert_overheat_title">⚠️ बैटरी ज़्यादा गर्म!</string>
+    <string name="alert_overheat_body">तापमान %.1f°C तक पहुंच गया। लोड कम करें या केस हटाएं।</string>
+    <string name="alert_low_title">🔋 कम बैटरी — %d%%</string>
+    <string name="alert_low_body">बैटरी कम है। कृपया डिवाइस चार्ज करें।</string>
+    <string name="alert_limit_title">✅ चार्ज सीमा पहुंची — %d%%</string>
+    <string name="alert_limit_body">बैटरी %d%% चार्ज सीमा तक पहुंच गई। अब चार्जर निकाल सकते हैं।</string>
+
+    <!-- BatteryExecutor - Battery Info Keys -->
+    <string name="info_key_level">स्तर</string>
+    <string name="info_key_temperature">तापमान</string>
+    <string name="info_key_voltage">वोल्टेज</string>
+    <string name="info_key_status">स्थिति</string>
+    <string name="info_key_health">स्वास्थ्य</string>
+    <string name="info_key_charger">चार्जर</string>
+    <string name="info_key_technology">तकनीक</string>
+    <string name="info_key_cycle_count">चक्र गिनती</string>
+    <string name="info_key_design_capacity">डिज़ाइन क्षमता</string>
+    <string name="info_key_current_capacity">वर्तमान क्षमता</string>
+    <string name="info_key_wear_level">घिसाव स्तर</string>
+
+    <!-- BatteryExecutor - Status Values -->
+    <string name="status_charging">चार्ज हो रहा है</string>
+    <string name="status_discharging">डिस्चार्ज हो रहा है</string>
+    <string name="status_full">पूर्ण</string>
+    <string name="status_not_charging">चार्ज नहीं हो रहा</string>
+    <string name="status_unknown">अज्ञात</string>
+
+    <!-- BatteryExecutor - Health Values -->
+    <string name="health_good">अच्छा</string>
+    <string name="health_overheat">ज़्यादा गर्म</string>
+    <string name="health_dead">खराब</string>
+    <string name="health_over_voltage">अधिक वोल्टेज</string>
+    <string name="health_failure">विफल</string>
+    <string name="health_cold">बहुत ठंडा</string>
+
+    <!-- BatteryExecutor - Charger Values -->
+    <string name="charger_ac">AC</string>
+    <string name="charger_usb">USB</string>
+    <string name="charger_wireless">वायरलेस</string>
+    <string name="charger_unplugged">जुड़ा नहीं</string>
 </resources>

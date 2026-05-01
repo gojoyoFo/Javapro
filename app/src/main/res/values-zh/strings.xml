@@ -703,5 +703,116 @@
     <string name="spoof_reboot_later">稍后</string>
     <string name="spoof_pending_reboot_banner">等待重启以应用伪装更改。</string>
     <string name="spoof_pending_reboot_title">等待重启</string>
+    <string name="battery_monitor_title">电池监控</string>
+
+    <!-- BatteryScreen - Section Labels -->
+    <string name="label_battery_status">电池状态</string>
+    <string name="label_history">历史记录</string>
+    <string name="label_health">电池健康</string>
+    <string name="label_charge_limit">充电限制</string>
+    <string name="label_charge_schedule">充电计划</string>
+    <string name="label_battery_notification">电池通知</string>
+
+    <!-- BatteryScreen - Health Card -->
+    <string name="health_data_unavailable">此设备上无法获取电池健康数据</string>
+
+    <!-- BatteryScreen - Root Warning -->
+    <string name="root_required_message">充电限制和计划功能需要 Root 权限</string>
+
+    <!-- BatteryScreen - Charge Limit Card -->
+    <string name="charge_limit_description">当电池达到设定上限时自动停止充电，延长电池长期使用寿命。</string>
+    <string name="charge_limit_path_not_found">此设备上未找到 Sysfs 充电限制路径</string>
+    <string name="charge_limit_enable_label">启用充电限制</string>
+    <string name="charge_limit_current">当前限制：%d%%</string>
+    <string name="charge_limit_slider_label">充电限制</string>
+    <string name="charge_limit_apply">应用</string>
+    <string name="charge_limit_apply_success">应用成功</string>
+    <string name="charge_limit_apply_failed">失败 — 未找到路径</string>
+
+    <!-- BatteryScreen - Charge Schedule Card -->
+    <string name="charge_schedule_description">仅在特定时间范围内允许充电，适合整夜充电时保护电池健康。</string>
+    <string name="charge_schedule_enable_label">启用计划</string>
+    <string name="charge_schedule_start">开始充电</string>
+    <string name="charge_schedule_stop">停止充电</string>
+    <string name="charge_schedule_save">保存计划</string>
+    <string name="charge_schedule_saved">计划已保存</string>
+
+    <!-- BatteryScreen - Notification Card -->
+    <string name="notif_description">在通知栏实时显示电池状态，包括过热、低电量和充电限制提醒。</string>
+    <string name="notif_monitor_label">通知监控</string>
+    <string name="notif_status_running">运行中</string>
+    <string name="notif_status_inactive">未激活</string>
+    <string name="notif_alert_settings">提醒设置</string>
+    <string name="notif_overheat_alert">过热提醒</string>
+    <string name="notif_low_battery_alert">低电量提醒</string>
+    <string name="notif_includes_title">通知内容</string>
+    <string name="notif_feature_level">实时电量 + 进度条</string>
+    <string name="notif_feature_temp">温度 + 绿/黄/红指示灯</string>
+    <string name="notif_feature_voltage">电压 (mV)</string>
+    <string name="notif_feature_estimate">剩余时间 / 充满估算</string>
+    <string name="notif_feature_charger_type">充电类型 (AC / USB / 无线)</string>
+    <string name="notif_feature_overheat">自动过热提醒</string>
+    <string name="notif_feature_low_battery">自动低电量提醒</string>
+    <string name="notif_feature_charge_limit">充电限制达到提醒</string>
+
+    <!-- BatteryMonitorService - Notifications -->
+    <string name="notif_channel_monitor_name">电池监控</string>
+    <string name="notif_channel_monitor_desc">持续显示电池状态通知</string>
+    <string name="notif_channel_alert_name">电池提醒</string>
+    <string name="notif_channel_alert_desc">过热、低电量和充电限制提醒</string>
+    <string name="notif_action_stop">停止</string>
+    <string name="notif_content_charging">充电中</string>
+    <string name="notif_content_discharging">放电中</string>
+    <string name="notif_big_level">电量     : %d%%</string>
+    <string name="notif_big_temp">温度     : %.1f°C</string>
+    <string name="notif_big_voltage">电压     : %dmV</string>
+    <string name="notif_big_estimate">估算     : %s</string>
+    <string name="notif_big_charger">充电器   : %s</string>
+    <string name="notif_time_min_to_full">%d 分钟充满</string>
+    <string name="notif_time_hour_to_full">%d 小时 %d 分钟充满</string>
+    <string name="notif_time_min_left">剩余 %d 分钟</string>
+    <string name="notif_time_hour_left">剩余 %d 小时 %d 分钟</string>
+
+    <!-- BatteryMonitorService - Alerts -->
+    <string name="alert_overheat_title">⚠️ 电池过热！</string>
+    <string name="alert_overheat_body">温度已达 %.1f°C，建议减少负载或摘下手机壳。</string>
+    <string name="alert_low_title">🔋 低电量 — %d%%</string>
+    <string name="alert_low_body">电量不足，请尽快充电。</string>
+    <string name="alert_limit_title">✅ 充电限制已达到 — %d%%</string>
+    <string name="alert_limit_body">电池已达到 %d%% 充电限制，可以拔掉充电器了。</string>
+
+    <!-- BatteryExecutor - Battery Info Keys -->
+    <string name="info_key_level">电量</string>
+    <string name="info_key_temperature">温度</string>
+    <string name="info_key_voltage">电压</string>
+    <string name="info_key_status">状态</string>
+    <string name="info_key_health">健康</string>
+    <string name="info_key_charger">充电器</string>
+    <string name="info_key_technology">电池类型</string>
+    <string name="info_key_cycle_count">充电循环次数</string>
+    <string name="info_key_design_capacity">设计容量</string>
+    <string name="info_key_current_capacity">当前容量</string>
+    <string name="info_key_wear_level">损耗程度</string>
+
+    <!-- BatteryExecutor - Status Values -->
+    <string name="status_charging">充电中</string>
+    <string name="status_discharging">放电中</string>
+    <string name="status_full">已充满</string>
+    <string name="status_not_charging">未充电</string>
+    <string name="status_unknown">未知</string>
+
+    <!-- BatteryExecutor - Health Values -->
+    <string name="health_good">良好</string>
+    <string name="health_overheat">过热</string>
+    <string name="health_dead">损坏</string>
+    <string name="health_over_voltage">过压</string>
+    <string name="health_failure">故障</string>
+    <string name="health_cold">过冷</string>
+
+    <!-- BatteryExecutor - Charger Values -->
+    <string name="charger_ac">AC</string>
+    <string name="charger_usb">USB</string>
+    <string name="charger_wireless">无线</string>
+    <string name="charger_unplugged">未连接</string>
 
 </resources>

@@ -770,5 +770,116 @@
     <string name="spoof_reboot_failed">Reboot failed, please reboot manually.</string>
     <string name="spoof_pending_reboot_banner">Waiting for reboot to apply spoof changes.</string>
     <string name="spoof_pending_reboot_title">Pending Reboot</string>
+    <string name="battery_monitor_title">Battery Monitor</string>
+
+    <!-- BatteryScreen - Section Labels -->
+    <string name="label_battery_status">BATTERY STATUS</string>
+    <string name="label_history">HISTORY</string>
+    <string name="label_health">HEALTH</string>
+    <string name="label_charge_limit">CHARGE LIMIT</string>
+    <string name="label_charge_schedule">CHARGE SCHEDULE</string>
+    <string name="label_battery_notification">BATTERY NOTIFICATION</string>
+
+    <!-- BatteryScreen - Health Card -->
+    <string name="health_data_unavailable">Health data not available on this device</string>
+
+    <!-- BatteryScreen - Root Warning -->
+    <string name="root_required_message">Charge Limit &amp; Schedule require root access</string>
+
+    <!-- BatteryScreen - Charge Limit Card -->
+    <string name="charge_limit_description">Automatically stop charging when battery reaches the set limit. Extends long-term battery cell lifespan.</string>
+    <string name="charge_limit_path_not_found">Sysfs charge limit path not found on this device</string>
+    <string name="charge_limit_enable_label">Enable Charge Limit</string>
+    <string name="charge_limit_current">Current limit: %d%%</string>
+    <string name="charge_limit_slider_label">Charge Limit</string>
+    <string name="charge_limit_apply">Apply</string>
+    <string name="charge_limit_apply_success">Applied successfully</string>
+    <string name="charge_limit_apply_failed">Failed — path not found</string>
+
+    <!-- BatteryScreen - Charge Schedule Card -->
+    <string name="charge_schedule_description">Enable charging only within a specific time window. Useful to keep battery healthy during overnight charging.</string>
+    <string name="charge_schedule_enable_label">Enable Schedule</string>
+    <string name="charge_schedule_start">Start Charging</string>
+    <string name="charge_schedule_stop">Stop Charging</string>
+    <string name="charge_schedule_save">Save Schedule</string>
+    <string name="charge_schedule_saved">Schedule saved</string>
+
+    <!-- BatteryScreen - Notification Card -->
+    <string name="notif_description">Show real-time battery status in the notification panel. Includes overheat, low battery, and charge limit alerts.</string>
+    <string name="notif_monitor_label">Notification Monitor</string>
+    <string name="notif_status_running">Running</string>
+    <string name="notif_status_inactive">Inactive</string>
+    <string name="notif_alert_settings">ALERT SETTINGS</string>
+    <string name="notif_overheat_alert">Overheat Alert</string>
+    <string name="notif_low_battery_alert">Low Battery Alert</string>
+    <string name="notif_includes_title">NOTIFICATION INCLUDES</string>
+    <string name="notif_feature_level">Real-time level + progress bar</string>
+    <string name="notif_feature_temp">Temperature + green/yellow/red indicator</string>
+    <string name="notif_feature_voltage">Voltage (mV)</string>
+    <string name="notif_feature_estimate">Estimated time remaining / to full</string>
+    <string name="notif_feature_charger_type">Charger type (AC / USB / Wireless)</string>
+    <string name="notif_feature_overheat">Auto overheat alert</string>
+    <string name="notif_feature_low_battery">Auto low battery alert</string>
+    <string name="notif_feature_charge_limit">Charge limit reached alert</string>
+
+    <!-- BatteryMonitorService - Notifications -->
+    <string name="notif_channel_monitor_name">Battery Monitor</string>
+    <string name="notif_channel_monitor_desc">Ongoing battery status notification</string>
+    <string name="notif_channel_alert_name">Battery Alerts</string>
+    <string name="notif_channel_alert_desc">Overheat, low battery, and charge limit alerts</string>
+    <string name="notif_action_stop">Stop</string>
+    <string name="notif_content_charging">Charging</string>
+    <string name="notif_content_discharging">Discharging</string>
+    <string name="notif_big_level">Level    : %d%%</string>
+    <string name="notif_big_temp">Temp     : %.1f°C</string>
+    <string name="notif_big_voltage">Voltage  : %dmV</string>
+    <string name="notif_big_estimate">Estimate : %s</string>
+    <string name="notif_big_charger">Charger  : %s</string>
+    <string name="notif_time_min_to_full">%dm to full</string>
+    <string name="notif_time_hour_to_full">%dh %dm to full</string>
+    <string name="notif_time_min_left">%dm left</string>
+    <string name="notif_time_hour_left">%dh %dm left</string>
+
+    <!-- BatteryMonitorService - Alerts -->
+    <string name="alert_overheat_title">⚠️ Battery Overheat!</string>
+    <string name="alert_overheat_body">Temperature reached %.1f°C. Consider reducing load or removing case.</string>
+    <string name="alert_low_title">🔋 Low Battery — %d%%</string>
+    <string name="alert_low_body">Battery is low. Please charge your device.</string>
+    <string name="alert_limit_title">✅ Charge Limit Reached — %d%%</string>
+    <string name="alert_limit_body">Battery reached the %d%% charge limit. You can unplug now.</string>
+
+    <!-- BatteryExecutor - Battery Info Keys -->
+    <string name="info_key_level">Level</string>
+    <string name="info_key_temperature">Temperature</string>
+    <string name="info_key_voltage">Voltage</string>
+    <string name="info_key_status">Status</string>
+    <string name="info_key_health">Health</string>
+    <string name="info_key_charger">Charger</string>
+    <string name="info_key_technology">Technology</string>
+    <string name="info_key_cycle_count">Cycle Count</string>
+    <string name="info_key_design_capacity">Design Capacity</string>
+    <string name="info_key_current_capacity">Current Capacity</string>
+    <string name="info_key_wear_level">Wear Level</string>
+
+    <!-- BatteryExecutor - Status Values -->
+    <string name="status_charging">Charging</string>
+    <string name="status_discharging">Discharging</string>
+    <string name="status_full">Full</string>
+    <string name="status_not_charging">Not Charging</string>
+    <string name="status_unknown">Unknown</string>
+
+    <!-- BatteryExecutor - Health Values -->
+    <string name="health_good">Good</string>
+    <string name="health_overheat">Overheat</string>
+    <string name="health_dead">Dead</string>
+    <string name="health_over_voltage">Over Voltage</string>
+    <string name="health_failure">Failure</string>
+    <string name="health_cold">Cold</string>
+
+    <!-- BatteryExecutor - Charger Values -->
+    <string name="charger_ac">AC</string>
+    <string name="charger_usb">USB</string>
+    <string name="charger_wireless">Wireless</string>
+    <string name="charger_unplugged">Unplugged</string>
 
 </resources>

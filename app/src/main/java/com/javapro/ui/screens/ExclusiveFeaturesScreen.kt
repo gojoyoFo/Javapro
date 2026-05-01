@@ -624,33 +624,34 @@ fun ExclusiveFeaturesScreen(navController: NavController, prefManager: Preferenc
                 }
             }
 
-            ExLabel(Icons.Default.BugReport, stringResource(R.string.excl_debug_label), Color(0xFFEF5350))
-            ExCard {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        stringResource(R.string.excl_debug_desc),
-                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 17.sp
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ExBadge(if (isRooted) "ROOT" else "SHIZUKU", if (isRooted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary)
-                        ExBadge("PREMIUM", MaterialTheme.colorScheme.secondary)
-                    }
-                    ExPillButton(stringResource(R.string.action_open_debug), Icons.Default.Build) {
-                        navController.navigate("debug_tools")
-                    }
-                }
-            }
-
             ExLabel(Icons.Default.Apps, stringResource(R.string.excl_more_menu_label), MaterialTheme.colorScheme.tertiary)
             ExCard {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        stringResource(R.string.excl_more_menu_desc),
-                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 17.sp
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ExShortcutButton(
+                        icon    = Icons.Default.BatteryChargingFull,
+                        title   = if (isId) "Monitor Baterai" else "Battery Monitor",
+                        desc    = if (isId) "Charge limit, kesehatan & riwayat" else "Charge limit, health & history",
+                        tint    = Color(0xFF66BB6A),
+                        onClick = { navController.navigate("battery") }
                     )
-                    ExPillButton(stringResource(R.string.excl_more_screen_record), Icons.Default.Videocam) {
-                        navController.navigate("screen_record")
-                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+                    ExShortcutButton(
+                        icon    = Icons.Default.Build,
+                        title   = stringResource(R.string.action_open_debug),
+                        desc    = stringResource(R.string.excl_debug_desc),
+                        tint    = Color(0xFFEF5350),
+                        badge   = if (isRooted) "ROOT" else "SHIZUKU",
+                        badgeColor = if (isRooted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
+                        onClick = { navController.navigate("debug_tools") }
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+                    ExShortcutButton(
+                        icon    = Icons.Default.Videocam,
+                        title   = stringResource(R.string.excl_more_screen_record),
+                        desc    = if (isId) "Rekam layar perangkat" else "Record device screen",
+                        tint    = MaterialTheme.colorScheme.tertiary,
+                        onClick = { navController.navigate("screen_record") }
+                    )
                 }
             }
 
@@ -663,6 +664,43 @@ fun ExclusiveFeaturesScreen(navController: NavController, prefManager: Preferenc
 private fun ExCard(content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainer).border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)), RoundedCornerShape(20.dp)).padding(16.dp)) {
         Column(content = content)
+    }
+}
+
+@Composable
+private fun ExShortcutButton(
+    icon: ImageVector, title: String, desc: String, tint: Color,
+    badge: String? = null, badgeColor: Color = Color.Unspecified, onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape   = RoundedCornerShape(14.dp),
+        color   = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border  = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
+                    .background(tint.copy(0.12f))
+                    .border(BorderStroke(1.dp, tint.copy(0.3f)), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    if (badge != null) ExBadge(badge, badgeColor)
+                }
+                Text(desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        }
     }
 }
 

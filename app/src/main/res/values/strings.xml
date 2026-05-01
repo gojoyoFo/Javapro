@@ -693,9 +693,9 @@
 <string name="notif_big_estimate">Estimate : %s</string>
 <string name="notif_big_charger">Charger  : %s</string>
 <string name="notif_time_min_to_full">%dm to full</string>
-<string name="notif_time_hour_to_full">%dh %dm to full</string>
+<string name="notif_time_hour_to_full" formatted="false">%dh %dm to full</string>
 <string name="notif_time_min_left">%dm left</string>
-<string name="notif_time_hour_left">%dh %dm left</string>
+<string name="notif_time_hour_left" formatted="false">%dh %dm left</string>
 <string name="alert_overheat_title">⚠️ Battery Overheat!</string>
 <string name="alert_overheat_body">Temperature reached %.1f°C. Consider reducing load or removing case.</string>
 <string name="alert_low_title">🔋 Low Battery — %d%%</string>

@@ -693,9 +693,9 @@
 <string name="notif_big_estimate">估算     : %s</string>
 <string name="notif_big_charger">充电器   : %s</string>
 <string name="notif_time_min_to_full">%d 分钟充满</string>
-<string name="notif_time_hour_to_full">%d 小时 %d 分钟充满</string>
+<string name="notif_time_hour_to_full" formatted="false">%d 小时 %d 分钟充满</string>
 <string name="notif_time_min_left">剩余 %d 分钟</string>
-<string name="notif_time_hour_left">剩余 %d 小时 %d 分钟</string>
+<string name="notif_time_hour_left" formatted="false">剩余 %d 小时 %d 分钟</string>
 <string name="alert_overheat_title">⚠️ 电池过热！</string>
 <string name="alert_overheat_body">温度已达 %.1f°C，建议减少负载或摘下手机壳。</string>
 <string name="alert_low_title">🔋 低电量 — %d%%</string>

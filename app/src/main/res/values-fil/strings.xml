@@ -693,9 +693,9 @@
 <string name="notif_big_estimate">Tinatayang : %s</string>
 <string name="notif_big_charger">Charger  : %s</string>
 <string name="notif_time_min_to_full">%dm hanggang puno</string>
-<string name="notif_time_hour_to_full">%dh %dm hanggang puno</string>
+<string name="notif_time_hour_to_full" formatted="false">%dh %dm hanggang puno</string>
 <string name="notif_time_min_left">%dm natitira</string>
-<string name="notif_time_hour_left">%dh %dm natitira</string>
+<string name="notif_time_hour_left" formatted="false">%dh %dm natitira</string>
 <string name="alert_overheat_title">⚠️ Sobrang Init ng Baterya!</string>
 <string name="alert_overheat_body">Naabot ng temperatura ang %.1f°C. Isaalang-alang ang pagbabawas ng load o pag-aalis ng case.</string>
 <string name="alert_low_title">🔋 Mababang Baterya — %d%%</string>

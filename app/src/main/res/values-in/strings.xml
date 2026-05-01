@@ -693,9 +693,9 @@
 <string name="notif_big_estimate">Estimasi : %s</string>
 <string name="notif_big_charger">Charger  : %s</string>
 <string name="notif_time_min_to_full">%dm ke penuh</string>
-<string name="notif_time_hour_to_full">%dj %dm ke penuh</string>
+<string name="notif_time_hour_to_full" formatted="false">%dj %dm ke penuh</string>
 <string name="notif_time_min_left">%dm tersisa</string>
-<string name="notif_time_hour_left">%dj %dm tersisa</string>
+<string name="notif_time_hour_left" formatted="false">%dj %dm tersisa</string>
 <string name="alert_overheat_title">⚠️ Baterai Terlalu Panas!</string>
 <string name="alert_overheat_body">Suhu mencapai %.1f°C. Pertimbangkan mengurangi beban atau melepas casing.</string>
 <string name="alert_low_title">🔋 Baterai Rendah — %d%%</string>

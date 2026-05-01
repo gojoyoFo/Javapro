@@ -693,9 +693,9 @@
 <string name="notif_big_estimate">अनुमान : %s</string>
 <string name="notif_big_charger">चार्जर  : %s</string>
 <string name="notif_time_min_to_full">%d मिनट में पूर्ण</string>
-<string name="notif_time_hour_to_full">%d घंटे %d मिनट में पूर्ण</string>
+<string name="notif_time_hour_to_full" formatted="false">%d घंटे %d मिनट में पूर्ण</string>
 <string name="notif_time_min_left">%d मिनट शेष</string>
-<string name="notif_time_hour_left">%d घंटे %d मिनट शेष</string>
+<string name="notif_time_hour_left" formatted="false">%d घंटे %d मिनट शेष</string>
 <string name="alert_overheat_title">⚠️ बैटरी ज़्यादा गर्म!</string>
 <string name="alert_overheat_body">तापमान %.1f°C तक पहुंच गया। लोड कम करें या केस हटाएं।</string>
 <string name="alert_low_title">🔋 कम बैटरी — %d%%</string>

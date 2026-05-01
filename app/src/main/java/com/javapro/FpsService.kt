@@ -1,26 +1,23 @@
-/*
- * Original FPS detection logic from: helloklf (vtools)
- * Modified and integrated by: Copyright (c) 2025 ZKM
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- */
-
 package com.javapro
 
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import android.view.*
 import android.widget.TextView
+import android.window.TaskFpsCallback
 import com.javapro.utils.PreferenceManager
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.io.BufferedReader
+import java.io.FileReader
 import java.util.regex.Pattern
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -31,32 +28,45 @@ class FpsService : Service() {
     private lateinit var fpsView: View
     private lateinit var params: WindowManager.LayoutParams
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var monitoringJob: Job? = null
-    private var isRunning = false
+    private val serviceScope   = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val mainHandler    = Handler(Looper.getMainLooper())
+    private var monitoringJob  : Job? = null
+    private var isRunning      = false
 
-    private var currentMode: FpsMode = FpsMode.UNIVERSAL_DEVICES
-    private var fpsFilePath: String? = null
+    private var activeMethod   : FpsMethod = FpsMethod.NONE
+    private var fpsFilePath    : String?   = null
+
+    private var taskFpsCallback    : TaskFpsCallback? = null
+    private var callbackRegistered = false
+    private var currentTaskId      = -1
+    private var lastCallbackTime   = 0L
+    private var callbackFps        = 0f
+
+    private val fpsHistory     = mutableListOf<Float>()
+    private val maxHistory     = 120
 
     companion object {
-        private const val TAG = "FpsService"
-        private const val SAMPLE_INTERVAL_MS = 1000L
+        private const val TAG                  = "FpsService"
+        private const val SAMPLE_INTERVAL_MS   = 1000L
+        private const val TASK_CHECK_MS        = 1000L
+        private const val STALE_THRESHOLD_MS   = 2500L
         private val _currentFps = MutableStateFlow(0f)
         val currentFps: StateFlow<Float> = _currentFps
     }
 
-    enum class FpsMode {
-        UNIVERSAL_GPU,
-        UNIVERSAL_DEVICES
+    private enum class FpsMethod {
+        TASK_CALLBACK,
+        DUMPSYS,
+        SYSFS,
+        NONE
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "FpsService created")
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        fpsView = LayoutInflater.from(this).inflate(R.layout.overlay_fps, null)
+        fpsView       = LayoutInflater.from(this).inflate(R.layout.overlay_fps, null)
         setupWindowParams()
         setupDragListener()
         try {
@@ -67,157 +77,198 @@ class FpsService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "onStartCommand called")
-        val prefManager = PreferenceManager(this)
-        val modeString = prefManager.fpsModeFlow.value
-        Log.d(TAG, "Mode from prefs: $modeString")
-
-        currentMode = when (modeString) {
-            "universal_gpu" -> FpsMode.UNIVERSAL_GPU
-            else -> FpsMode.UNIVERSAL_DEVICES
-        }
-
-        Log.d(TAG, "Current mode: $currentMode")
-
-        fpsFilePath = null
-
         monitoringJob?.cancel()
         isRunning = true
-        startFpsMonitoring()
-
+        resolveMethodAndStart()
         return START_STICKY
     }
 
-    private fun setupWindowParams() {
-        val layoutType = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
-            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+    private fun resolveMethodAndStart() {
+        serviceScope.launch {
+            activeMethod = detectBestMethod()
+            Log.i(TAG, "Resolved FPS method: $activeMethod")
 
-        params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            layoutType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 100
-            y = 100
+            when (activeMethod) {
+                FpsMethod.TASK_CALLBACK -> startTaskCallbackMode()
+                FpsMethod.DUMPSYS       -> startDumpsysMode()
+                FpsMethod.SYSFS         -> startSysfsMode()
+                FpsMethod.NONE          -> {
+                    withContext(Dispatchers.Main) { updateFpsDisplay(0f) }
+                }
+            }
         }
     }
 
-    private fun setupDragListener() {
-        fpsView.setOnTouchListener(object : View.OnTouchListener {
-            private var downRawX = 0f
-            private var downRawY = 0f
-            private var startX = 0
-            private var startY = 0
-            private var moved = false
-
-            override fun onTouch(v: View?, event: MotionEvent): Boolean {
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        downRawX = event.rawX
-                        downRawY = event.rawY
-                        startX = params.x
-                        startY = params.y
-                        moved = false
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = (event.rawX - downRawX).toInt()
-                        val dy = (event.rawY - downRawY).toInt()
-                        if (abs(dx) > 8 || abs(dy) > 8) moved = true
-                        params.x = startX + dx
-                        params.y = startY + dy
-                        try {
-                            windowManager.updateViewLayout(fpsView, params)
-                        } catch (_: Exception) {}
-                        return true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        return true
-                    }
-                }
-                return false
+    private fun detectBestMethod(): FpsMethod {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val taskId = getFocusedTaskId()
+            if (taskId > 0) {
+                Log.d(TAG, "TaskFpsCallback available, taskId=$taskId")
+                return FpsMethod.TASK_CALLBACK
             }
-        })
+        }
+
+        try {
+            val result = Shell.cmd("dumpsys SurfaceFlinger --timestats -enable -clear").exec()
+            if (result.isSuccess) {
+                Log.d(TAG, "dumpsys timestats available")
+                return FpsMethod.DUMPSYS
+            }
+        } catch (_: Exception) {}
+
+        val sysfsPath = findSysfsPath()
+        if (sysfsPath != null) {
+            fpsFilePath = sysfsPath
+            Log.d(TAG, "sysfs path found: $sysfsPath")
+            return FpsMethod.SYSFS
+        }
+
+        Log.w(TAG, "No FPS method available on this device")
+        return FpsMethod.NONE
     }
 
-    private fun startFpsMonitoring() {
-        monitoringJob = serviceScope.launch {
-            if (currentMode == FpsMode.UNIVERSAL_DEVICES) {
-                Log.d(TAG, "Enabling timestats")
-                Shell.cmd("dumpsys SurfaceFlinger --timestats -enable -clear").exec()
+    private fun startTaskCallbackMode() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+        taskFpsCallback = object : TaskFpsCallback() {
+            override fun onFpsReported(fps: Float) {
+                if (fps > 0f) {
+                    callbackFps      = fps
+                    lastCallbackTime = System.currentTimeMillis()
+                    recordHistory(fps)
+                    mainHandler.post { updateFpsDisplay(fps) }
+                }
             }
+        }
 
+        val taskId = getFocusedTaskId()
+        if (taskId <= 0) {
+            Log.w(TAG, "No focused task, falling back")
+            serviceScope.launch { activeMethod = FpsMethod.DUMPSYS; startDumpsysMode() }
+            return
+        }
+
+        currentTaskId = taskId
+        registerCallback(taskId)
+
+        mainHandler.post(taskCheckRunnable)
+    }
+
+    private val taskCheckRunnable = object : Runnable {
+        override fun run() {
+            if (!isRunning || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+            val newTaskId = getFocusedTaskId()
+            if (newTaskId > 0 && newTaskId != currentTaskId) {
+                reinitCallback(newTaskId)
+            } else {
+                val stale = System.currentTimeMillis() - lastCallbackTime > STALE_THRESHOLD_MS && lastCallbackTime > 0
+                if (stale) reinitCallback(newTaskId.takeIf { it > 0 } ?: currentTaskId)
+            }
+            mainHandler.postDelayed(this, TASK_CHECK_MS)
+        }
+    }
+
+    private fun registerCallback(taskId: Int) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        unregisterCallback()
+        try {
+            taskFpsCallback?.let {
+                windowManager.registerTaskFpsCallback(taskId, Runnable::run, it)
+                callbackRegistered = true
+                currentTaskId      = taskId
+                lastCallbackTime   = System.currentTimeMillis()
+                Log.d(TAG, "TaskFpsCallback registered for taskId=$taskId")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register TaskFpsCallback", e)
+        }
+    }
+
+    private fun unregisterCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (!callbackRegistered) return
+        try {
+            taskFpsCallback?.let { windowManager.unregisterTaskFpsCallback(it) }
+        } catch (_: Exception) {}
+        callbackRegistered = false
+    }
+
+    private fun reinitCallback(taskId: Int) {
+        unregisterCallback()
+        mainHandler.postDelayed({ registerCallback(taskId) }, 500)
+    }
+
+    private fun startDumpsysMode() {
+        monitoringJob = serviceScope.launch {
+            Shell.cmd("dumpsys SurfaceFlinger --timestats -enable -clear").exec()
             delay(800)
-
             while (coroutineContext.isActive && isRunning) {
-                val fps = try {
-                    when (currentMode) {
-                        FpsMode.UNIVERSAL_GPU -> getKernelFps()
-                        FpsMode.UNIVERSAL_DEVICES -> getDumpsysFps()
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error reading FPS", e)
-                    0f
-                }
-
-                Log.d(TAG, "FPS Read: $fps (Mode: $currentMode)")
-
-                withContext(Dispatchers.Main) {
-                    updateFpsDisplay(fps)
-                }
-
+                val fps = readDumpsysFps()
+                recordHistory(fps)
+                withContext(Dispatchers.Main) { updateFpsDisplay(fps) }
                 delay(SAMPLE_INTERVAL_MS)
             }
         }
     }
 
-    private fun getKernelFps(): Float {
-        if (fpsFilePath.isNullOrEmpty()) {
-            findFpsPath()
-            if (fpsFilePath.isNullOrEmpty()) {
-                Log.w(TAG, "No valid FPS file path found")
-                return 0f
+    private fun startSysfsMode() {
+        monitoringJob = serviceScope.launch {
+            while (coroutineContext.isActive && isRunning) {
+                val fps = readSysfsFps()
+                recordHistory(fps)
+                withContext(Dispatchers.Main) { updateFpsDisplay(fps) }
+                delay(SAMPLE_INTERVAL_MS)
             }
         }
+    }
 
+    private fun readDumpsysFps(): Float {
         return try {
-            val result = Shell.cmd("cat $fpsFilePath").exec()
-            val output = result.out.joinToString("").trim()
+            val result = Shell.cmd("dumpsys SurfaceFlinger --timestats -dump").exec()
+            val output = result.out.joinToString("\n")
+            Shell.cmd("dumpsys SurfaceFlinger --timestats -clear -enable").exec()
 
-            Log.d(TAG, "Kernel FPS ($fpsFilePath): '$output'")
-
-            if (output.isEmpty()) return 0f
-
-            val cleaned = output.lowercase()
-                .replace("fps", "")
-                .replace("refresh", "")
-                .replace("rate", "")
-                .replace(":", "")
-                .replace("=", "")
-                .trim()
-
-            val fps = cleaned.toFloatOrNull()
-            if (fps != null && fps in 1f..360f) {
-                Log.d(TAG, "Parsed kernel FPS: $fps")
-                fps
-            } else {
-                Log.w(TAG, "Failed to parse FPS from: '$output' -> cleaned: '$cleaned'")
-                0f
+            val avgPattern  = Pattern.compile("averageFPS\\s*[=:]\\s*([0-9]+\\.?[0-9]*)")
+            val avgMatcher  = avgPattern.matcher(output)
+            if (avgMatcher.find()) {
+                val v = avgMatcher.group(1)?.toFloatOrNull() ?: 0f
+                if (v in 1f..360f) return v
             }
+
+            val fpsPattern = Pattern.compile("fps[=:]\\s*([0-9]+\\.?[0-9]*)", Pattern.CASE_INSENSITIVE)
+            val fpsMatcher = fpsPattern.matcher(output)
+            if (fpsMatcher.find()) {
+                val v = fpsMatcher.group(1)?.toFloatOrNull() ?: 0f
+                if (v in 1f..360f) return v
+            }
+            0f
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading kernel FPS", e)
+            Log.e(TAG, "dumpsys read error", e)
             0f
         }
     }
 
-    private fun findFpsPath() {
+    private fun readSysfsFps(): Float {
+        val path = fpsFilePath ?: return 0f
+        return try {
+            val result = Shell.cmd("cat $path").exec()
+            val raw    = result.out.joinToString("").trim()
+            if (raw.isEmpty()) return 0f
+
+            val cleaned = raw.lowercase()
+                .replace("fps", "").replace("refresh", "")
+                .replace("rate", "").replace(":", "")
+                .replace("=", "").trim()
+
+            val v = cleaned.toFloatOrNull() ?: 0f
+            if (v in 1f..360f) v else 0f
+        } catch (e: Exception) {
+            Log.e(TAG, "sysfs read error", e)
+            0f
+        }
+    }
+
+    private fun findSysfsPath(): String? {
         val paths = listOf(
             "/sys/class/drm/sde-crtc-0/measured_fps",
             "/sys/class/graphics/fb0/measured_fps",
@@ -230,102 +281,126 @@ class FpsService : Service() {
             "/sys/module/mali/parameters/fps",
             "/sys/class/drm/sde-crtc-1/measured_fps"
         )
-
         for (path in paths) {
             try {
-                val checkResult = Shell.cmd("[ -r $path ] && echo 1 || echo 0").exec()
-                val exists = checkResult.out.joinToString("").trim() == "1"
-                if (exists) {
-                    val testRead = Shell.cmd("cat $path").exec()
-                    val testOutput = testRead.out.joinToString("").trim()
-                    if (testOutput.isNotEmpty() && testOutput.length < 20) {
-                        fpsFilePath = path
-                        Log.i(TAG, "Found valid FPS path: $path -> $testOutput")
-                        return
-                    }
+                val exists = Shell.cmd("[ -r $path ] && echo 1 || echo 0").exec()
+                    .out.joinToString("").trim() == "1"
+                if (!exists) continue
+                val value = Shell.cmd("cat $path").exec().out.joinToString("").trim()
+                if (value.isNotEmpty() && value.length < 20) {
+                    Log.i(TAG, "Found sysfs FPS path: $path -> $value")
+                    return path
                 }
-            } catch (e: Exception) {
-                continue
-            }
+            } catch (_: Exception) { continue }
         }
-
-        fpsFilePath = ""
-        Log.w(TAG, "No FPS path found on this device")
+        return null
     }
 
-    private fun getDumpsysFps(): Float {
+    private fun getFocusedTaskId(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
         return try {
-            val dumpResult = Shell.cmd("dumpsys SurfaceFlinger --timestats -dump").exec()
-            val dumpOutput = dumpResult.out.joinToString("\n")
-
-            Shell.cmd("dumpsys SurfaceFlinger --timestats -clear -enable").exec()
-
-            val avgPattern = Pattern.compile("averageFPS\\s*[=:]\\s*([0-9]+\\.?[0-9]*)")
-            val matcher = avgPattern.matcher(dumpOutput)
-            if (matcher.find()) {
-                val value = matcher.group(1)?.toFloatOrNull() ?: 0f
-                Log.d(TAG, "Parsed timestats averageFPS: $value")
-                return value
+            val atm     = Class.forName("android.app.ActivityTaskManager")
+            val service = atm.getDeclaredMethod("getService").invoke(null)
+            val info    = service.javaClass.getMethod("getFocusedRootTaskInfo").invoke(service)
+                ?: return -1
+            try { info.javaClass.getField("taskId").getInt(info) }
+            catch (_: NoSuchFieldException) {
+                info.javaClass.getField("mTaskId").getInt(info)
             }
+        } catch (_: Exception) { -1 }
+    }
 
-            val fpsPattern = Pattern.compile("fps[=:]\\s*([0-9]+\\.?[0-9]*)", Pattern.CASE_INSENSITIVE)
-            val fpsMatcher = fpsPattern.matcher(dumpOutput)
-            if (fpsMatcher.find()) {
-                val value = fpsMatcher.group(1)?.toFloatOrNull() ?: 0f
-                Log.d(TAG, "Parsed fallback FPS: $value")
-                return value
-            }
-
-            0f
-        } catch (e: Exception) {
-            Log.e(TAG, "Error timestats", e)
-            0f
+    private fun recordHistory(fps: Float) {
+        if (fps <= 0f) return
+        synchronized(fpsHistory) {
+            fpsHistory.add(fps)
+            if (fpsHistory.size > maxHistory) fpsHistory.removeAt(0)
         }
     }
 
     private fun updateFpsDisplay(fps: Float) {
         val textView = fpsView.findViewById<TextView>(R.id.fps_text)
+        val final    = if (fps in 1f..360f) fps.roundToInt() else 0
 
-        val finalFps = when {
-            fps > 360f || fps < 0f -> 0
-            else -> fps.roundToInt()
-        }
-
-        _currentFps.value = finalFps.toFloat()
-
-        textView?.text = if (finalFps > 0) "$finalFps" else "--"
-
+        _currentFps.value = final.toFloat()
+        textView?.text    = if (final > 0) "$final" else "--"
         textView?.setTextColor(
             when {
-                finalFps in 1..29 -> android.graphics.Color.RED
-                finalFps in 30..54 -> android.graphics.Color.YELLOW
-                finalFps >= 55 -> android.graphics.Color.WHITE
-                else -> android.graphics.Color.GRAY
+                final in 1..29  -> android.graphics.Color.RED
+                final in 30..54 -> android.graphics.Color.YELLOW
+                final >= 55     -> android.graphics.Color.WHITE
+                else            -> android.graphics.Color.GRAY
             }
         )
+    }
 
-        if (finalFps > 0) Log.d(TAG, "Display FPS: $finalFps")
+    private fun setupWindowParams() {
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+
+        params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 100; y = 100
+        }
+    }
+
+    private fun setupDragListener() {
+        fpsView.setOnTouchListener(object : View.OnTouchListener {
+            private var downRawX = 0f
+            private var downRawY = 0f
+            private var startX   = 0
+            private var startY   = 0
+            private var moved    = false
+
+            override fun onTouch(v: View?, event: MotionEvent): Boolean {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downRawX = event.rawX; downRawY = event.rawY
+                        startX   = params.x;   startY   = params.y
+                        moved    = false
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (event.rawX - downRawX).toInt()
+                        val dy = (event.rawY - downRawY).toInt()
+                        if (abs(dx) > 8 || abs(dy) > 8) moved = true
+                        params.x = startX + dx; params.y = startY + dy
+                        try { windowManager.updateViewLayout(fpsView, params) } catch (_: Exception) {}
+                        return true
+                    }
+                    MotionEvent.ACTION_UP -> return true
+                }
+                return false
+            }
+        })
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "FpsService destroying")
         isRunning = false
+        mainHandler.removeCallbacksAndMessages(null)
         monitoringJob?.cancel()
+        unregisterCallback()
 
         serviceScope.launch {
-            if (currentMode == FpsMode.UNIVERSAL_DEVICES) {
-                Shell.cmd("dumpsys SurfaceFlinger --timestats -disable").exec()
+            if (activeMethod == FpsMethod.DUMPSYS) {
+                try { Shell.cmd("dumpsys SurfaceFlinger --timestats -disable").exec() } catch (_: Exception) {}
             }
         }
-
         serviceScope.cancel()
 
         if (::fpsView.isInitialized && fpsView.windowToken != null) {
-            try {
-                windowManager.removeView(fpsView)
-            } catch (_: IllegalArgumentException) {}
+            try { windowManager.removeView(fpsView) } catch (_: IllegalArgumentException) {}
         }
-
         super.onDestroy()
     }
 }

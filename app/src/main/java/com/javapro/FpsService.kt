@@ -1,5 +1,8 @@
 package com.javapro
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -14,6 +17,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -79,12 +83,16 @@ class FpsService : Service() {
         const val PREF_FILE = "overlay_prefs"
         private const val PREF_X = "overlay_x"
         private const val PREF_Y = "overlay_y"
+        private const val CHANNEL_ID = "fps_overlay_channel"
+        private const val NOTIF_ID = 9001
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
+        createNotificationChannel()
+        startForeground(NOTIF_ID, buildNotification())
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         buildOverlay()
         setupParams()
@@ -94,6 +102,29 @@ class FpsService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "addView failed: ${e.message}")
         }
+    }
+
+    private fun createNotificationChannel() {
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val ch = NotificationChannel(
+            CHANNEL_ID, "FPS Overlay",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            setShowBadge(false)
+            setSound(null, null)
+        }
+        nm.createNotificationChannel(ch)
+    }
+
+    private fun buildNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_battery_notif)
+            .setContentTitle("FPS Monitor")
+            .setContentText("Overlay aktif")
+            .setOngoing(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

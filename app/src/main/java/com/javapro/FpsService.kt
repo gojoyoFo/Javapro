@@ -181,9 +181,11 @@ class FpsService : Service() {
 
     private fun getCurrentFps(): Float {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return 0f
-        val now     = System.currentTimeMillis()
-        val isStale = lastCallbackTime > 0 && (now - lastCallbackTime) > STALE_MS
-        if (isStale) { callbackFps = 0f; return 0f }
+        val now = System.currentTimeMillis()
+        if (lastCallbackTime > 0 && (now - lastCallbackTime) > STALE_MS) {
+            callbackFps = 0f
+            return 0f
+        }
         val raw = callbackFps
         if (raw <= 0f) return 0f
         val clamped = raw.coerceIn(1f, deviceRefreshRate * 1.05f)
@@ -378,7 +380,7 @@ class FpsService : Service() {
         rowGpuUsage = row("GPU", tvGpuUsage)
         rowRam      = row("RAM", tvRam)
         rowBattery  = row("BAT", tvBattery)
-        rowBatTemp  = row("TMP", tvBatTemp)
+        rowBatTemp  = row("GTMP", tvBatTemp)
 
         dividerCpu = makeDivider()
         dividerGpu = makeDivider()
@@ -504,7 +506,12 @@ class FpsService : Service() {
             else                  -> Color.parseColor("#66BB6A")
         })
 
-        tvBatTemp.text = if (snap.batteryTempC > 0f) "${"%.0f".format(snap.batteryTempC)}°C" else "--"
+        tvBatTemp.text = if (snap.gpuTempC > 0f) "${"%.0f".format(snap.gpuTempC)}°C" else "--"
+        tvBatTemp.setTextColor(when {
+            snap.gpuTempC >= 70f -> Color.parseColor("#FF5252")
+            snap.gpuTempC >= 50f -> Color.parseColor("#FFD740")
+            else                 -> Color.parseColor("#CE93D8")
+        })
     }
 
     private fun recordHistory(fps: Float) {

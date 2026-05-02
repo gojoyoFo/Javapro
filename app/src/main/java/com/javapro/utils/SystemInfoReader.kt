@@ -280,8 +280,8 @@ object SystemInfoReader {
 
         val candidatePaths = listOf(
             "/sys/kernel/ged/hal/gpu_utilization",
-            "/sys/kernel/ged/hal/current_freqency",
             "/proc/mtk_mali/utilization",
+            "/proc/gpufreq/gpufreq_var_dump",
             "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage",
             "/sys/class/kgsl/kgsl-3d0/gpubusy",
             "/sys/kernel/gpu/gpu_busy",
@@ -357,6 +357,27 @@ object SystemInfoReader {
     }
 
     private fun readGpuTemp(): Float {
+        val mtkPaths = listOf(
+            "/sys/kernel/ged/hal/gpu_temperature"    to 1000,
+            "/proc/mtk_mali/gpufreq_var_dump"        to 1,
+            "/sys/class/misc/mali0/device/clock"     to 1
+        )
+        val thermalBase = File("/sys/class/thermal")
+        if (thermalBase.exists()) {
+            thermalBase.listFiles()?.forEach { zone ->
+                val typeFile = File(zone, "type")
+                val tempFile = File(zone, "temp")
+                if (!typeFile.exists() || !tempFile.exists() || !tempFile.canRead()) return@forEach
+                try {
+                    val type = typeFile.readText().trim().lowercase()
+                    if (type.contains("gpu") || type.contains("mali") || type.contains("mfg")) {
+                        val raw = tempFile.readText().trim().toFloatOrNull() ?: return@forEach
+                        val c = raw / 1000f
+                        if (c in 1f..150f) return c
+                    }
+                } catch (_: Exception) {}
+            }
+        }
         val kgslPath = "/sys/class/kgsl/kgsl-3d0/temp"
         val kgslRaw = readFirstLine(kgslPath)?.trim()?.toFloatOrNull()
         if (kgslRaw != null) {

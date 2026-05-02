@@ -91,8 +91,6 @@ class FpsService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
-
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -132,8 +130,6 @@ class FpsService : Service() {
         super.onDestroy()
     }
 
-    // ── Visibility toggle ─────────────────────────────────────────────────────
-
     fun applyVisibilityFromPrefs() {
         val prefs       = getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
         val showCpu     = prefs.getBoolean(PREF_SHOW_CPU, true)
@@ -161,8 +157,6 @@ class FpsService : Service() {
             try { windowManager.updateViewLayout(overlayView, params) } catch (_: Exception) {}
         }
     }
-
-    // ── Monitoring ────────────────────────────────────────────────────────────
 
     private suspend fun startMonitoring() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -197,15 +191,13 @@ class FpsService : Service() {
         return clamped
     }
 
-    // ── TaskFpsCallback (reflection ke WindowManager internal API) ────────────
-
     private fun initTaskFpsCallback() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         taskFpsCallback = object : android.window.TaskFpsCallback() {
             override fun onFpsReported(fps: Float) {
                 if (fps > 0f) {
-                    callbackFps       = fps
-                    lastCallbackTime  = System.currentTimeMillis()
+                    callbackFps      = fps
+                    lastCallbackTime = System.currentTimeMillis()
                 }
             }
         }
@@ -215,16 +207,11 @@ class FpsService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         unregisterFpsCallback()
         val cb = taskFpsCallback ?: return
+
+        var success = false
+
         try {
-            val cbClass  = Class.forName("android.window.TaskFpsCallback")
-            val register = windowManager.javaClass.getMethod(
-                "registerTaskFpsCallback",
-                Int::class.java,
-                java.util.concurrent.Executor::class.java,
-                cbClass
-            )
-            register.invoke(
-                windowManager,
+            windowManager.registerTaskFpsCallback(
                 taskId,
                 java.util.concurrent.Executors.newSingleThreadExecutor(),
                 cb
@@ -232,22 +219,55 @@ class FpsService : Service() {
             callbackRegistered = true
             currentTaskId      = taskId
             lastCallbackTime   = System.currentTimeMillis()
-            Log.i(TAG, "TaskFpsCallback registered taskId=$taskId")
+            success            = true
+            Log.i(TAG, "TaskFpsCallback registered (direct) taskId=$taskId")
         } catch (e: Exception) {
-            Log.e(TAG, "registerFpsCallback failed: ${e.message}")
+            Log.w(TAG, "Direct registerTaskFpsCallback failed: ${e.message}, trying reflection")
+        }
+
+        if (!success) {
+            try {
+                val cbClass  = Class.forName("android.window.TaskFpsCallback")
+                val register = windowManager.javaClass.getMethod(
+                    "registerTaskFpsCallback",
+                    Int::class.java,
+                    java.util.concurrent.Executor::class.java,
+                    cbClass
+                )
+                register.invoke(
+                    windowManager,
+                    taskId,
+                    java.util.concurrent.Executors.newSingleThreadExecutor(),
+                    cb
+                )
+                callbackRegistered = true
+                currentTaskId      = taskId
+                lastCallbackTime   = System.currentTimeMillis()
+                Log.i(TAG, "TaskFpsCallback registered (reflection) taskId=$taskId")
+            } catch (e: Exception) {
+                Log.e(TAG, "registerFpsCallback reflection also failed: ${e.message}")
+            }
         }
     }
 
     private fun unregisterFpsCallback() {
         if (!callbackRegistered) return
         val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
+
+        var success = false
         try {
-            val cbClass    = Class.forName("android.window.TaskFpsCallback")
-            val unregister = windowManager.javaClass.getMethod(
-                "unregisterTaskFpsCallback", cbClass
-            )
-            unregister.invoke(windowManager, cb)
+            windowManager.unregisterTaskFpsCallback(cb)
+            success = true
         } catch (_: Exception) {}
+
+        if (!success) {
+            try {
+                val cbClass    = Class.forName("android.window.TaskFpsCallback")
+                val unregister = windowManager.javaClass.getMethod("unregisterTaskFpsCallback", cbClass)
+                unregister.invoke(windowManager, cb)
+            } catch (_: Exception) {}
+        }
+
         callbackRegistered = false
     }
 
@@ -283,8 +303,6 @@ class FpsService : Service() {
         } catch (_: Exception) { -1 }
     }
 
-    // ── Refresh rate ──────────────────────────────────────────────────────────
-
     private fun getDeviceRefreshRate(): Float {
         return try {
             val rate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -301,8 +319,6 @@ class FpsService : Service() {
             60f
         }
     }
-
-    // ── Build overlay UI ──────────────────────────────────────────────────────
 
     private fun buildOverlay() {
         val density = resources.displayMetrics.density
@@ -354,7 +370,6 @@ class FpsService : Service() {
             addView(tv)
         }
 
-        // FPS block (selalu tampil)
         tvFps = TextView(this).apply {
             text      = "--"
             textSize  = 36f
@@ -381,7 +396,6 @@ class FpsService : Service() {
             addView(fpsLabel)
         }
 
-        // Item rows
         tvCpuUsage = value("--", "#58A6FF")
         tvCpuTemp  = value("--", "#FF6B6B")
         tvGpuUsage = value("--", "#CE93D8")
@@ -414,8 +428,6 @@ class FpsService : Service() {
         overlayView.addView(rowBatTemp)
     }
 
-    // ── Window params ─────────────────────────────────────────────────────────
-
     private fun setupParams() {
         val prefs = getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
         val type  = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -436,8 +448,6 @@ class FpsService : Service() {
             y = prefs.getInt(PREF_Y, 120)
         }
     }
-
-    // ── Drag ─────────────────────────────────────────────────────────────────
 
     private fun setupDrag() {
         overlayView.setOnTouchListener(object : View.OnTouchListener {
@@ -472,8 +482,6 @@ class FpsService : Service() {
             }
         })
     }
-
-    // ── Update UI ─────────────────────────────────────────────────────────────
 
     private fun updateOverlay(fps: Float, snap: SystemSnapshot?) {
         val fpsInt = if (fps in 1f..360f) fps.roundToInt() else 0
@@ -528,8 +536,6 @@ class FpsService : Service() {
 
         tvBatTemp.text = if (snap.batteryTempC > 0f) "${"%.0f".format(snap.batteryTempC)}°C" else "--"
     }
-
-    // ── History ───────────────────────────────────────────────────────────────
 
     private fun recordHistory(fps: Float) {
         if (fps <= 0f) return

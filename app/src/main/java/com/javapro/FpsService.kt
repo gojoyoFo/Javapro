@@ -303,24 +303,32 @@ class FpsService : Service() {
             .forEach { results += it }
 
         if (results.isEmpty()) return 0f
+        // Clamp ke refresh rate device - tidak boleh melebihi refresh rate
+        val maxRefresh = getDeviceRefreshRate()
+        val filtered = results.filter { it <= maxRefresh * 1.05f && it > 1f }
+        return if (filtered.isNotEmpty()) filtered.max() else 0f
+    }
 
-        // Ambil nilai terbesar yang masuk akal (bukan refresh rate statis 60/90/120)
-        // Filter dulu nilai yang persis bulat (kemungkinan refresh rate, bukan FPS aktual)
-        val nonStatic = results.filter { it % 1f != 0f || it !in setOf(60f, 90f, 120f, 144f) }
-        return if (nonStatic.isNotEmpty()) nonStatic.max() else results.max()
+    private fun getDeviceRefreshRate(): Float {
+        return try {
+            @Suppress("DEPRECATION")
+            val rate = windowManager.defaultDisplay.refreshRate
+            if (rate in 30f..360f) rate else 60f
+        } catch (_: Exception) { 60f }
     }
 
     private fun getCurrentFps(): Float {
+        val maxRefresh = getDeviceRefreshRate() * 1.05f
         return when {
-            fpsMethod == "non_root" -> sfFps.coerceIn(0f, 400f)
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> sfFps.coerceIn(0f, 400f)
+            fpsMethod == "non_root" -> sfFps.coerceIn(0f, maxRefresh)
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> sfFps.coerceIn(0f, maxRefresh)
             callbackRegistered -> {
                 val now = System.currentTimeMillis()
                 if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) > STALENESS_THRESHOLD_MS) {
                     callbackFps = 0f
                     0f
                 } else {
-                    callbackFps.coerceIn(0f, 400f)
+                    callbackFps.coerceIn(0f, maxRefresh)
                 }
             }
             else -> 0f
@@ -330,12 +338,15 @@ class FpsService : Service() {
     // ── Poll loop ─────────────────────────────────────────────────────────────
 
     private suspend fun pollLoop() {
-        readCpuLoad() // warmup delta
-        delay(300)
+        // Warmup: 2 baca berjarak 500ms supaya delta CPU pertama valid
+        readCpuFromProcStat()
+        delay(500)
+        readCpuFromProcStat()
+        delay(500)
         while (currentCoroutineContext().isActive && isRunning) {
             val fps     = getCurrentFps()
             val cpuLoad = readCpuLoad()
-            val gpuLoad = readGpuLoad()
+            val gpuLoad = readGpuLoadAuto()
             val batTemp = readBatteryTemp()
             mainHandler.post { updateOverlay(fps, cpuLoad, gpuLoad, batTemp) }
             delay(POLL_MS)
@@ -411,22 +422,29 @@ class FpsService : Service() {
     }
 
     // ── GPU Load ──────────────────────────────────────────────────────────────
-    // MASALAH UTAMA: SELinux memblokir akses node sysfs GPU dari proses app biasa.
-    // chmod 644 dari service.d tidak membantu karena SELinux context (u:object_r:sysfs_gpu:s0)
-    // tetap di-deny.
-    //
-    // SOLUSI BENAR:
-    //   - Untuk root: baca via shell "su -c cat <path>" — bypass SELinux context
-    //   - Untuk non-root: tampil "--" karena memang tidak bisa diakses, ini normal
+    // Auto-detect root tanpa bergantung fpsMethod (yang tidak dikirim dari HomeScreen).
+    // Root: su shell bypass SELinux. Non-root: coba baca langsung.
 
-    private fun readGpuLoad(): Int {
-        if (fpsMethod == "root" || fpsMethod == "shizuku") {
-            return readGpuLoadViaShell()
-        }
-        // Non-root: coba baca langsung dulu (kalau device kebetulan izinkan)
+    @Volatile private var isRootConfirmed = false
+    @Volatile private var rootCheckDone   = false
+
+    private fun hasRoot(): Boolean {
+        if (rootCheckDone) return isRootConfirmed
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "echo ok"))
+            val out  = proc.inputStream.bufferedReader().readLine()?.trim()
+            proc.waitFor(); proc.destroy()
+            isRootConfirmed = out == "ok"
+            rootCheckDone   = true
+            isRootConfirmed
+        } catch (_: Exception) { rootCheckDone = true; false }
+    }
+
+    private fun readGpuLoadAuto(): Int {
+        if (hasRoot()) return readGpuLoadViaShell()
         val path = getGpuUsagePath()
         if (path != null) return tryReadGpuUsage(path)
-        return -1 // tampil "--", ini normal untuk non-root
+        return -1
     }
 
     // Baca GPU lewat su shell — ini yang BENAR-BENAR berhasil di root

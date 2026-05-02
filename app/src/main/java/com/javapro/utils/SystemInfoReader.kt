@@ -18,7 +18,6 @@ data class SystemSnapshot(
     val cpuTempC      : Float,
     val clusters      : List<ClusterSnapshot>,
     val gpuUsagePct   : Float,
-    val gpuFreqMhz    : Int,
     val gpuTempC      : Float,
     val ramUsedMb     : Long,
     val ramTotalMb    : Long,
@@ -87,7 +86,6 @@ object SystemInfoReader {
         val cpuTemp   = readCpuTemp()
         val clusters  = readClusters()
         val gpuUsage  = readGpuUsage()
-        val gpuFreq   = readGpuFreq()
         val gpuTemp   = readGpuTemp()
         val (ramUsed, ramTotal) = readRam(context)
         val (batPct, batTemp, batVolt, charging) = readBattery(context)
@@ -97,7 +95,6 @@ object SystemInfoReader {
             cpuTempC      = cpuTemp,
             clusters      = clusters,
             gpuUsagePct   = gpuUsage,
-            gpuFreqMhz    = gpuFreq,
             gpuTempC      = gpuTemp,
             ramUsedMb     = ramUsed,
             ramTotalMb    = ramTotal,

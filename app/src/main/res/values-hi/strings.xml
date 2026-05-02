@@ -760,4 +760,12 @@
 
     <string name="fps_permission_shizuku_hint">इस विधि को READ_FRAME_BUFFER अनुमति की आवश्यकता है। इसे इस प्रकार दें: adb shell pm grant %s android.permission.READ_FRAME_BUFFER</string>
     <string name="fps_permission_root_hint">इस विधि को READ_FRAME_BUFFER अनुमति की आवश्यकता है। Root के माध्यम से स्वचालित रूप से दी गई (javapro_grant.sh देखें)।</string>
+    <string name="home_status_alive">सक्रिय</string>
+    <string name="home_app_profiles_title">ऐप प्रोफ़ाइल</string>
+    <string name="home_root_label">रूट एक्सेस</string>
+    <string name="home_fps_monitor_on">FPS मॉनिटर चालू (%s)</string>
+    <string name="home_fps_monitor_title">FPS मॉनिटर</string>
+    <string name="home_fps_on">चालू</string>
+    <string name="home_fps_off">बंद</string>
+    <string name="home_fps_monitor_off">FPS मॉनिटर बंद</string>
 </resources>

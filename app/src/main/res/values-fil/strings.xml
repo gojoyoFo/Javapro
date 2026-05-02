@@ -760,4 +760,12 @@
 
     <string name="fps_permission_shizuku_hint">Ang paraan na ito ay nangangailangan ng READ_FRAME_BUFFER permission. I-grant via: adb shell pm grant %s android.permission.READ_FRAME_BUFFER</string>
     <string name="fps_permission_root_hint">Ang paraan na ito ay nangangailangan ng READ_FRAME_BUFFER permission. Awtomatikong na-grant via root (tingnan ang javapro_grant.sh).</string>
+    <string name="home_status_alive">Aktibo</string>
+    <string name="home_app_profiles_title">Mga Profile ng App</string>
+    <string name="home_root_label">Root Access</string>
+    <string name="home_fps_monitor_on">FPS Monitor NAKA-ON (%s)</string>
+    <string name="home_fps_monitor_title">FPS Monitor</string>
+    <string name="home_fps_on">NAKA-ON</string>
+    <string name="home_fps_off">NAKA-OFF</string>
+    <string name="home_fps_monitor_off">FPS Monitor NAKA-OFF</string>
 </resources>

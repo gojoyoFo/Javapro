@@ -315,7 +315,6 @@ private fun NavContent(
         composable("memory_screen") { MemoryScreen(navController, lang, onShowAd = { onGranted -> onShowAd(AdManager.SLOT_GENERAL, onGranted) }) }
         composable("settings")      { SettingScreen(prefManager, navController, lang) }
         composable("credits")       { CreditsScreen(navController) }
-        composable("fps_live")      { FpsLiveScreen(navController, lang) }
         composable("premium")       { PremiumScreen(navController = navController, lang = lang) }
         composable("exclusive_features") { ExclusiveFeaturesScreen(navController = navController, prefManager = prefManager, lang = lang) }
         composable("debug_tools")   { DebugToolsScreen(navController = navController, prefManager = prefManager, lang = lang) }

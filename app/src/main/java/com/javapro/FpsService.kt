@@ -207,11 +207,16 @@ class FpsService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         unregisterFpsCallback()
         val cb = taskFpsCallback ?: return
-
-        var success = false
-
         try {
-            windowManager.registerTaskFpsCallback(
+            val cbClass  = Class.forName("android.window.TaskFpsCallback")
+            val register = windowManager.javaClass.getMethod(
+                "registerTaskFpsCallback",
+                Int::class.java,
+                java.util.concurrent.Executor::class.java,
+                cbClass
+            )
+            register.invoke(
+                windowManager,
                 taskId,
                 java.util.concurrent.Executors.newSingleThreadExecutor(),
                 cb
@@ -219,55 +224,20 @@ class FpsService : Service() {
             callbackRegistered = true
             currentTaskId      = taskId
             lastCallbackTime   = System.currentTimeMillis()
-            success            = true
-            Log.i(TAG, "TaskFpsCallback registered (direct) taskId=$taskId")
+            Log.i(TAG, "TaskFpsCallback registered taskId=$taskId")
         } catch (e: Exception) {
-            Log.w(TAG, "Direct registerTaskFpsCallback failed: ${e.message}, trying reflection")
-        }
-
-        if (!success) {
-            try {
-                val cbClass  = Class.forName("android.window.TaskFpsCallback")
-                val register = windowManager.javaClass.getMethod(
-                    "registerTaskFpsCallback",
-                    Int::class.java,
-                    java.util.concurrent.Executor::class.java,
-                    cbClass
-                )
-                register.invoke(
-                    windowManager,
-                    taskId,
-                    java.util.concurrent.Executors.newSingleThreadExecutor(),
-                    cb
-                )
-                callbackRegistered = true
-                currentTaskId      = taskId
-                lastCallbackTime   = System.currentTimeMillis()
-                Log.i(TAG, "TaskFpsCallback registered (reflection) taskId=$taskId")
-            } catch (e: Exception) {
-                Log.e(TAG, "registerFpsCallback reflection also failed: ${e.message}")
-            }
+            Log.e(TAG, "registerFpsCallback failed: ${e.message}")
         }
     }
 
     private fun unregisterFpsCallback() {
         if (!callbackRegistered) return
         val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
-
-        var success = false
         try {
-            windowManager.unregisterTaskFpsCallback(cb)
-            success = true
+            val cbClass    = Class.forName("android.window.TaskFpsCallback")
+            val unregister = windowManager.javaClass.getMethod("unregisterTaskFpsCallback", cbClass)
+            unregister.invoke(windowManager, cb)
         } catch (_: Exception) {}
-
-        if (!success) {
-            try {
-                val cbClass    = Class.forName("android.window.TaskFpsCallback")
-                val unregister = windowManager.javaClass.getMethod("unregisterTaskFpsCallback", cbClass)
-                unregister.invoke(windowManager, cb)
-            } catch (_: Exception) {}
-        }
-
         callbackRegistered = false
     }
 

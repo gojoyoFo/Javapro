@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import android.view.Choreographer
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -56,6 +57,12 @@ class FpsService : Service() {
     private var lastFpsUpdateTime = System.currentTimeMillis()
 
     @Volatile private var sfFps = 0f
+
+    // Choreographer counter — paling reliable, jalan di semua device tanpa permission
+    @Volatile private var choreographerFps = 0f
+    private var choreographerRunning = false
+    private var choreoFrameCount = 0
+    private var choreoLastNanos = 0L
 
     // Timestats delta state
     private val tsLayerSnapshot = mutableMapOf<String, Long>()
@@ -117,22 +124,23 @@ class FpsService : Service() {
         stopFpsTracking()
         val rooted = hasRoot()
         Log.i(TAG, "startFpsTracking rooted=$rooted sdkInt=${Build.VERSION.SDK_INT}")
-        when {
-            rooted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                initTaskFpsCallback()
-                val taskId = getFocusedTaskId()
-                if (taskId > 0) registerCallback(taskId)
-                mainHandler.post(taskCheckRunnable)
-            }
-            else -> {
-                serviceScope.launch { sfPollLoop() }
-            }
+        // Choreographer selalu jalan — paling reliable, tidak butuh permission
+        mainHandler.post { startChoreographerCounter() }
+        // sfPollLoop sebagai sumber tambahan
+        serviceScope.launch { sfPollLoop() }
+        // TaskFpsCallback kalau root Android 13+
+        if (rooted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            initTaskFpsCallback()
+            val taskId = getFocusedTaskId()
+            if (taskId > 0) registerCallback(taskId)
+            mainHandler.post(taskCheckRunnable)
         }
     }
 
     private fun stopFpsTracking() {
         unregisterCallback()
         mainHandler.removeCallbacks(taskCheckRunnable)
+        stopChoreographerCounter()
     }
 
     private fun reinitCallback() {
@@ -255,22 +263,51 @@ class FpsService : Service() {
     }
 
     private fun readFpsNonRoot(): Float {
+        // Root: coba gfxinfo foreground via su langsung — paling akurat
+        if (hasRoot()) {
+            val fps = readGfxInfoFpsRoot()
+            if (fps > 0f) return fps
+        }
+
+        // Cek foreground package untuk gfxinfo non-root
         val now = System.currentTimeMillis()
         if (foregroundPkg.isEmpty() || now - fgPkgLastCheck > 5000L) {
             foregroundPkg  = getForegroundPackage()
             fgPkgLastCheck = now
         }
         val pkg = foregroundPkg
-        // Metode 1: gfxinfo framestats — akurat, berjalan root & non-root
         if (pkg.isNotEmpty() && pkg != packageName) {
             val fps = readGfxInfoFps(pkg)
             if (fps > 0f) return fps
         }
-        // Metode 2: --timestats delta — reliable semua mode, tidak perlu tahu package
+
+        // Fallback: timestats delta
         val tsFps = readFpsTimestats()
         if (tsFps > 0f) return tsFps
-        // Metode 3: SurfaceFlinger --fps — ringan, Android 11+
+
+        // Last resort: --fps flag
         return readSfFpsFlag()
+    }
+
+    private fun readGfxInfoFpsRoot(): Float {
+        return try {
+            // Ambil foreground package via su dumpsys activity
+            val pkgOutput = runShellCommand("dumpsys activity top | grep 'ACTIVITY' | tail -1")
+            val pkg = pkgOutput.trim()
+                .split("\\s+".toRegex())
+                .getOrNull(1)
+                ?.substringBefore("/")
+                ?.trim()
+                ?.takeIf { it.contains(".") && it != packageName }
+                ?: run {
+                    // Fallback: coba ambil semua package dari gfxinfo langsung
+                    val allOutput = runShellCommand("dumpsys gfxinfo")
+                    val match = Regex("\\*\\*\\s+([\\w.]+)\\s+\\*\\*").find(allOutput)
+                        ?.groupValues?.getOrNull(1) ?: return 0f
+                    match
+                }
+            readGfxInfoFps(pkg)
+        } catch (_: Exception) { 0f }
     }
 
     /**
@@ -409,12 +446,10 @@ class FpsService : Service() {
 
     private fun runShellCommand(cmd: String): String {
         return try {
-            // Pakai su kalau root tersedia, sh -c kalau tidak — WAJIB pakai shell wrapper
-            // supaya PATH dan piping berfungsi. exec(String) tanpa wrapper sering gagal.
             val args = if (hasRoot()) arrayOf("su", "-c", cmd) else arrayOf("sh", "-c", cmd)
             val proc = Runtime.getRuntime().exec(args)
             val out  = proc.inputStream.bufferedReader().readText()
-            proc.waitFor()
+            proc.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
             proc.destroy()
             out
         } catch (_: Exception) { "" }
@@ -428,21 +463,52 @@ class FpsService : Service() {
         } catch (_: Exception) { 60f }
     }
 
-    private fun getCurrentFps(): Float {
-        val maxRefresh = getDeviceRefreshRate() * 1.05f
-        return when {
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> sfFps.coerceIn(0f, maxRefresh)
-            callbackRegistered -> {
-                val now = System.currentTimeMillis()
-                if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) > STALENESS_THRESHOLD_MS) {
-                    callbackFps = 0f
-                    sfFps.coerceIn(0f, maxRefresh)
-                } else {
-                    callbackFps.coerceIn(0f, maxRefresh)
+    private val choreographerCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!choreographerRunning) return
+            choreoFrameCount++
+            if (choreoLastNanos == 0L) {
+                choreoLastNanos = frameTimeNanos
+            } else {
+                val elapsed = frameTimeNanos - choreoLastNanos
+                if (elapsed >= 500_000_000L) {
+                    choreographerFps = choreoFrameCount * 1_000_000_000f / elapsed
+                    choreoFrameCount = 0
+                    choreoLastNanos  = frameTimeNanos
                 }
             }
-            else -> sfFps.coerceIn(0f, maxRefresh)
+            Choreographer.getInstance().postFrameCallback(this)
         }
+    }
+
+    private fun startChoreographerCounter() {
+        if (choreographerRunning) return
+        choreographerRunning = true
+        choreoFrameCount     = 0
+        choreoLastNanos      = 0L
+        Choreographer.getInstance().postFrameCallback(choreographerCallback)
+    }
+
+    private fun stopChoreographerCounter() {
+        choreographerRunning = false
+        Choreographer.getInstance().removeFrameCallback(choreographerCallback)
+    }
+
+    private fun getCurrentFps(): Float {
+        val maxRefresh = getDeviceRefreshRate() * 1.05f
+        // Prioritas 1: TaskFpsCallback (root Android 13+)
+        if (callbackRegistered) {
+            val now = System.currentTimeMillis()
+            if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) < STALENESS_THRESHOLD_MS) {
+                val v = callbackFps.coerceIn(0f, maxRefresh)
+                if (v > 0f) return v
+            }
+        }
+        // Prioritas 2: Choreographer — paling reliable
+        val choreo = choreographerFps.coerceIn(0f, maxRefresh)
+        if (choreo > 0f) return choreo
+        // Prioritas 3: sfFps dari dumpsys
+        return sfFps.coerceIn(0f, maxRefresh)
     }
 
     // ── Poll loop ─────────────────────────────────────────────────────────────

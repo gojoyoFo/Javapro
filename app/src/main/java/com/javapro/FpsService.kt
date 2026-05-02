@@ -28,47 +28,62 @@ import kotlin.math.roundToInt
 
 class FpsService : Service() {
 
-    private lateinit var windowManager : WindowManager
-    private lateinit var overlayView   : LinearLayout
-    private lateinit var params        : WindowManager.LayoutParams
+    private lateinit var windowManager: WindowManager
+    private lateinit var overlayView: LinearLayout
+    private lateinit var params: WindowManager.LayoutParams
 
-    private val mainHandler  = Handler(Looper.getMainLooper())
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var monitoringJob: Job? = null
-    private var isRunning    = false
+    private var isRunning = false
 
-    // ── FPS state ─────────────────────────────────────────────────────────────
-    // Pakai TaskFpsCallback langsung (bukan reflection) karena TaskFpsCallback.kt
-    // sudah ada di project sebagai stub — sama persis dengan cara GameBar.
-    private var taskFpsCallback    : android.window.TaskFpsCallback? = null
+    private var taskFpsCallback: android.window.TaskFpsCallback? = null
     private var callbackRegistered = false
-    private var currentTaskId      = -1
-    private var lastCallbackTime   = 0L
+    private var currentTaskId = -1
+    private var lastCallbackTime = 0L
     @Volatile private var callbackFps = 0f
 
     private val fpsHistory = mutableListOf<Float>()
     private val maxHistory = 120
-
-    // Refresh rate device — dipakai untuk clamp FPS agar tidak ngawur
     private var deviceRefreshRate = 60f
 
-    private lateinit var tvFps      : TextView
-    private lateinit var tvCpuUsage : TextView
-    private lateinit var tvCpuTemp  : TextView
-    private lateinit var tvGpuUsage : TextView
-    private lateinit var tvRam      : TextView
-    private lateinit var tvBattery  : TextView
-    private lateinit var tvBatTemp  : TextView
+    private lateinit var tvFps: TextView
+    private lateinit var tvCpuUsage: TextView
+    private lateinit var tvCpuTemp: TextView
+    private lateinit var tvGpuUsage: TextView
+    private lateinit var tvRam: TextView
+    private lateinit var tvBattery: TextView
+    private lateinit var tvBatTemp: TextView
+
+    private lateinit var rowCpuUsage: LinearLayout
+    private lateinit var rowCpuTemp: LinearLayout
+    private lateinit var rowGpuUsage: LinearLayout
+    private lateinit var rowRam: LinearLayout
+    private lateinit var rowBattery: LinearLayout
+    private lateinit var rowBatTemp: LinearLayout
+    private lateinit var dividerCpu: View
+    private lateinit var dividerGpu: View
+    private lateinit var dividerRam: View
+    private lateinit var dividerBat: View
 
     companion object {
-        private const val TAG            = "FpsService"
-        private const val SAMPLE_MS      = 1000L
-        private const val TASK_CHECK_MS  = 1000L
-        /** Kalau callback tidak update lebih dari ini, anggap stale → re-register */
-        private const val STALE_MS       = 2500L
-        private const val PREF_FILE      = "overlay_prefs"
-        private const val PREF_X         = "overlay_x"
-        private const val PREF_Y         = "overlay_y"
+        private const val TAG           = "FpsService"
+        private const val SAMPLE_MS     = 1000L
+        private const val TASK_CHECK_MS = 1000L
+        private const val STALE_MS      = 2500L
+
+        const val PREF_FILE          = "overlay_prefs"
+        private const val PREF_X     = "overlay_x"
+        private const val PREF_Y     = "overlay_y"
+
+        const val PREF_SHOW_CPU      = "show_cpu"
+        const val PREF_SHOW_CPU_TEMP = "show_cpu_temp"
+        const val PREF_SHOW_GPU      = "show_gpu"
+        const val PREF_SHOW_RAM      = "show_ram"
+        const val PREF_SHOW_BATTERY  = "show_battery"
+        const val PREF_SHOW_BAT_TEMP = "show_bat_temp"
+
+        const val ACTION_UPDATE_VISIBILITY = "com.javapro.ACTION_UPDATE_OVERLAY_VISIBILITY"
 
         private val _currentFps = MutableStateFlow(0f)
         val currentFps: StateFlow<Float> = _currentFps
@@ -76,22 +91,29 @@ class FpsService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-
-        // Deteksi refresh rate device sekali saja
         deviceRefreshRate = getDeviceRefreshRate()
         Log.i(TAG, "Device refresh rate: $deviceRefreshRate Hz")
-
         buildOverlay()
         setupParams()
         setupDrag()
-        try { windowManager.addView(overlayView, params) }
-        catch (e: Exception) { Log.e(TAG, "addView failed", e) }
+        try {
+            windowManager.addView(overlayView, params)
+        } catch (e: Exception) {
+            Log.e(TAG, "addView failed", e)
+        }
+        applyVisibilityFromPrefs()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_UPDATE_VISIBILITY) {
+            applyVisibilityFromPrefs()
+            return START_STICKY
+        }
         monitoringJob?.cancel()
         isRunning = true
         serviceScope.launch { startMonitoring() }
@@ -110,24 +132,52 @@ class FpsService : Service() {
         super.onDestroy()
     }
 
-    // ── Monitoring utama ──────────────────────────────────────────────────────
+    // ── Visibility toggle ─────────────────────────────────────────────────────
+
+    fun applyVisibilityFromPrefs() {
+        val prefs       = getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
+        val showCpu     = prefs.getBoolean(PREF_SHOW_CPU, true)
+        val showCpuTemp = prefs.getBoolean(PREF_SHOW_CPU_TEMP, true)
+        val showGpu     = prefs.getBoolean(PREF_SHOW_GPU, true)
+        val showRam     = prefs.getBoolean(PREF_SHOW_RAM, true)
+        val showBattery = prefs.getBoolean(PREF_SHOW_BATTERY, true)
+        val showBatTemp = prefs.getBoolean(PREF_SHOW_BAT_TEMP, false)
+
+        mainHandler.post {
+            rowCpuUsage.visibility = if (showCpu) View.VISIBLE else View.GONE
+            rowCpuTemp.visibility  = if (showCpuTemp) View.VISIBLE else View.GONE
+            dividerCpu.visibility  = if (showCpu || showCpuTemp) View.VISIBLE else View.GONE
+
+            rowGpuUsage.visibility = if (showGpu) View.VISIBLE else View.GONE
+            dividerGpu.visibility  = if (showGpu) View.VISIBLE else View.GONE
+
+            rowRam.visibility     = if (showRam) View.VISIBLE else View.GONE
+            dividerRam.visibility = if (showRam) View.VISIBLE else View.GONE
+
+            rowBattery.visibility = if (showBattery) View.VISIBLE else View.GONE
+            rowBatTemp.visibility = if (showBatTemp) View.VISIBLE else View.GONE
+            dividerBat.visibility = if (showBattery || showBatTemp) View.VISIBLE else View.GONE
+
+            try { windowManager.updateViewLayout(overlayView, params) } catch (_: Exception) {}
+        }
+    }
+
+    // ── Monitoring ────────────────────────────────────────────────────────────
 
     private suspend fun startMonitoring() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             initTaskFpsCallback()
             val taskId = getFocusedTaskId()
             if (taskId > 0) registerFpsCallback(taskId)
-            // Jalankan task checker di main thread
             mainHandler.post(taskCheckRunnable)
         }
-        // Loop polling: update system info + ambil FPS dari callback
         startPollingLoop()
     }
 
     private fun startPollingLoop() {
         monitoringJob = serviceScope.launch {
             while (coroutineContext.isActive && isRunning) {
-                val fps = getCurrentFps()
+                val fps  = getCurrentFps()
                 val snap = runCatching { SystemInfoReader.read(this@FpsService) }.getOrNull()
                 mainHandler.post { updateOverlay(fps, snap) }
                 delay(SAMPLE_MS)
@@ -135,40 +185,27 @@ class FpsService : Service() {
         }
     }
 
-    /**
-     * Ambil FPS saat ini dari callback.
-     * - Kalau callback stale (tidak update > STALE_MS) → return 0 (tampil --)
-     * - Clamp ke deviceRefreshRate + toleransi kecil (5%) supaya tidak ngawur
-     */
     private fun getCurrentFps(): Float {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return 0f
-        val now = System.currentTimeMillis()
+        val now     = System.currentTimeMillis()
         val isStale = lastCallbackTime > 0 && (now - lastCallbackTime) > STALE_MS
-        if (isStale) {
-            callbackFps = 0f
-            return 0f
-        }
+        if (isStale) { callbackFps = 0f; return 0f }
         val raw = callbackFps
         if (raw <= 0f) return 0f
-
-        // Clamp: tidak boleh melebihi refresh rate + 5% toleransi
-        val maxAllowed = deviceRefreshRate * 1.05f
-        val clamped = raw.coerceIn(1f, maxAllowed)
-
+        val clamped = raw.coerceIn(1f, deviceRefreshRate * 1.05f)
         recordHistory(clamped)
         return clamped
     }
 
-    // ── TaskFpsCallback — direct API (bukan reflection) ───────────────────────
+    // ── TaskFpsCallback (reflection ke WindowManager internal API) ────────────
 
     private fun initTaskFpsCallback() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        // Sama persis dengan cara GameBarFpsMeter: langsung subclass TaskFpsCallback
         taskFpsCallback = object : android.window.TaskFpsCallback() {
             override fun onFpsReported(fps: Float) {
                 if (fps > 0f) {
-                    callbackFps = fps
-                    lastCallbackTime = System.currentTimeMillis()
+                    callbackFps       = fps
+                    lastCallbackTime  = System.currentTimeMillis()
                 }
             }
         }
@@ -179,12 +216,23 @@ class FpsService : Service() {
         unregisterFpsCallback()
         val cb = taskFpsCallback ?: return
         try {
-            // Direct API — tidak pakai reflection
-            windowManager.registerTaskFpsCallback(taskId, Runnable::run, cb)
+            val cbClass  = Class.forName("android.window.TaskFpsCallback")
+            val register = windowManager.javaClass.getMethod(
+                "registerTaskFpsCallback",
+                Int::class.java,
+                java.util.concurrent.Executor::class.java,
+                cbClass
+            )
+            register.invoke(
+                windowManager,
+                taskId,
+                java.util.concurrent.Executors.newSingleThreadExecutor(),
+                cb
+            )
             callbackRegistered = true
             currentTaskId      = taskId
             lastCallbackTime   = System.currentTimeMillis()
-            Log.i(TAG, "TaskFpsCallback registered for taskId=$taskId")
+            Log.i(TAG, "TaskFpsCallback registered taskId=$taskId")
         } catch (e: Exception) {
             Log.e(TAG, "registerFpsCallback failed: ${e.message}")
         }
@@ -194,14 +242,14 @@ class FpsService : Service() {
         if (!callbackRegistered) return
         val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                windowManager.unregisterTaskFpsCallback(cb)
-            }
+            val cbClass    = Class.forName("android.window.TaskFpsCallback")
+            val unregister = windowManager.javaClass.getMethod(
+                "unregisterTaskFpsCallback", cbClass
+            )
+            unregister.invoke(windowManager, cb)
         } catch (_: Exception) {}
         callbackRegistered = false
     }
-
-    // ── Task checker — re-register kalau task berubah atau stale ─────────────
 
     private val taskCheckRunnable = object : Runnable {
         override fun run() {
@@ -209,22 +257,11 @@ class FpsService : Service() {
             val newId = getFocusedTaskId()
             val now   = System.currentTimeMillis()
             when {
-                // Task berganti → re-register ke task baru
-                newId > 0 && newId != currentTaskId -> {
-                    Log.d(TAG, "Task changed $currentTaskId → $newId, re-registering")
-                    reinitCallback(newId)
-                }
-                // Belum terdaftar padahal ada task → daftarkan
-                !callbackRegistered && newId > 0 -> {
-                    Log.d(TAG, "Callback not registered, registering for task $newId")
-                    registerFpsCallback(newId)
-                }
-                // Terdaftar tapi sudah stale → re-register
+                newId > 0 && newId != currentTaskId -> reinitCallback(newId)
+                !callbackRegistered && newId > 0    -> registerFpsCallback(newId)
                 callbackRegistered && lastCallbackTime > 0 &&
-                    (now - lastCallbackTime) > STALE_MS -> {
-                    Log.d(TAG, "Callback stale, re-registering for task ${newId.takeIf { it > 0 } ?: currentTaskId}")
+                    (now - lastCallbackTime) > STALE_MS ->
                     reinitCallback(newId.takeIf { it > 0 } ?: currentTaskId)
-                }
             }
             mainHandler.postDelayed(this, TASK_CHECK_MS)
         }
@@ -232,11 +269,8 @@ class FpsService : Service() {
 
     private fun reinitCallback(taskId: Int) {
         unregisterFpsCallback()
-        // Delay sedikit sebelum re-register, sama seperti GameBar
         mainHandler.postDelayed({ if (isRunning) registerFpsCallback(taskId) }, 500)
     }
-
-    // ── getFocusedTaskId (reflection karena API internal) ─────────────────────
 
     private fun getFocusedTaskId(): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
@@ -249,30 +283,26 @@ class FpsService : Service() {
         } catch (_: Exception) { -1 }
     }
 
-    // ── Refresh rate detection ─────────────────────────────────────────────────
+    // ── Refresh rate ──────────────────────────────────────────────────────────
 
     private fun getDeviceRefreshRate(): Float {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                windowManager.currentWindowMetrics  // pastikan WM sudah init
-                // Ambil dari display modes
-                val display = windowManager.defaultDisplay
+            val rate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                windowManager.currentWindowMetrics
                 @Suppress("DEPRECATION")
-                display.supportedModes.maxOfOrNull { it.refreshRate } ?: 60f
+                windowManager.defaultDisplay.supportedModes.maxOfOrNull { it.refreshRate } ?: 60f
             } else {
                 @Suppress("DEPRECATION")
                 windowManager.defaultDisplay.refreshRate
-            }.let { rate ->
-                // Sanity check: pastikan nilainya masuk akal
-                if (rate in 30f..360f) rate else 60f
             }
+            if (rate in 30f..360f) rate else 60f
         } catch (e: Exception) {
-            Log.w(TAG, "getDeviceRefreshRate failed: ${e.message}, defaulting to 60")
+            Log.w(TAG, "getDeviceRefreshRate failed: ${e.message}")
             60f
         }
     }
 
-    // ── Overlay UI ────────────────────────────────────────────────────────────
+    // ── Build overlay UI ──────────────────────────────────────────────────────
 
     private fun buildOverlay() {
         val density = resources.displayMetrics.density
@@ -306,16 +336,16 @@ class FpsService : Service() {
             setTextColor(Color.parseColor(hex))
         }
 
-        fun divider() = View(this).apply {
+        fun makeDivider() = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(0.7f)
             ).also { it.setMargins(0, dp(5f), 0, dp(5f)) }
             setBackgroundColor(Color.parseColor("#28FFFFFF"))
         }
 
-        fun row(lbl: String, tv: TextView): LinearLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity     = Gravity.CENTER_VERTICAL
+        fun row(lbl: String, tv: TextView) = LinearLayout(this).apply {
+            orientation  = LinearLayout.HORIZONTAL
+            gravity      = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -324,6 +354,7 @@ class FpsService : Service() {
             addView(tv)
         }
 
+        // FPS block (selalu tampil)
         tvFps = TextView(this).apply {
             text      = "--"
             textSize  = 36f
@@ -339,10 +370,9 @@ class FpsService : Service() {
             gravity       = Gravity.CENTER_HORIZONTAL
             setTextColor(Color.parseColor("#66FFFFFF"))
         }
-
         val fpsBlock = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity     = Gravity.CENTER
+            orientation  = LinearLayout.VERTICAL
+            gravity      = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -351,27 +381,40 @@ class FpsService : Service() {
             addView(fpsLabel)
         }
 
+        // Item rows
         tvCpuUsage = value("--", "#58A6FF")
         tvCpuTemp  = value("--", "#FF6B6B")
         tvGpuUsage = value("--", "#CE93D8")
-        // tvGpuFreq DIHAPUS
         tvRam      = value("--", "#26C6DA")
         tvBattery  = value("--", "#66BB6A")
         tvBatTemp  = value("--", "#80FFFFFF")
 
+        rowCpuUsage = row("CPU", tvCpuUsage)
+        rowCpuTemp  = row("TMP", tvCpuTemp)
+        rowGpuUsage = row("GPU", tvGpuUsage)
+        rowRam      = row("RAM", tvRam)
+        rowBattery  = row("BAT", tvBattery)
+        rowBatTemp  = row("TMP", tvBatTemp)
+
+        dividerCpu = makeDivider()
+        dividerGpu = makeDivider()
+        dividerRam = makeDivider()
+        dividerBat = makeDivider()
+
         overlayView.addView(fpsBlock)
-        overlayView.addView(divider())
-        overlayView.addView(row("CPU", tvCpuUsage))
-        overlayView.addView(row("TMP", tvCpuTemp))
-        overlayView.addView(divider())
-        overlayView.addView(row("GPU", tvGpuUsage))
-        // Row FRQ DIHAPUS
-        overlayView.addView(divider())
-        overlayView.addView(row("RAM", tvRam))
-        overlayView.addView(divider())
-        overlayView.addView(row("BAT", tvBattery))
-        overlayView.addView(row("TMP", tvBatTemp))
+        overlayView.addView(dividerCpu)
+        overlayView.addView(rowCpuUsage)
+        overlayView.addView(rowCpuTemp)
+        overlayView.addView(dividerGpu)
+        overlayView.addView(rowGpuUsage)
+        overlayView.addView(dividerRam)
+        overlayView.addView(rowRam)
+        overlayView.addView(dividerBat)
+        overlayView.addView(rowBattery)
+        overlayView.addView(rowBatTemp)
     }
+
+    // ── Window params ─────────────────────────────────────────────────────────
 
     private fun setupParams() {
         val prefs = getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
@@ -384,8 +427,8 @@ class FpsService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -393,6 +436,8 @@ class FpsService : Service() {
             y = prefs.getInt(PREF_Y, 120)
         }
     }
+
+    // ── Drag ─────────────────────────────────────────────────────────────────
 
     private fun setupDrag() {
         overlayView.setOnTouchListener(object : View.OnTouchListener {
@@ -428,7 +473,7 @@ class FpsService : Service() {
         })
     }
 
-    // ── Update overlay UI ─────────────────────────────────────────────────────
+    // ── Update UI ─────────────────────────────────────────────────────────────
 
     private fun updateOverlay(fps: Float, snap: SystemSnapshot?) {
         val fpsInt = if (fps in 1f..360f) fps.roundToInt() else 0

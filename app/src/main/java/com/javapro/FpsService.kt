@@ -18,6 +18,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.window.TaskFpsCallback
 import com.javapro.utils.SystemInfoReader
 import com.javapro.utils.SystemSnapshot
 import kotlinx.coroutines.*
@@ -94,7 +95,7 @@ class FpsService : Service() {
         isRunning = false
         mainHandler.removeCallbacksAndMessages(null)
         monitoringJob?.cancel()
-        unregisterCallback()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) unregisterCallback()
         if (activeMethod == FpsMethod.DUMPSYS) {
             serviceScope.launch {
                 try { shell("dumpsys SurfaceFlinger --timestats -disable") } catch (_: Exception) {}
@@ -271,7 +272,7 @@ class FpsService : Service() {
     }
 
     private fun detectMethod(): FpsMethod {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && getFocusedTaskId() > 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && canUseTaskFpsCallback())
             return FpsMethod.TASK_CALLBACK
         return try {
             val r = shell("dumpsys SurfaceFlinger --timestats -enable -clear")
@@ -283,33 +284,49 @@ class FpsService : Service() {
         }
     }
 
+    private fun canUseTaskFpsCallback(): Boolean {
+        return try {
+            Class.forName("android.window.TaskFpsCallback")
+            windowManager.javaClass.getMethod(
+                "registerTaskFpsCallback", Int::class.java,
+                java.util.concurrent.Executor::class.java,
+                Class.forName("android.window.TaskFpsCallback")
+            )
+            true
+        } catch (_: Exception) { false }
+    }
+
     private fun startTaskCallback() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) { startPolling(); return }
-        try {
-            val callbackClass = Class.forName("android.window.TaskFpsCallback")
-            taskFpsCallback = java.lang.reflect.Proxy.newProxyInstance(
-                callbackClass.classLoader,
-                arrayOf(callbackClass)
-            ) { _, method, args ->
-                if (method.name == "onFpsReported") {
-                    val fps = args?.firstOrNull() as? Float ?: return@newProxyInstance null
+        taskFpsCallback = createTaskFpsCallback()
+        if (taskFpsCallback == null) {
+            Log.e(TAG, "TaskFpsCallback creation failed, falling back to DUMPSYS")
+            activeMethod = FpsMethod.DUMPSYS
+            startPolling(); return
+        }
+        val taskId = getFocusedTaskId()
+        if (taskId > 0) registerCallback(taskId)
+        else Log.w(TAG, "No focused task at start, will register via taskCheckRunnable")
+        mainHandler.post(taskCheckRunnable)
+        startPolling(fpsFromCallback = true)
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun createTaskFpsCallback(): Any? {
+        return try {
+            object : android.window.TaskFpsCallback() {
+                override fun onFpsReported(fps: Float) {
                     if (fps > 0f) {
                         callbackFps = fps
                         lastCallbackTime = System.currentTimeMillis()
                         recordHistory(fps)
                     }
                 }
-                null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "TaskFpsCallback reflection failed: ${e.message}")
-            startPolling(); return
+            Log.e(TAG, "createTaskFpsCallback failed: ${e.message}")
+            null
         }
-        val taskId = getFocusedTaskId()
-        if (taskId <= 0) { startPolling(); return }
-        registerCallback(taskId)
-        mainHandler.post(taskCheckRunnable)
-        startPolling(fpsFromCallback = true)
     }
 
     private fun startPolling(fpsFromCallback: Boolean = false) {
@@ -337,40 +354,38 @@ class FpsService : Service() {
         override fun run() {
             if (!isRunning || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
             val newId = getFocusedTaskId()
-            if (newId > 0 && newId != currentTaskId) reinitCallback(newId)
-            else if (lastCallbackTime > 0 && System.currentTimeMillis() - lastCallbackTime > STALE_MS)
-                reinitCallback(newId.takeIf { it > 0 } ?: currentTaskId)
+            when {
+                newId > 0 && newId != currentTaskId -> reinitCallback(newId)
+                !callbackRegistered && newId > 0     -> registerCallback(newId)
+                callbackRegistered && lastCallbackTime > 0 &&
+                    System.currentTimeMillis() - lastCallbackTime > STALE_MS ->
+                        reinitCallback(newId.takeIf { it > 0 } ?: currentTaskId)
+            }
             mainHandler.postDelayed(this, TASK_CHECK_MS)
         }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun registerCallback(taskId: Int) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         unregisterCallback()
-        val cb = taskFpsCallback ?: return
+        val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: return
         try {
-            val registerMethod = windowManager.javaClass.getMethod(
-                "registerTaskFpsCallback", Int::class.java, java.util.concurrent.Executor::class.java,
-                Class.forName("android.window.TaskFpsCallback")
-            )
-            registerMethod.invoke(windowManager, taskId, java.util.concurrent.Executors.newSingleThreadExecutor(), cb)
+            windowManager.registerTaskFpsCallback(taskId, Runnable::run, cb)
             callbackRegistered = true; currentTaskId = taskId
             lastCallbackTime = System.currentTimeMillis()
+            Log.i(TAG, "TaskFpsCallback registered for taskId=$taskId")
         } catch (e: Exception) { Log.e(TAG, "registerCallback failed: ${e.message}") }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun unregisterCallback() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !callbackRegistered) return
-        val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
-        try {
-            val unregisterMethod = windowManager.javaClass.getMethod(
-                "unregisterTaskFpsCallback", Class.forName("android.window.TaskFpsCallback")
-            )
-            unregisterMethod.invoke(windowManager, cb)
-        } catch (_: Exception) {}
+        if (!callbackRegistered) return
+        val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: run { callbackRegistered = false; return }
+        try { windowManager.unregisterTaskFpsCallback(cb) } catch (_: Exception) {}
         callbackRegistered = false
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun reinitCallback(taskId: Int) {
         unregisterCallback()
         mainHandler.postDelayed({ registerCallback(taskId) }, 500)

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import com.javapro.utils.TweakExecutor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -62,12 +63,17 @@ object SystemInfoReader {
     )
 
     private val GPU_FREQ_PATHS = listOf(
-        "/sys/class/kgsl/kgsl-3d0/gpuclk"           to 1_000_000L,
-        "/sys/class/kgsl/kgsl-3d0/max_gpuclk"       to 1_000_000L,
-        "/sys/kernel/gpu/gpu_clock"                  to 1L,
-        "/sys/class/devfreq/gpufreq/cur_freq"        to 1_000_000L,
-        "/sys/class/misc/mali0/device/clock"         to 1_000_000L,
-        "/sys/devices/platform/gpufreq/cur_freq"     to 1_000_000L
+        "/sys/class/kgsl/kgsl-3d0/gpuclk"                        to 1_000_000L,
+        "/sys/class/kgsl/kgsl-3d0/max_gpuclk"                    to 1_000_000L,
+        "/sys/kernel/gpu/gpu_clock"                               to 1_000L,
+        "/sys/class/devfreq/gpufreq/cur_freq"                     to 1_000_000L,
+        "/sys/class/devfreq/ff9a0000.gpu/cur_freq"                to 1_000_000L,
+        "/sys/class/devfreq/13000000.mali/cur_freq"               to 1_000_000L,
+        "/sys/class/devfreq/fde60000.gpu/cur_freq"                to 1_000_000L,
+        "/sys/class/misc/mali0/device/clock"                      to 1_000L,
+        "/sys/class/misc/mali0/device/devfreq/mali/cur_freq"      to 1_000_000L,
+        "/sys/devices/platform/gpufreq/cur_freq"                  to 1_000_000L,
+        "/sys/devices/platform/gpu/devfreq/gpu/cur_freq"          to 1_000_000L
     )
 
     private val GPU_TEMP_PATHS = listOf(
@@ -155,9 +161,9 @@ object SystemInfoReader {
         return try {
             val cpuCount = Runtime.getRuntime().availableProcessors()
             val freqs = (0 until cpuCount).map { core ->
-                val cur = readFirstLine("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq")
+                val cur = readSysNode("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq")
                     ?.trim()?.toLongOrNull() ?: 0L
-                val max = readFirstLine("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
+                val max = readSysNode("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
                     ?.trim()?.toLongOrNull() ?: 0L
                 cur to max
             }
@@ -218,10 +224,15 @@ object SystemInfoReader {
 
     private fun readGpuFreq(): Int {
         for ((path, divider) in GPU_FREQ_PATHS) {
-            val raw = readFirstLine(path)?.trim()?.toLongOrNull() ?: continue
+            val raw = readSysNode(path)?.trim()?.toLongOrNull() ?: continue
             if (raw <= 0L) continue
             val mhz = (raw / divider).toInt()
             if (mhz in 1..5000) return mhz
+            // auto-detect: jika divider gagal coba tebak unit dari magnitude
+            val mhzKhz = (raw / 1_000L).toInt()
+            if (mhzKhz in 1..5000) return mhzKhz
+            val mhzHz  = (raw / 1_000_000L).toInt()
+            if (mhzHz  in 1..5000) return mhzHz
         }
         return 0
     }
@@ -285,6 +296,13 @@ object SystemInfoReader {
     private fun readFirstLine(path: String): String? {
         return try { BufferedReader(FileReader(path)).use { it.readLine() } }
         catch (_: IOException) { null }
+        catch (_: Exception) { null }
+    }
+
+    private fun readSysNode(path: String): String? {
+        val direct = readFirstLine(path)
+        if (!direct.isNullOrBlank()) return direct
+        return try { TweakExecutor.executeWithOutput("cat $path")?.trim()?.takeIf { it.isNotEmpty() } }
         catch (_: Exception) { null }
     }
 

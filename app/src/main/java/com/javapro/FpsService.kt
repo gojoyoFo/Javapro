@@ -1,5 +1,4 @@
 package com.javapro
-
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -24,57 +23,52 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.os.HandlerThread
+import android.view.FrameMetrics
+import android.view.Window
 import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.io.IOException
-
 class FpsService : Service() {
-
     private lateinit var windowManager: WindowManager
     private lateinit var overlayView: LinearLayout
     private lateinit var params: WindowManager.LayoutParams
-
     private val mainHandler = Handler(Looper.getMainLooper())
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isRunning = false
-
     private lateinit var tvFps: TextView
     private lateinit var tvCpuLoad: TextView
     private lateinit var tvGpuLoad: TextView
     private lateinit var tvBatTemp: TextView
-
     private var prevCpuIdle  = -1L
     private var prevCpuTotal = -1L
     private val cpuLock = Any()
-
     @Volatile private var cachedGpuUsagePath: String? = null
     @Volatile private var gpuPathDetected = false
-
-    // FPS state — GameBarFpsMeter style
     private var fpsMethod = "non_root"
-
-    // Android 13+ TaskFpsCallback path
     private var taskFpsCallback: android.window.TaskFpsCallback? = null
     private var callbackRegistered = false
     private var currentTaskId = -1
     @Volatile private var callbackFps = 0f
     private var lastFpsUpdateTime = System.currentTimeMillis()
-
-    // Legacy sysfs path (root, Android < 13)
+    private var frameMetricsThread: HandlerThread? = null
+    private var frameMetricsHandler: Handler? = null
+    private var frameMetricsListener: Window.OnFrameMetricsAvailableListener? = null
+    private val frameMetricsBuf = ArrayDeque<Float>(20)
+    private val frameMetricsBufSize = 15
+    @Volatile private var frameMetricsFps = 0f
+    private var frameMetricsAttached = false
     private val legacySysfsPaths = listOf(
         "/sys/kernel/ged/hal/fps",
         "/proc/mtk_mali/fps",
         "/sys/class/drm/card0/fps",
         "/sys/kernel/debug/dri/0/fps"
     )
-
-    // Non-root gfxinfo fallback
     @Volatile private var gfxFps = 0f
     private var foregroundPkg = ""
     private var fgPkgLastCheck = 0L
-
     companion object {
         private const val TAG = "FpsService"
         private const val POLL_MS = 1000L
@@ -86,9 +80,7 @@ class FpsService : Service() {
         private const val CHANNEL_ID = "fps_overlay_channel"
         private const val NOTIF_ID = 9001
     }
-
     override fun onBind(intent: Intent?): IBinder? = null
-
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
@@ -99,11 +91,11 @@ class FpsService : Service() {
         setupDrag()
         try {
             windowManager.addView(overlayView, params)
+            attachFrameMetrics()
         } catch (e: Exception) {
             Log.e(TAG, "addView failed: ${e.message}")
         }
     }
-
     private fun createNotificationChannel() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val ch = NotificationChannel(
@@ -115,7 +107,6 @@ class FpsService : Service() {
         }
         nm.createNotificationChannel(ch)
     }
-
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_battery_notif)
@@ -126,7 +117,6 @@ class FpsService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         fpsMethod = intent?.getStringExtra("fps_method") ?: "non_root"
         Log.i(TAG, "onStartCommand fpsMethod=$fpsMethod")
@@ -137,9 +127,9 @@ class FpsService : Service() {
         }
         return START_STICKY
     }
-
     override fun onDestroy() {
         isRunning = false
+        detachFrameMetrics()
         stopFpsTracking()
         mainHandler.removeCallbacksAndMessages(null)
         serviceScope.cancel()
@@ -148,18 +138,111 @@ class FpsService : Service() {
         }
         super.onDestroy()
     }
-
-    // ── FPS Tracking ─────────────────────────────────────────────────────────
-    // Priority:
-    // 1. Android 13+ root/non-root: TaskFpsCallback (windowManager.registerTaskFpsCallback)
-    // 2. Android < 13 root: sysfs fps node (legacy)
-    // 3. Non-root fallback: gfxinfo framestats (real frame timing, bukan refresh rate)
-
+    private fun attachFrameMetrics() {
+        if (frameMetricsAttached) return
+        overlayView.viewTreeObserver.addOnWindowAttachListener(
+            object : android.view.ViewTreeObserver.OnWindowAttachListener {
+                override fun onWindowAttached() {
+                    startFrameMetricsListener()
+                    overlayView.viewTreeObserver.removeOnWindowAttachListener(this)
+                }
+                override fun onWindowDetached() {}
+            }
+        )
+    }
+    private fun startFrameMetricsListener() {
+        if (frameMetricsAttached) return
+        val window = overlayView.context?.let {
+            try {
+                val wm = it.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                val field = wm.javaClass.getDeclaredField("mContext")
+                field.isAccessible = true
+                (field.get(wm) as? android.app.Activity)?.window
+            } catch (_: Exception) { null }
+        }
+        val ht = HandlerThread("FrameMetricsThread").also {
+            it.start()
+            frameMetricsThread = it
+        }
+        frameMetricsHandler = Handler(ht.looper)
+        val listener = Window.OnFrameMetricsAvailableListener { _, frameMetrics, _ ->
+            val totalNs = frameMetrics.getMetric(FrameMetrics.TOTAL_DURATION)
+            if (totalNs <= 0L) return@OnFrameMetricsAvailableListener
+            val instantFps = 1_000_000_000f / totalNs
+            if (instantFps !in 1f..400f) return@OnFrameMetricsAvailableListener
+            synchronized(frameMetricsBuf) {
+                frameMetricsBuf.addLast(instantFps)
+                if (frameMetricsBuf.size > frameMetricsBufSize) frameMetricsBuf.removeFirst()
+                if (frameMetricsBuf.size >= 5) {
+                    frameMetricsFps = frameMetricsBuf.average().toFloat()
+                }
+            }
+        }
+        frameMetricsListener = listener
+        try {
+            if (window != null) {
+                window.addOnFrameMetricsAvailableListener(listener, frameMetricsHandler)
+                frameMetricsAttached = true
+                Log.i(TAG, "FrameMetrics attached via Activity window")
+            } else {
+                attachFrameMetricsViaViewWindow(listener)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "FrameMetrics attach failed: ${e.message}, trying view window")
+            attachFrameMetricsViaViewWindow(listener)
+        }
+    }
+    private fun attachFrameMetricsViaViewWindow(listener: Window.OnFrameMetricsAvailableListener) {
+        try {
+            val viewRootImplClass = Class.forName("android.view.ViewRootImpl")
+            val getViewRootImplMethod = overlayView.javaClass.getMethod("getViewRootImpl")
+            val viewRootImpl = getViewRootImplMethod.invoke(overlayView) ?: run {
+                Log.w(TAG, "ViewRootImpl null, retry in 500ms")
+                mainHandler.postDelayed({ attachFrameMetricsViaViewWindow(listener) }, 500)
+                return
+            }
+            val attachInfoField = viewRootImplClass.getDeclaredField("mAttachInfo")
+            attachInfoField.isAccessible = true
+            val attachInfo = attachInfoField.get(viewRootImpl) ?: run {
+                mainHandler.postDelayed({ attachFrameMetricsViaViewWindow(listener) }, 500)
+                return
+            }
+            val windowField = attachInfo.javaClass.getDeclaredField("mWindow")
+            windowField.isAccessible = true
+            val window = windowField.get(attachInfo) as? Window ?: run {
+                Log.w(TAG, "mWindow cast failed, fallback to TaskFpsCallback")
+                return
+            }
+            window.addOnFrameMetricsAvailableListener(listener, frameMetricsHandler)
+            frameMetricsAttached = true
+            Log.i(TAG, "FrameMetrics attached via ViewRootImpl.mAttachInfo.mWindow")
+        } catch (e: Exception) {
+            Log.w(TAG, "FrameMetrics ViewRootImpl attach failed: ${e.message}")
+        }
+    }
+    private fun detachFrameMetrics() {
+        val listener = frameMetricsListener ?: return
+        try {
+            val getViewRootImplMethod = overlayView.javaClass.getMethod("getViewRootImpl")
+            val viewRootImpl = getViewRootImplMethod.invoke(overlayView) ?: return
+            val viewRootImplClass = viewRootImpl.javaClass
+            val attachInfoField = viewRootImplClass.getDeclaredField("mAttachInfo")
+            attachInfoField.isAccessible = true
+            val attachInfo = attachInfoField.get(viewRootImpl) ?: return
+            val windowField = attachInfo.javaClass.getDeclaredField("mWindow")
+            windowField.isAccessible = true
+            (windowField.get(attachInfo) as? Window)?.removeOnFrameMetricsAvailableListener(listener)
+        } catch (_: Exception) {}
+        frameMetricsAttached = false
+        frameMetricsListener = null
+        frameMetricsThread?.quitSafely()
+        frameMetricsThread = null
+        frameMetricsHandler = null
+    }
     private fun startFpsTracking() {
         stopFpsTracking()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             initTaskFpsCallback()
-            // Coba dapat taskId dari SurfaceFlinger, bukan ActivityTaskManager (blocked)
             val taskId = getTaskIdFromSurfaceFlinger()
             if (taskId > 0 && registerCallback(taskId)) {
                 Log.i(TAG, "TaskFpsCallback registered via SurfaceFlinger taskId=$taskId")
@@ -170,12 +253,10 @@ class FpsService : Service() {
         }
         serviceScope.launch { legacyFpsPollLoop() }
     }
-
     private fun stopFpsTracking() {
         unregisterCallback()
         mainHandler.removeCallbacks(taskCheckRunnable)
     }
-
     private fun initTaskFpsCallback() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         try {
@@ -192,7 +273,6 @@ class FpsService : Service() {
             taskFpsCallback = null
         }
     }
-
     private fun registerCallback(taskId: Int): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val cb = taskFpsCallback ?: return false
@@ -215,7 +295,6 @@ class FpsService : Service() {
             false
         }
     }
-
     private fun unregisterCallback() {
         if (!callbackRegistered) return
         val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
@@ -230,7 +309,6 @@ class FpsService : Service() {
         } catch (_: Exception) {}
         callbackRegistered = false
     }
-
     private val taskCheckRunnable = object : Runnable {
         override fun run() {
             if (!isRunning) return
@@ -252,7 +330,6 @@ class FpsService : Service() {
             mainHandler.postDelayed(this, TASK_CHECK_INTERVAL_MS)
         }
     }
-
     private fun reinitCallback(taskId: Int = -1) {
         unregisterCallback()
         mainHandler.postDelayed({
@@ -262,7 +339,6 @@ class FpsService : Service() {
             }
         }, 500)
     }
-
     private fun getTaskIdFromSurfaceFlinger(): Int {
         return try {
             val output = runShellCommand("dumpsys SurfaceFlinger --list")
@@ -272,11 +348,6 @@ class FpsService : Service() {
             taskPattern.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
         } catch (_: Exception) { -1 }
     }
-
-    // ── Legacy FPS poll (Android < 13) ────────────────────────────────────────
-    // Prioritas: sysfs fps node (root) → gfxinfo framestats (non-root)
-    // TIDAK menggunakan refresh rate layar sama sekali
-
     private suspend fun legacyFpsPollLoop() {
         foregroundPkg  = getForegroundPackage()
         fgPkgLastCheck = System.currentTimeMillis()
@@ -285,13 +356,9 @@ class FpsService : Service() {
             delay(POLL_MS)
         }
     }
-
     private fun readLegacyFps(): Float {
-        // 1. dumpsys SurfaceFlinger | grep fps — universal, Android 8+
         val sfFps = readSurfaceFlingerFps()
         if (sfFps > 0f) return sfFps
-
-        // 2. Sysfs fps node (root, MediaTek/universal)
         if (hasRoot()) {
             val sysfsPaths = listOf(
                 "/sys/kernel/ged/hal/curr_fps",
@@ -304,8 +371,6 @@ class FpsService : Service() {
                 if (fps > 0f) return fps
             }
         }
-
-        // 3. gfxinfo framestats (non-root, semua Android)
         val now = System.currentTimeMillis()
         if (foregroundPkg.isEmpty() || now - fgPkgLastCheck > 5000L) {
             foregroundPkg  = getForegroundPackage()
@@ -318,12 +383,10 @@ class FpsService : Service() {
         }
         return 0f
     }
-
     private fun readSurfaceFlingerFps(): Float {
         return try {
             val output = runShellCommand("dumpsys SurfaceFlinger | grep -i fps")
             if (output.isBlank()) return 0f
-            // Format: "FPS: 60.00" atau "refresh-rate = 60 fps"
             val fpsPattern = Regex("(\\d+\\.?\\d*)\\s*fps", RegexOption.IGNORE_CASE)
             val match = output.lines()
                 .mapNotNull { fpsPattern.find(it) }
@@ -332,45 +395,35 @@ class FpsService : Service() {
             if (v in 1f..400f) v else 0f
         } catch (_: Exception) { 0f }
     }
-
     private fun readSysfsFps(path: String): Float {
         return try {
             val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
             val line = proc.inputStream.bufferedReader().readLine()?.trim()
             proc.waitFor(); proc.destroy()
             if (line.isNullOrEmpty()) return 0f
-            // Format "fps: 60.00" atau langsung angka
             val raw = if (line.contains(":")) line.substringAfter(":").trim() else line
             val v = raw.split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull() ?: return 0f
             if (v in 1f..400f) v else 0f
         } catch (_: Exception) { 0f }
     }
-
     private fun readGfxInfoFps(pkg: String): Float {
-        // Metode 1: framestats (Android 6+) — pakai IntendedVsync timestamps
         val fps1 = readGfxInfoFramestats(pkg)
         if (fps1 > 0f) return fps1
-        // Metode 2: profile data lama (Draw+Prepare+Process+Execute) — logika dari GetFPS project
         return readGfxInfoLegacyProfile(pkg)
     }
-
-    // Metode modern: hitung FPS dari delta timestamp IntendedVsync
     private fun readGfxInfoFramestats(pkg: String): Float {
         return try {
             val output = runShellCommand("dumpsys gfxinfo $pkg framestats")
             if (output.isBlank()) return 0f
             val lines = output.lines()
-
             val headerIdx = lines.indexOfFirst { l ->
                 l.startsWith("Flags,") || l.startsWith("IntendedVsync,")
             }
             if (headerIdx < 0) return 0f
-
             val header   = lines[headerIdx].split(",").map { it.trim() }
             val flagCol  = header.indexOf("Flags")
             val vsyncCol = header.indexOf("IntendedVsync")
             if (vsyncCol < 0) return 0f
-
             val timestamps = mutableListOf<Long>()
             for (i in headerIdx + 1 until lines.size) {
                 val l = lines[i].trim()
@@ -383,7 +436,6 @@ class FpsService : Service() {
                 val ts = cols.getOrNull(vsyncCol)?.trim()?.toLongOrNull() ?: continue
                 if (ts > 0L && ts != Long.MAX_VALUE) timestamps.add(ts)
             }
-
             if (timestamps.size < 5) return 0f
             val sorted = timestamps.sorted()
             val deltas = (1 until sorted.size).mapNotNull { i ->
@@ -395,25 +447,17 @@ class FpsService : Service() {
             if (fps in 1f..400f) fps else 0f
         } catch (_: Exception) { 0f }
     }
-
-    // Metode lama (GetFPS style): hitung FPS dari Draw+Prepare+Process+Execute elapsed time
-    // Source: https://github.com/NasdaqGodzilla/GetFPS
-    // Perlu debug.hwui.profile=true di device
     private fun readGfxInfoLegacyProfile(pkg: String): Float {
         return try {
             val output = runShellCommand("dumpsys gfxinfo $pkg")
             if (output.isBlank()) return 0f
             val lines = output.lines()
-
-            // Cari region "Process.*Execute" sampai "View hierarchy:"
             val startIdx = lines.indexOfFirst { it.contains("Process") && it.contains("Execute") }
             val endIdx   = lines.indexOfFirst { it.startsWith("View hierarchy:") }
             if (startIdx < 0 || endIdx < 0 || endIdx <= startIdx + 2) return 0f
-
             var sumDraw = 0.0; var sumPrepare = 0.0
             var sumProcess = 0.0; var sumExecute = 0.0
             var count = 0
-
             for (i in startIdx + 1 until endIdx - 1) {
                 val parts = lines[i].trim().split("\\s+".toRegex())
                 if (parts.size < 4) continue
@@ -427,7 +471,6 @@ class FpsService : Service() {
                 sumExecute += execute
                 count++
             }
-
             if (count < 1) return 0f
             val averTotal = (sumDraw + sumPrepare + sumProcess + sumExecute) / count
             if (averTotal <= 0.01) return 0f
@@ -435,7 +478,6 @@ class FpsService : Service() {
             if (fps in 1f..400f) fps else 0f
         } catch (_: Exception) { 0f }
     }
-
     private fun getForegroundPackage(): String {
         return try {
             val usm = getSystemService(android.content.Context.USAGE_STATS_SERVICE)
@@ -450,7 +492,6 @@ class FpsService : Service() {
                 ?.packageName ?: ""
         } catch (_: Exception) { "" }
     }
-
     private fun runShellCommand(cmd: String, useRoot: Boolean = false): String {
         return try {
             val proc = if (useRoot)
@@ -462,23 +503,18 @@ class FpsService : Service() {
             out
         } catch (_: Exception) { "" }
     }
-
     private fun getCurrentFps(): Float {
+        if (frameMetricsAttached && frameMetricsFps > 0f) return frameMetricsFps
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && callbackRegistered) {
             val now = System.currentTimeMillis()
-            if (now - lastFpsUpdateTime > STALENESS_THRESHOLD_MS) {
-                callbackFps = 0f
-                return gfxFps.coerceAtLeast(0f)
+            if (now - lastFpsUpdateTime <= STALENESS_THRESHOLD_MS && callbackFps > 0f) {
+                return callbackFps
             }
-            return callbackFps.coerceAtLeast(0f)
+            callbackFps = 0f
         }
         return gfxFps.coerceAtLeast(0f)
     }
-
-    // ── Poll loop ─────────────────────────────────────────────────────────────
-
     private suspend fun pollLoop() {
-        // Warmup: 2 baca berjarak 500ms supaya delta CPU pertama valid
         readCpuFromProcStat()
         delay(500)
         readCpuFromProcStat()
@@ -492,36 +528,22 @@ class FpsService : Service() {
             delay(POLL_MS)
         }
     }
-
-    // ── CPU Load ──────────────────────────────────────────────────────────────
-    // /proc/stat bisa dibaca tanpa root di semua Android versi.
-    // Kalau gagal (ROM aneh/SELinux ketat), fallback ke ActivityManager.
-
     private fun readCpuLoad(): Int {
-        // Coba baca /proc/stat langsung
         val fromProc = readCpuFromProcStat()
         if (fromProc >= 0) return fromProc
-
-        // Fallback: estimasi dari ActivityManager (kurang akurat tapi selalu bisa)
         return readCpuFromActivityManager()
     }
-
     private fun readCpuFromProcStat(): Int {
         return try {
-            // File.readLines() — sama persis dengan HomeScreen, terbukti bisa non-root
             val directLine = try {
                 File("/proc/stat").readLines().firstOrNull { it.startsWith("cpu ") }
             } catch (_: Exception) { null }
-
-            // Fallback shell: root pakai su, non-root langsung cat
             val line = directLine ?: run {
                 val cmd = if (hasRoot()) "su -c cat /proc/stat" else "cat /proc/stat"
                 runShellCommand(cmd).lines().firstOrNull { it.startsWith("cpu ") }
             } ?: return -1
-
             val p = line.trim().split("\\s+".toRegex()).filter { it.isNotEmpty() }
             if (p.size < 8) return -1
-
             val user    = p[1].toLongOrNull() ?: return -1
             val nice    = p[2].toLongOrNull() ?: return -1
             val system  = p[3].toLongOrNull() ?: return -1
@@ -532,7 +554,6 @@ class FpsService : Service() {
             val steal   = p.getOrNull(8)?.toLongOrNull() ?: 0L
             val totalIdle = idle + iowait
             val total     = user + nice + system + totalIdle + irq + softirq + steal
-
             synchronized(cpuLock) {
                 val prevT = prevCpuTotal
                 val prevI = prevCpuIdle
@@ -549,32 +570,18 @@ class FpsService : Service() {
             -1
         }
     }
-
     private fun readCpuFromActivityManager(): Int {
         return try {
-            // ActivityManager.getProcessMemoryInfo tidak kasih CPU tapi kita bisa
-            // estimasi dari jumlah proses aktif / memory pressure sebagai proxy.
-            // Ini bukan CPU usage yang akurat tapi lebih baik dari "--".
-            // Alternatif: baca /proc/loadavg yang lebih mudah di-parse.
             val line = BufferedReader(FileReader("/proc/loadavg")).use { it.readLine() }
                 ?: return -1
-            // Format: "0.52 0.48 0.44 1/312 1234"
-            // Nilai pertama = load average 1 menit
-            // Normalize ke 0-100 berdasarkan jumlah CPU core
             val load1min = line.trim().split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull()
                 ?: return -1
             val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
             ((load1min / cores) * 100f).coerceIn(0f, 100f).toInt()
         } catch (_: Exception) { -1 }
     }
-
-    // ── GPU Load ──────────────────────────────────────────────────────────────
-    // Auto-detect root tanpa bergantung fpsMethod (yang tidak dikirim dari HomeScreen).
-    // Root: su shell bypass SELinux. Non-root: coba baca langsung.
-
     @Volatile private var isRootConfirmed = false
     @Volatile private var rootCheckDone   = false
-
     private fun hasRoot(): Boolean {
         if (rootCheckDone) return isRootConfirmed
         return try {
@@ -586,15 +593,12 @@ class FpsService : Service() {
             isRootConfirmed
         } catch (_: Exception) { rootCheckDone = true; false }
     }
-
     private fun readGpuLoadAuto(): Int {
         if (hasRoot()) return readGpuLoadViaShell()
         val path = getGpuUsagePath()
         if (path != null) return tryReadGpuUsage(path)
         return -1
     }
-
-    // Baca GPU lewat su shell — ini yang BENAR-BENAR berhasil di root
     private fun readGpuLoadViaShell(): Int {
         val candidates = listOf(
             "/sys/kernel/ged/hal/gpu_utilization",
@@ -606,18 +610,13 @@ class FpsService : Service() {
             "/sys/class/misc/mali0/device/utilization_pp",
             "/sys/devices/platform/gpu/gpubusy"
         )
-
-        // Kalau sudah punya cached path, pakai itu dulu
         val cached = if (gpuPathDetected) cachedGpuUsagePath else null
         if (cached != null) {
             val result = readGpuPathViaShell(cached)
             if (result >= 0) return result
-            // Path lama tidak valid lagi, reset
             gpuPathDetected = false
             cachedGpuUsagePath = null
         }
-
-        // Scan semua kandidat via shell
         for (path in candidates) {
             val result = readGpuPathViaShell(path)
             if (result >= 0) {
@@ -627,11 +626,8 @@ class FpsService : Service() {
                 return result
             }
         }
-
-        // Scan devfreq dinamis via shell
         return readGpuFromDevfreqShell()
     }
-
     private fun readGpuPathViaShell(path: String): Int {
         return try {
             val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
@@ -642,7 +638,6 @@ class FpsService : Service() {
             parseGpuLine(path, line)
         } catch (_: Exception) { -1 }
     }
-
     private fun readGpuFromDevfreqShell(): Int {
         return try {
             val proc = Runtime.getRuntime().exec(arrayOf("su", "-c",
@@ -656,8 +651,6 @@ class FpsService : Service() {
             line?.toIntOrNull()?.coerceIn(-1, 100) ?: -1
         } catch (_: Exception) { -1 }
     }
-
-    // Fallback baca langsung (non-root, kalau device izinkan)
     private fun getGpuUsagePath(): String? {
         if (gpuPathDetected) return cachedGpuUsagePath
         val candidates = listOf(
@@ -679,7 +672,6 @@ class FpsService : Service() {
                 return path
             }
         }
-        // Scan devfreq
         File("/sys/class/devfreq").takeIf { it.exists() }?.listFiles()?.forEach { dir ->
             val n = dir.name.lowercase()
             if (n.contains("gpu") || n.contains("kgsl") || n.contains("mali")) {
@@ -695,13 +687,11 @@ class FpsService : Service() {
         cachedGpuUsagePath = null
         return null
     }
-
     private fun tryReadGpuUsage(path: String): Int {
         val line = readLine(path)?.trim() ?: return -1
         if (line.isEmpty()) return -1
         return parseGpuLine(path, line)
     }
-
     private fun parseGpuLine(path: String, line: String): Int {
         return when {
             path.contains("ged/hal/gpu_utilization") -> {
@@ -730,15 +720,11 @@ class FpsService : Service() {
             }
         }
     }
-
     private fun readBatteryTemp(): Float {
         val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return 0f
         val raw = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
         return raw / 10f
     }
-
-    // ── Overlay UI ────────────────────────────────────────────────────────────
-
     private fun updateOverlay(fps: Float, cpuLoad: Int, gpuLoad: Int, batTemp: Float) {
         val fpsInt = if (fps in 1f..400f) fps.toInt() else 0
         tvFps.text = if (fpsInt > 0) "$fpsInt" else "--"
@@ -767,25 +753,21 @@ class FpsService : Service() {
             else           -> Color.parseColor("#66BB6A")
         })
     }
-
     private fun buildOverlay() {
         val d = resources.displayMetrics.density
         fun dp(v: Float) = (v * d).toInt()
-
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = dp(16f).toFloat()
             setColor(Color.parseColor("#E0050810"))
             setStroke(dp(0.8f), Color.parseColor("#33FFFFFF"))
         }
-
         overlayView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background  = bg
             gravity     = Gravity.CENTER_HORIZONTAL
             setPadding(dp(10f), dp(8f), dp(10f), dp(8f))
         }
-
         tvFps = TextView(this).apply {
             text     = "--"
             textSize = 38f
@@ -811,14 +793,12 @@ class FpsService : Service() {
             addView(tvFps)
             addView(fpsLabel)
         }
-
         val divider = View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(0.7f)
             ).also { it.setMargins(0, 0, 0, dp(6f)) }
             setBackgroundColor(Color.parseColor("#28FFFFFF"))
         }
-
         fun lbl(text: String) = TextView(this).apply {
             this.text     = text
             textSize      = 7f
@@ -832,11 +812,9 @@ class FpsService : Service() {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             setTextColor(Color.parseColor(hex))
         }
-
         tvCpuLoad = valTv("#58A6FF")
         tvGpuLoad = valTv("#CE93D8")
         tvBatTemp = valTv("#66BB6A")
-
         fun row(label: String, tv: TextView) = LinearLayout(this).apply {
             orientation  = LinearLayout.HORIZONTAL
             gravity      = Gravity.CENTER_VERTICAL
@@ -847,20 +825,17 @@ class FpsService : Service() {
             addView(lbl(label), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(tv)
         }
-
         overlayView.addView(fpsBlock)
         overlayView.addView(divider)
         overlayView.addView(row("CPU", tvCpuLoad))
         overlayView.addView(row("GPU", tvGpuLoad))
         overlayView.addView(row("BAT", tvBatTemp))
     }
-
     private fun setupParams() {
         val prefs = getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
         val type  = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
-
         params = WindowManager.LayoutParams(
             (72 * resources.displayMetrics.density).toInt(),
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -875,12 +850,10 @@ class FpsService : Service() {
             y = prefs.getInt(PREF_Y, 120)
         }
     }
-
     private fun setupDrag() {
         var downX = 0f; var downY = 0f
         var startX = 0; var startY = 0
         var moved = false
-
         overlayView.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -907,7 +880,6 @@ class FpsService : Service() {
             }
         }
     }
-
     private fun readLine(path: String): String? {
         return try { BufferedReader(FileReader(path)).use { it.readLine() } }
         catch (_: IOException) { null }

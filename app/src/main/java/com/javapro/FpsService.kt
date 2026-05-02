@@ -51,6 +51,7 @@ class FpsService : Service() {
     private lateinit var tvCpuUsage: TextView
     private lateinit var tvCpuTemp: TextView
     private lateinit var tvGpuUsage: TextView
+    private lateinit var tvGpuFreq: TextView
     private lateinit var tvRam: TextView
     private lateinit var tvBattery: TextView
     private lateinit var tvBatTemp: TextView
@@ -58,6 +59,7 @@ class FpsService : Service() {
     private lateinit var rowCpuUsage: LinearLayout
     private lateinit var rowCpuTemp: LinearLayout
     private lateinit var rowGpuUsage: LinearLayout
+    private lateinit var rowGpuFreq: LinearLayout
     private lateinit var rowRam: LinearLayout
     private lateinit var rowBattery: LinearLayout
     private lateinit var rowBatTemp: LinearLayout
@@ -79,6 +81,7 @@ class FpsService : Service() {
         const val PREF_SHOW_CPU      = "show_cpu"
         const val PREF_SHOW_CPU_TEMP = "show_cpu_temp"
         const val PREF_SHOW_GPU      = "show_gpu"
+        const val PREF_SHOW_GPU_FREQ = "show_gpu_freq"
         const val PREF_SHOW_RAM      = "show_ram"
         const val PREF_SHOW_BATTERY  = "show_battery"
         const val PREF_SHOW_BAT_TEMP = "show_bat_temp"
@@ -135,6 +138,7 @@ class FpsService : Service() {
         val showCpu     = prefs.getBoolean(PREF_SHOW_CPU, true)
         val showCpuTemp = prefs.getBoolean(PREF_SHOW_CPU_TEMP, true)
         val showGpu     = prefs.getBoolean(PREF_SHOW_GPU, true)
+        val showGpuFreq = prefs.getBoolean(PREF_SHOW_GPU_FREQ, true)
         val showRam     = prefs.getBoolean(PREF_SHOW_RAM, true)
         val showBattery = prefs.getBoolean(PREF_SHOW_BATTERY, true)
         val showBatTemp = prefs.getBoolean(PREF_SHOW_BAT_TEMP, false)
@@ -145,7 +149,8 @@ class FpsService : Service() {
             dividerCpu.visibility  = if (showCpu || showCpuTemp) View.VISIBLE else View.GONE
 
             rowGpuUsage.visibility = if (showGpu) View.VISIBLE else View.GONE
-            dividerGpu.visibility  = if (showGpu) View.VISIBLE else View.GONE
+            rowGpuFreq.visibility  = if (showGpuFreq) View.VISIBLE else View.GONE
+            dividerGpu.visibility  = if (showGpu || showGpuFreq) View.VISIBLE else View.GONE
 
             rowRam.visibility     = if (showRam) View.VISIBLE else View.GONE
             dividerRam.visibility = if (showRam) View.VISIBLE else View.GONE
@@ -371,6 +376,7 @@ class FpsService : Service() {
         tvCpuUsage = value("--", "#58A6FF")
         tvCpuTemp  = value("--", "#FF6B6B")
         tvGpuUsage = value("--", "#CE93D8")
+        tvGpuFreq  = value("--", "#B39DDB")
         tvRam      = value("--", "#26C6DA")
         tvBattery  = value("--", "#66BB6A")
         tvBatTemp  = value("--", "#80FFFFFF")
@@ -378,6 +384,7 @@ class FpsService : Service() {
         rowCpuUsage = row("CPU", tvCpuUsage)
         rowCpuTemp  = row("TMP", tvCpuTemp)
         rowGpuUsage = row("GPU", tvGpuUsage)
+        rowGpuFreq  = row("GCLK", tvGpuFreq)
         rowRam      = row("RAM", tvRam)
         rowBattery  = row("BAT", tvBattery)
         rowBatTemp  = row("GTMP", tvBatTemp)
@@ -393,6 +400,7 @@ class FpsService : Service() {
         overlayView.addView(rowCpuTemp)
         overlayView.addView(dividerGpu)
         overlayView.addView(rowGpuUsage)
+        overlayView.addView(rowGpuFreq)
         overlayView.addView(dividerRam)
         overlayView.addView(rowRam)
         overlayView.addView(dividerBat)
@@ -489,6 +497,8 @@ class FpsService : Service() {
             snap.gpuUsagePct >= 50f -> Color.parseColor("#FFD740")
             else                    -> Color.parseColor("#CE93D8")
         })
+
+        tvGpuFreq.text = if (snap.gpuFreqMhz > 0) "${snap.gpuFreqMhz}M" else "--"
 
         val ramPct = if (snap.ramTotalMb > 0) snap.ramUsedMb * 100 / snap.ramTotalMb else 0L
         tvRam.text = if (snap.ramTotalMb > 0) "${snap.ramUsedMb}M" else "--"

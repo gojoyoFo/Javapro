@@ -18,6 +18,7 @@ data class SystemSnapshot(
     val cpuTempC      : Float,
     val clusters      : List<ClusterSnapshot>,
     val gpuUsagePct   : Float,
+    val gpuFreqMhz    : Int,
     val gpuTempC      : Float,
     val ramUsedMb     : Long,
     val ramTotalMb    : Long,
@@ -51,6 +52,28 @@ object SystemInfoReader {
     @Volatile private var cachedGpuUsagePath: String? = null
     @Volatile private var gpuUsagePathDetected: Boolean = false
 
+    @Volatile private var cachedGpuFreqPath: String? = null
+    @Volatile private var cachedGpuFreqDiv : Long    = 1L
+    @Volatile private var gpuFreqPathDetected: Boolean = false
+
+    private val GPU_FREQ_CANDIDATE_PATHS = listOf(
+        "/sys/kernel/ged/hal/current_freqency"                          to 1000L,
+        "/sys/kernel/ged/hal/gpu_freq"                                  to 1000L,
+        "/proc/gpufreq/gpufreq_opp_freq"                               to 1000L,
+        "/proc/mtk_mali/gpufreq"                                        to 1000L,
+        "/sys/class/kgsl/kgsl-3d0/gpuclk"                              to 1000000L,
+        "/sys/class/kgsl/kgsl-3d0/clock_mhz"                           to 1L,
+        "/sys/kernel/gpu/gpu_clock"                                     to 1L,
+        "/sys/class/devfreq/gpuss-0/cur_freq"                          to 1000000L,
+        "/sys/class/devfreq/gpuss-1/cur_freq"                          to 1000000L,
+        "/sys/class/devfreq/13000000.mali/cur_freq"                    to 1000000L,
+        "/sys/class/devfreq/fb000000.gpu/cur_freq"                     to 1000000L,
+        "/sys/class/devfreq/soc:qcom,kgsl-3d0/cur_freq"               to 1000000L,
+        "/sys/class/misc/mali0/device/clock"                            to 1L,
+        "/sys/devices/platform/mali.0/clock"                            to 1L,
+        "/sys/devices/platform/gpu/cur_freq"                            to 1000000L
+    )
+
     private val GPU_TEMP_PATHS = listOf(
         "/sys/class/kgsl/kgsl-3d0/temp"            to 1000,
         "/sys/class/thermal/thermal_zone2/temp"     to 1000,
@@ -64,6 +87,7 @@ object SystemInfoReader {
         val cpuTemp   = readCpuTemp()
         val clusters  = readClusters()
         val gpuUsage  = readGpuUsage()
+        val gpuFreq   = readGpuFreq()
         val gpuTemp   = readGpuTemp()
         val (ramUsed, ramTotal) = readRam(context)
         val (batPct, batTemp, batVolt, charging) = readBattery(context)
@@ -73,6 +97,7 @@ object SystemInfoReader {
             cpuTempC      = cpuTemp,
             clusters      = clusters,
             gpuUsagePct   = gpuUsage,
+            gpuFreqMhz    = gpuFreq,
             gpuTempC      = gpuTemp,
             ramUsedMb     = ramUsed,
             ramTotalMb    = ramTotal,
@@ -354,6 +379,56 @@ object SystemInfoReader {
         }
         val v = parts.firstOrNull()?.toFloatOrNull()
         return if (v != null && v in 0f..100f) v else 0f
+    }
+
+    private fun readGpuFreq(): Int {
+        if (gpuFreqPathDetected && cachedGpuFreqPath != null) {
+            val result = tryReadGpuFreqFromPath(cachedGpuFreqPath!!, cachedGpuFreqDiv)
+            if (result > 0) return result
+        }
+
+        for ((path, div) in GPU_FREQ_CANDIDATE_PATHS) {
+            val result = tryReadGpuFreqFromPath(path, div)
+            if (result > 0) {
+                cachedGpuFreqPath = path
+                cachedGpuFreqDiv  = div
+                gpuFreqPathDetected = true
+                Log.i(TAG, "GPU freq path detected: $path -> ${result}MHz")
+                return result
+            }
+        }
+
+        val devfreqDir = File("/sys/class/devfreq")
+        if (devfreqDir.exists()) {
+            devfreqDir.listFiles()?.forEach { entry ->
+                val name = entry.name.lowercase()
+                if (name.contains("gpu") || name.contains("kgsl") || name.contains("mali") || name.contains("mfg")) {
+                    val curFreqFile = File(entry, "cur_freq")
+                    if (curFreqFile.exists() && curFreqFile.canRead()) {
+                        val result = tryReadGpuFreqFromPath(curFreqFile.absolutePath, 1000000L)
+                        if (result > 0) {
+                            cachedGpuFreqPath = curFreqFile.absolutePath
+                            cachedGpuFreqDiv  = 1000000L
+                            gpuFreqPathDetected = true
+                            Log.i(TAG, "GPU freq path (devfreq scan): ${curFreqFile.absolutePath} -> ${result}MHz")
+                            return result
+                        }
+                    }
+                }
+            }
+        }
+
+        gpuFreqPathDetected = true
+        cachedGpuFreqPath = null
+        return 0
+    }
+
+    private fun tryReadGpuFreqFromPath(path: String, divider: Long): Int {
+        val line = readFirstLine(path)?.trim() ?: return 0
+        val raw = line.split(Regex("[\\s,]+")).firstOrNull()?.toLongOrNull() ?: return 0
+        if (raw <= 0L) return 0
+        val mhz = raw / divider
+        return if (mhz in 1L..5000L) mhz.toInt() else 0
     }
 
     private fun readGpuTemp(): Float {

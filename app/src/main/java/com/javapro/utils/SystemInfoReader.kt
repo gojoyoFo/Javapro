@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
-import com.javapro.utils.TweakExecutor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -302,8 +301,19 @@ object SystemInfoReader {
     private fun readSysNode(path: String): String? {
         val direct = readFirstLine(path)
         if (!direct.isNullOrBlank()) return direct
-        return try { TweakExecutor.executeWithOutput("cat $path")?.trim()?.takeIf { it.isNotEmpty() } }
-        catch (_: Exception) { null }
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
+            val out = process.inputStream.bufferedReader().use { it.readLine() }
+            process.waitFor()
+            out?.trim()?.takeIf { it.isNotEmpty() }
+        } catch (_: Exception) {
+            try {
+                val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", "cat $path"))
+                val out = process.inputStream.bufferedReader().use { it.readLine() }
+                process.waitFor()
+                out?.trim()?.takeIf { it.isNotEmpty() }
+            } catch (_: Exception) { null }
+        }
     }
 
     private data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)

@@ -18,7 +18,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.window.TaskFpsCallback
 import com.javapro.utils.SystemInfoReader
 import com.javapro.utils.SystemSnapshot
 import kotlinx.coroutines.*
@@ -311,22 +310,56 @@ class FpsService : Service() {
         startPolling(fpsFromCallback = true)
     }
 
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun createTaskFpsCallback(): Any? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
         return try {
-            object : android.window.TaskFpsCallback() {
-                override fun onFpsReported(fps: Float) {
+            TaskFpsCallbackFactory.create(
+                onFps = { fps ->
                     if (fps > 0f) {
                         callbackFps = fps
                         lastCallbackTime = System.currentTimeMillis()
                         recordHistory(fps)
                     }
                 }
-            }
+            )
         } catch (e: Exception) {
             Log.e(TAG, "createTaskFpsCallback failed: ${e.message}")
             null
         }
+    }
+
+    private var _fpsCallbackInvoker: java.lang.reflect.InvocationHandler? = null
+
+    private fun registerCallback(taskId: Int) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        unregisterCallback()
+        val cb = taskFpsCallback ?: return
+        try {
+            val cbClass = Class.forName("android.window.TaskFpsCallback")
+            val register = windowManager.javaClass.getMethod(
+                "registerTaskFpsCallback",
+                Int::class.java,
+                java.util.concurrent.Executor::class.java,
+                cbClass
+            )
+            register.invoke(windowManager, taskId, java.util.concurrent.Executors.newSingleThreadExecutor(), cb)
+            callbackRegistered = true; currentTaskId = taskId
+            lastCallbackTime = System.currentTimeMillis()
+            Log.i(TAG, "TaskFpsCallback registered for taskId=$taskId")
+        } catch (e: Exception) { Log.e(TAG, "registerCallback failed: ${e.message}") }
+    }
+
+    private fun unregisterCallback() {
+        if (!callbackRegistered) return
+        val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val cbClass = Class.forName("android.window.TaskFpsCallback")
+                val unregister = windowManager.javaClass.getMethod("unregisterTaskFpsCallback", cbClass)
+                unregister.invoke(windowManager, cb)
+            }
+        } catch (_: Exception) {}
+        callbackRegistered = false
     }
 
     private fun startPolling(fpsFromCallback: Boolean = false) {
@@ -365,27 +398,6 @@ class FpsService : Service() {
         }
     }
 
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    private fun registerCallback(taskId: Int) {
-        unregisterCallback()
-        val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: return
-        try {
-            windowManager.registerTaskFpsCallback(taskId, Runnable::run, cb)
-            callbackRegistered = true; currentTaskId = taskId
-            lastCallbackTime = System.currentTimeMillis()
-            Log.i(TAG, "TaskFpsCallback registered for taskId=$taskId")
-        } catch (e: Exception) { Log.e(TAG, "registerCallback failed: ${e.message}") }
-    }
-
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    private fun unregisterCallback() {
-        if (!callbackRegistered) return
-        val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: run { callbackRegistered = false; return }
-        try { windowManager.unregisterTaskFpsCallback(cb) } catch (_: Exception) {}
-        callbackRegistered = false
-    }
-
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private fun reinitCallback(taskId: Int) {
         unregisterCallback()
         mainHandler.postDelayed({ registerCallback(taskId) }, 500)
@@ -518,6 +530,15 @@ class FpsService : Service() {
         synchronized(fpsHistory) {
             fpsHistory.add(fps)
             if (fpsHistory.size > maxHistory) fpsHistory.removeAt(0)
+        }
+    }
+}
+
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private object TaskFpsCallbackFactory {
+    fun create(onFps: (Float) -> Unit): android.window.TaskFpsCallback {
+        return object : android.window.TaskFpsCallback() {
+            override fun onFpsReported(fps: Float) = onFps(fps)
         }
     }
 }

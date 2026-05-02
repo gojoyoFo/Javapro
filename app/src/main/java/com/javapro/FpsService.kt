@@ -166,6 +166,7 @@ class FpsService : Service() {
         }
     }
 
+    @Suppress("NewApi")
     private fun registerFpsCallbackForTask(taskId: Int): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: return false
@@ -182,6 +183,7 @@ class FpsService : Service() {
         }
     }
 
+    @Suppress("NewApi")
     private fun unregisterFpsCallback() {
         if (!callbackRegistered) return
         val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: run {
@@ -247,7 +249,7 @@ class FpsService : Service() {
     private suspend fun pollLoop() {
         readCpuLoad()
         delay(200)
-        while (coroutineContext.isActive && isRunning) {
+        while (currentCoroutineContext().isActive && isRunning) {
             val fps = getCurrentFps()
             val cpuLoad = readCpuLoad()
             val gpuLoad = readGpuLoad()

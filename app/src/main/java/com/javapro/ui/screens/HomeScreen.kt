@@ -40,7 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.javapro.OverlayService as FpsService
+import com.javapro.FpsService
 import com.javapro.R
 import com.javapro.ads.AdManager
 import com.javapro.utils.PreferenceManager

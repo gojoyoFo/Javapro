@@ -176,7 +176,13 @@ class FpsService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val cb = taskFpsCallback ?: return false
         return try {
-            windowManager.registerTaskFpsCallback(taskId, { it.run() }, cb)
+            val method = windowManager.javaClass.getMethod(
+                "registerTaskFpsCallback",
+                Int::class.java,
+                java.util.concurrent.Executor::class.java,
+                android.window.TaskFpsCallback::class.java
+            )
+            method.invoke(windowManager, taskId, java.util.concurrent.Executor { r -> r.run() }, cb)
             callbackRegistered = true
             currentTaskId = taskId
             lastFpsUpdateTime = System.currentTimeMillis()
@@ -184,8 +190,6 @@ class FpsService : Service() {
             true
         } catch (e: Exception) {
             Log.w(TAG, "registerTaskFpsCallback failed: ${e.message}")
-            // Fallback: Android 13 device tapi registerTaskFpsCallback gagal
-            // Pindah ke gfxinfo poll
             serviceScope.launch { legacyFpsPollLoop() }
             false
         }
@@ -196,7 +200,11 @@ class FpsService : Service() {
         val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                windowManager.unregisterTaskFpsCallback(cb)
+                val method = windowManager.javaClass.getMethod(
+                    "unregisterTaskFpsCallback",
+                    android.window.TaskFpsCallback::class.java
+                )
+                method.invoke(windowManager, cb)
             }
         } catch (_: Exception) {}
         callbackRegistered = false
@@ -280,7 +288,7 @@ class FpsService : Service() {
             if (line.isNullOrEmpty()) return 0f
             // Format "fps: 60.00" atau langsung angka
             val raw = if (line.contains(":")) line.substringAfter(":").trim() else line
-            val v = raw.split("\s+".toRegex()).firstOrNull()?.toFloatOrNull() ?: return 0f
+            val v = raw.split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull() ?: return 0f
             if (v in 1f..400f) v else 0f
         } catch (_: Exception) { 0f }
     }

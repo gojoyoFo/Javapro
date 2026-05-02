@@ -2,64 +2,61 @@ package com.javapro.fps
 
 import android.util.Log
 import java.io.File
-import java.io.InputStream
 import java.util.LinkedList
-import java.util.concurrent.TimeUnit
 
-/**
- * RootFpsProvider — Fixed & Optimized
- *
- * Fixes:
- * 1. Anti-deadlock: stream draining + 500ms hard timeout + process.destroy()
- * 2. Smart layer targeting: cari SurfaceView/Sprite dulu, baru fallback ke global
- * 3. Synchronized su access: SU_LOCK mencegah race condition dengan SystemInfoReader
- * 4. Sysfs fallback otomatis jika dumpsys FPS == 0
- */
 class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
 
     private val TAG = "RootFpsProvider"
+
+    // ── Persistent shell ──────────────────────────────────────────────────────
+    private val shell = PersistentSuShell()
 
     // ── Layer 1: sysfs cached path ────────────────────────────────────────────
     @Volatile private var activeFpsPath: String? = null
     @Volatile private var sysfsScanned  = false
 
-    // ── Layer 2: SurfaceFlinger latency state ─────────────────────────────────
+    // ── Layer 2: SurfaceFlinger latency ───────────────────────────────────────
     private var lastLatencyTimestamp: Long = 0L
 
-    // SMA buffer 12 sampel (lebih responsif dari 15)
+    // Cache layer game (di-refresh setiap LAYER_CACHE_TTL_MS)
+    @Volatile private var cachedGameLayer: String? = null   // null = belum pernah di-resolve
+    private var layerCacheMs: Long = 0L
+    private val LAYER_CACHE_TTL_MS = 3_000L
+
+    // Reconnect debounce
+    private var lastReconnectMs: Long = 0L
+    private val RECONNECT_COOLDOWN_MS = 5_000L
+
+    // SMA buffer 12 sampel
     private val smaBuffer = LinkedList<Float>()
     private val SMA_SIZE  = 12
 
-    // Cache nama layer target agar tidak re-scan setiap tick
-    @Volatile private var cachedGameLayer: String? = null
-    private var layerCacheMs: Long = 0L
-    private val LAYER_CACHE_TTL_MS = 3_000L  // refresh setiap 3 detik
+    // Dollar sign literal — agar tidak confuse Kotlin string template vs shell variable
+    private val D = "\$"
 
     companion object {
-        /**
-         * Global lock untuk semua akses `su`.
-         * SystemInfoReader TIDAK boleh buka su bersamaan dengan FpsProvider.
-         * Declare di companion agar satu lock untuk seluruh proses.
-         */
+        /** Dipakai oleh FpsService.hasRoot() sebagai shared lock. */
         @JvmStatic val SU_LOCK = Any()
-
-        private const val SHELL_TIMEOUT_MS = 500L  // hard kill jika tidak ada output dalam 500ms
     }
 
     init {
         scanSysfsFpsNode()
+        connectShell()
     }
 
     override fun getInstantFps(): Float {
-        // Layer 1: sysfs node (tercepat, tanpa shell)
+        // Layer 1: sysfs node (tanpa shell, paling cepat)
         val sysfs = readSysfsFps()
         if (sysfs > 0f) return applySma(sysfs)
 
-        // Layer 2: SurfaceFlinger latency via su (Smart Layer Targeting)
-        val latency = readLatencyFps()
-        if (latency > 0f) return latency  // SMA sudah diapply di dalam
+        // Pastikan shell hidup sebelum lanjut
+        ensureShellAlive()
 
-        // Layer 3: service call 1013 fallback
+        // Layer 2: combined script via persistent shell
+        val latency = readLatencyFps()
+        if (latency > 0f) return latency
+
+        // Layer 3: service call 1013 via persistent shell
         val svcCall = readServiceCallFps()
         if (svcCall > 0f) return applySma(svcCall)
 
@@ -70,16 +67,37 @@ class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
         smaBuffer.clear()
         lastLatencyTimestamp = 0L
         cachedGameLayer = null
+        shell.close()
     }
 
-    // ── Layer 1: Sysfs Scanner ────────────────────────────────────────────────
+    // ── Shell lifecycle ───────────────────────────────────────────────────────
+
+    private fun connectShell() {
+        try {
+            val ok = shell.connect()
+            if (!ok) Log.w(TAG, "Shell connect failed, will retry on next tick")
+        } catch (e: Exception) {
+            Log.e(TAG, "connectShell exception: ${e.message}")
+        }
+    }
+
+    private fun ensureShellAlive() {
+        if (shell.connected && shell.isAlive()) return
+        val now = System.currentTimeMillis()
+        if (now - lastReconnectMs < RECONNECT_COOLDOWN_MS) return
+        Log.w(TAG, "Shell dead, reconnecting...")
+        lastReconnectMs = now
+        connectShell()
+    }
+
+    // ── Layer 1: Sysfs FPS node ───────────────────────────────────────────────
 
     private fun scanSysfsFpsNode() {
         if (sysfsScanned) return
         sysfsScanned = true
         val patterns = listOf(
-            "/sys/class/drm"               to "measured_fps",
-            "/sys/class/graphics"          to "measured_fps",
+            "/sys/class/drm"                to "measured_fps",
+            "/sys/class/graphics"           to "measured_fps",
             "/sys/devices/platform/display" to "fps"
         )
         for ((dir, filename) in patterns) {
@@ -110,68 +128,86 @@ class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
         } catch (_: Exception) { activeFpsPath = null; 0f }
     }
 
-    // ── Layer 2: Smart Layer Targeting + SurfaceFlinger Latency ──────────────
+    // ── Layer 2: Smart Layer Targeting + SurfaceFlinger --latency ─────────────
 
     /**
-     * Resolve target layer:
-     * - Cari layer SurfaceView atau Sprite (game engine layers)
-     * - Cache selama LAYER_CACHE_TTL_MS agar tidak re-scan setiap tick
-     * - Fallback ke string kosong (global) jika tidak ditemukan
+     * Combined one-shot script per tick:
+     *
+     * Skenario A — layer cache VALID (setiap tick, ~1 detik):
+     *   Kirim hanya satu perintah --latency → paling cepat, tidak ada overhead --list.
+     *
+     * Skenario B — layer cache EXPIRED (setiap ~3 detik):
+     *   Kirim script gabungan:
+     *     1. Detect layer via --list (grep SurfaceView/Sprite/Unity)
+     *     2. echo nama layer → baris pertama output
+     *     3. Jalankan --latency pada layer tsb → baris 2+ output
+     *   Pecah output di Kotlin berdasarkan baris pertama vs sisanya.
      */
-    private fun resolveGameLayer(): String {
-        val now = System.currentTimeMillis()
-        val cached = cachedGameLayer
-        if (cached != null && (now - layerCacheMs) < LAYER_CACHE_TTL_MS) {
-            return cached
-        }
-
-        val listOutput = runSu("dumpsys SurfaceFlinger --list 2>/dev/null")
-        val target = listOutput.lines()
-            .map { it.trim() }
-            .firstOrNull { line ->
-                line.contains("SurfaceView", ignoreCase = true) ||
-                line.contains("Sprite",      ignoreCase = true) ||
-                line.contains("UnityMain",   ignoreCase = true) ||
-                line.contains("GameActivity",ignoreCase = true)
-            } ?: ""
-
-        cachedGameLayer = target
-        layerCacheMs    = now
-        if (target.isNotEmpty()) {
-            Log.i(TAG, "Smart layer resolved: $target")
-        } else {
-            Log.d(TAG, "Smart layer: no game layer found, using global")
-        }
-        return target
-    }
-
     private fun readLatencyFps(): Float {
-        return try {
-            val layer  = resolveGameLayer()
-            // Kutip layer name agar aman dari spasi; jika kosong, --latency tanpa arg = global
+        if (!shell.connected) return 0f
+
+        val now = System.currentTimeMillis()
+        val cacheValid = cachedGameLayer != null &&
+                         (now - layerCacheMs) < LAYER_CACHE_TTL_MS
+
+        val timestampOutput: String
+
+        if (cacheValid) {
+            // ── Skenario A: cache valid, kirim --latency saja ──────────────
+            val layer    = cachedGameLayer!!
             val layerArg = if (layer.isNotEmpty()) "\"$layer\"" else ""
-            val script = buildLatencyScript(layerArg)
+            timestampOutput = shell.execute(latencyOnlyScript(layerArg), timeoutMs = 1500L)
+        } else {
+            // ── Skenario B: cache expired, combined script ──────────────────
+            val raw = shell.execute(combinedLayerAndLatencyScript(), timeoutMs = 1800L)
+            val lines = raw.lines()
 
-            var output = runSu(script)
-
-            // Jika hasil dengan layer spesifik kosong/0, fallback ke global
-            if (output.isBlank() && layer.isNotEmpty()) {
-                Log.d(TAG, "Smart layer output empty, fallback to global")
-                cachedGameLayer = ""   // reset cache agar next tick global dulu
-                output = runSu(buildLatencyScript(""))
+            // Baris pertama = nama layer (hasil echo "$TARGET")
+            val layerName = lines.firstOrNull()?.trim() ?: ""
+            cachedGameLayer = layerName
+            layerCacheMs    = now
+            if (layerName.isNotEmpty()) {
+                Log.i(TAG, "Combined script → layer: $layerName")
+            } else {
+                Log.d(TAG, "Combined script → no game layer, using global")
             }
 
-            if (output.isBlank()) return 0f
+            // Baris 2+ = timestamps dari --latency
+            timestampOutput = lines.drop(1).joinToString("\n")
+        }
 
-            parseLatencyOutput(output)
-        } catch (_: Exception) { 0f }
+        if (timestampOutput.isBlank()) {
+            // Fallback: jika layer spesifik gagal, reset cache ke global dan coba sekali lagi
+            if (!cachedGameLayer.isNullOrEmpty()) {
+                Log.d(TAG, "Layer output empty, fallback to global")
+                cachedGameLayer = ""
+                val globalOut = shell.execute(latencyOnlyScript(""), timeoutMs = 1500L)
+                if (globalOut.isBlank()) return 0f
+                return parseLatencyOutput(globalOut)
+            }
+            return 0f
+        }
+
+        return parseLatencyOutput(timestampOutput)
     }
 
-    private fun buildLatencyScript(layerArg: String): String {
-        // One-liner: ambil kolom ke-2 (present timestamp ns), filter 0 dan kosong
-        return "dumpsys SurfaceFlinger --latency $layerArg 2>/dev/null" +
-               " | tail -127 | awk '{print \$2}' | grep -v '^0\$' | grep -v '^\$'"
-    }
+    /** Script hanya --latency, dipakai saat cache layer valid. */
+    private fun latencyOnlyScript(layerArg: String): String =
+        "dumpsys SurfaceFlinger --latency $layerArg" +
+        " | tail -127 | awk '{print ${D}2}' | grep -v '^0${D}' | grep -v '^${D}'"
+
+    /**
+     * Script gabungan: detect + latency dalam satu execute().
+     * Output format:
+     *   Baris 1   → nama layer game (kosong jika tidak ditemukan)
+     *   Baris 2+  → timestamps nanosecond dari --latency
+     */
+    private fun combinedLayerAndLatencyScript(): String =
+        "TARGET=${D}(dumpsys SurfaceFlinger --list" +
+        " | grep -E 'SurfaceView|Sprite|UnityMain|GameActivity' | tail -1);" +
+        " echo \"${D}TARGET\";" +
+        " dumpsys SurfaceFlinger --latency \"${D}TARGET\"" +
+        " | tail -127 | awk '{print ${D}2}' | grep -v '^0${D}' | grep -v '^${D}'"
 
     private fun parseLatencyOutput(output: String): Float {
         var lastResult = 0f
@@ -180,7 +216,7 @@ class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
             if (currentTimestamp <= 0L || currentTimestamp == Long.MAX_VALUE) continue
             if (lastLatencyTimestamp > 0L) {
                 val delta = currentTimestamp - lastLatencyTimestamp
-                // Valid range: 2ms – 50ms (20fps – 500fps)
+                // 2ms – 50ms = 20fps – 500fps
                 if (delta in 2_000_000L..50_000_000L) {
                     val instantFps = 1_000_000_000f / delta
                     if (instantFps in 1f..maxRefreshRate * 1.05f) {
@@ -196,8 +232,9 @@ class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
     // ── Layer 3: service call SurfaceFlinger 1013 ─────────────────────────────
 
     private fun readServiceCallFps(): Float {
+        if (!shell.connected) return 0f
         return try {
-            val output = runSu("service call SurfaceFlinger 1013")
+            val output = shell.execute("service call SurfaceFlinger 1013", timeoutMs = 1000L)
             if (output.isBlank()) return 0f
             val hexRegex = Regex("""([0-9a-fA-F]{8})""")
             for (hex in hexRegex.findAll(output).map { it.value }) {
@@ -208,80 +245,6 @@ class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
             }
             0f
         } catch (_: Exception) { 0f }
-    }
-
-    // ── Shell helper: Anti-Deadlock + Synchronized SU ────────────────────────
-
-    /**
-     * runSu — Robust shell execution:
-     * - synchronized(SU_LOCK): tidak ada dua thread yang buka su bersamaan
-     * - Hard timeout 500ms: jika tidak ada output, stream di-drain paksa lalu destroy
-     * - stderr selalu di-drain di thread terpisah untuk mencegah buffer blocking
-     */
-    private fun runSu(cmd: String): String {
-        return synchronized(SU_LOCK) {
-            var process: Process? = null
-            try {
-                process = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
-                val p = process
-
-                // Drain stderr di background thread agar tidak block stdout
-                val errThread = Thread { drainStream(p.errorStream) }
-                    .also { it.isDaemon = true; it.start() }
-
-                // Baca stdout dengan timeout ketat
-                val output = readWithTimeout(p.inputStream, SHELL_TIMEOUT_MS)
-
-                // Tunggu proses selesai, max 200ms tambahan
-                val exited = p.waitFor(200, TimeUnit.MILLISECONDS)
-                if (!exited) {
-                    Log.w(TAG, "runSu timeout, killing process")
-                    p.destroyForcibly()
-                }
-
-                errThread.join(100)
-                output.trim()
-            } catch (e: Exception) {
-                Log.w(TAG, "runSu error: ${e.message}")
-                ""
-            } finally {
-                process?.runCatching { destroyForcibly() }
-            }
-        }
-    }
-
-    /**
-     * Baca InputStream dengan hard timeout.
-     * Jika belum selesai dalam [timeoutMs] ms, kembalikan apa yang sudah terbaca.
-     */
-    private fun readWithTimeout(stream: InputStream, timeoutMs: Long): String {
-        val sb = StringBuilder()
-        val deadline = System.currentTimeMillis() + timeoutMs
-        try {
-            val buf = ByteArray(4096)
-            while (System.currentTimeMillis() < deadline) {
-                val available = stream.available()
-                if (available > 0) {
-                    val read = stream.read(buf, 0, minOf(available, buf.size))
-                    if (read < 0) break
-                    sb.append(String(buf, 0, read))
-                } else {
-                    Thread.sleep(10)
-                }
-            }
-        } catch (_: Exception) {}
-        return sb.toString()
-    }
-
-    /** Drain stream ke /dev/null agar pipe buffer tidak block proses. */
-    private fun drainStream(stream: InputStream) {
-        try {
-            val buf = ByteArray(1024)
-            while (true) {
-                val n = stream.read(buf)
-                if (n < 0) break
-            }
-        } catch (_: Exception) {}
     }
 
     // ── SMA ───────────────────────────────────────────────────────────────────

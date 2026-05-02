@@ -52,27 +52,30 @@ object SystemInfoReader {
     )
 
     private val GPU_USAGE_PATHS = listOf(
+        "/sys/kernel/ged/hal/gpu_utilization",
+        "/proc/mtk_mali/utilization",
         "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage",
         "/sys/class/kgsl/kgsl-3d0/gpubusy",
         "/sys/kernel/gpu/gpu_busy",
         "/sys/devices/platform/gpu/gpubusy",
         "/sys/class/misc/mali0/device/utilization",
-        "/sys/class/devfreq/gpufreq/cur_governor",
         "/sys/kernel/debug/mali/utilization_gp_pp"
     )
 
     private val GPU_FREQ_PATHS = listOf(
-        "/sys/class/kgsl/kgsl-3d0/gpuclk"                        to 1_000_000L,
-        "/sys/class/kgsl/kgsl-3d0/max_gpuclk"                    to 1_000_000L,
-        "/sys/kernel/gpu/gpu_clock"                               to 1_000L,
-        "/sys/class/devfreq/gpufreq/cur_freq"                     to 1_000_000L,
-        "/sys/class/devfreq/ff9a0000.gpu/cur_freq"                to 1_000_000L,
-        "/sys/class/devfreq/13000000.mali/cur_freq"               to 1_000_000L,
-        "/sys/class/devfreq/fde60000.gpu/cur_freq"                to 1_000_000L,
-        "/sys/class/misc/mali0/device/clock"                      to 1_000L,
-        "/sys/class/misc/mali0/device/devfreq/mali/cur_freq"      to 1_000_000L,
-        "/sys/devices/platform/gpufreq/cur_freq"                  to 1_000_000L,
-        "/sys/devices/platform/gpu/devfreq/gpu/cur_freq"          to 1_000_000L
+        "/sys/kernel/ged/hal/current_freqency"              to 1_000L,
+        "/proc/mtk_mali/current_opp_freq"                   to 1_000L,
+        "/sys/class/kgsl/kgsl-3d0/gpuclk"                  to 1_000_000L,
+        "/sys/class/kgsl/kgsl-3d0/max_gpuclk"              to 1_000_000L,
+        "/sys/kernel/gpu/gpu_clock"                         to 1_000L,
+        "/sys/class/devfreq/gpufreq/cur_freq"               to 1_000_000L,
+        "/sys/class/devfreq/ff9a0000.gpu/cur_freq"          to 1_000_000L,
+        "/sys/class/devfreq/13000000.mali/cur_freq"         to 1_000_000L,
+        "/sys/class/devfreq/fde60000.gpu/cur_freq"          to 1_000_000L,
+        "/sys/class/misc/mali0/device/clock"                to 1_000L,
+        "/sys/class/misc/mali0/device/devfreq/mali/cur_freq" to 1_000_000L,
+        "/sys/devices/platform/gpufreq/cur_freq"            to 1_000_000L,
+        "/sys/devices/platform/gpu/devfreq/gpu/cur_freq"    to 1_000_000L
     )
 
     private val GPU_TEMP_PATHS = listOf(
@@ -213,8 +216,16 @@ object SystemInfoReader {
 
     private fun readGpuUsage(): Float {
         for (path in GPU_USAGE_PATHS) {
-            val line = readFirstLine(path)?.trim() ?: continue
-            val cleaned = line.replace("%", "").split(" ").firstOrNull()?.trim() ?: continue
+            val line = readSysNode(path)?.trim() ?: continue
+            // Format GED: "265000 265000 100" — kolom ketiga adalah utilization %
+            if (path.contains("ged")) {
+                val parts = line.split(Regex("\\s+"))
+                val v = parts.lastOrNull()?.toFloatOrNull() ?: continue
+                if (v in 0f..100f) return v
+                continue
+            }
+            // Format mtk_mali utilization: bisa "50" atau "50%"
+            val cleaned = line.replace("%", "").split(Regex("[\\s,]+")).firstOrNull()?.trim() ?: continue
             val v = cleaned.toFloatOrNull() ?: continue
             if (v in 0f..100f) return v
         }
@@ -223,15 +234,21 @@ object SystemInfoReader {
 
     private fun readGpuFreq(): Int {
         for ((path, divider) in GPU_FREQ_PATHS) {
-            val raw = readSysNode(path)?.trim()?.toLongOrNull() ?: continue
+            val line = readSysNode(path)?.trim() ?: continue
+            // GED format: "265000 265000 100" — kolom pertama adalah freq dalam KHz
+            val raw = if (path.contains("ged") || path.contains("mtk_mali")) {
+                line.split(Regex("\\s+")).firstOrNull()?.toLongOrNull()
+            } else {
+                line.toLongOrNull()
+            } ?: continue
             if (raw <= 0L) continue
             val mhz = (raw / divider).toInt()
             if (mhz in 1..5000) return mhz
-            // auto-detect: jika divider gagal coba tebak unit dari magnitude
-            val mhzKhz = (raw / 1_000L).toInt()
-            if (mhzKhz in 1..5000) return mhzKhz
-            val mhzHz  = (raw / 1_000_000L).toInt()
-            if (mhzHz  in 1..5000) return mhzHz
+            // auto-detect unit fallback
+            val fromKhz = (raw / 1_000L).toInt()
+            if (fromKhz in 1..5000) return fromKhz
+            val fromHz = (raw / 1_000_000L).toInt()
+            if (fromHz in 1..5000) return fromHz
         }
         return 0
     }

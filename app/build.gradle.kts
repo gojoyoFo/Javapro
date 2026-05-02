@@ -74,6 +74,7 @@ android {
 
     lint {
         disable  += "InvalidFragmentVersionForActivityResult"
+        disable  += "BlockedPrivateApi"
         abortOnError = false
     }
 }

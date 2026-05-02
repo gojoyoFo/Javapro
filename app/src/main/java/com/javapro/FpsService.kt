@@ -370,7 +370,12 @@ class FpsService : Service() {
             }
             while (coroutineContext.isActive && isRunning) {
                 val fps = when {
-                    fpsFromCallback                   -> callbackFps
+                    fpsFromCallback -> {
+                        val stale = lastCallbackTime > 0 &&
+                            System.currentTimeMillis() - lastCallbackTime > STALE_MS
+                        if (stale) { callbackFps = 0f }
+                        callbackFps
+                    }
                     activeMethod == FpsMethod.DUMPSYS -> readDumpsysFps()
                     activeMethod == FpsMethod.SYSFS   -> readSysfsFps()
                     else                              -> 0f

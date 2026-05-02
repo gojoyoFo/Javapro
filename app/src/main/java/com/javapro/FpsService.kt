@@ -362,7 +362,7 @@ class FpsService : Service() {
             var count = 0
 
             for (i in startIdx + 1 until endIdx - 1) {
-                val parts = lines[i].trim().split("\s+".toRegex())
+                val parts = lines[i].trim().split("\\s+".toRegex())
                 if (parts.size < 4) continue
                 val draw    = parts[0].toDoubleOrNull() ?: continue
                 val prepare = parts[1].toDoubleOrNull() ?: continue

@@ -294,6 +294,15 @@ class FpsService : Service() {
     }
 
     private fun readGfxInfoFps(pkg: String): Float {
+        // Metode 1: framestats (Android 6+) — pakai IntendedVsync timestamps
+        val fps1 = readGfxInfoFramestats(pkg)
+        if (fps1 > 0f) return fps1
+        // Metode 2: profile data lama (Draw+Prepare+Process+Execute) — logika dari GetFPS project
+        return readGfxInfoLegacyProfile(pkg)
+    }
+
+    // Metode modern: hitung FPS dari delta timestamp IntendedVsync
+    private fun readGfxInfoFramestats(pkg: String): Float {
         return try {
             val output = runShellCommand("dumpsys gfxinfo $pkg framestats")
             if (output.isBlank()) return 0f
@@ -330,6 +339,46 @@ class FpsService : Service() {
             }
             if (deltas.isEmpty()) return 0f
             val fps = (1_000_000_000.0 / deltas.average()).toFloat()
+            if (fps in 1f..400f) fps else 0f
+        } catch (_: Exception) { 0f }
+    }
+
+    // Metode lama (GetFPS style): hitung FPS dari Draw+Prepare+Process+Execute elapsed time
+    // Source: https://github.com/NasdaqGodzilla/GetFPS
+    // Perlu debug.hwui.profile=true di device
+    private fun readGfxInfoLegacyProfile(pkg: String): Float {
+        return try {
+            val output = runShellCommand("dumpsys gfxinfo $pkg")
+            if (output.isBlank()) return 0f
+            val lines = output.lines()
+
+            // Cari region "Process.*Execute" sampai "View hierarchy:"
+            val startIdx = lines.indexOfFirst { it.contains("Process") && it.contains("Execute") }
+            val endIdx   = lines.indexOfFirst { it.startsWith("View hierarchy:") }
+            if (startIdx < 0 || endIdx < 0 || endIdx <= startIdx + 2) return 0f
+
+            var sumDraw = 0.0; var sumPrepare = 0.0
+            var sumProcess = 0.0; var sumExecute = 0.0
+            var count = 0
+
+            for (i in startIdx + 1 until endIdx - 1) {
+                val parts = lines[i].trim().split("\s+".toRegex())
+                if (parts.size < 4) continue
+                val draw    = parts[0].toDoubleOrNull() ?: continue
+                val prepare = parts[1].toDoubleOrNull() ?: continue
+                val process = parts[2].toDoubleOrNull() ?: continue
+                val execute = parts[3].toDoubleOrNull() ?: continue
+                sumDraw    += draw
+                sumPrepare += prepare
+                sumProcess += process
+                sumExecute += execute
+                count++
+            }
+
+            if (count < 1) return 0f
+            val averTotal = (sumDraw + sumPrepare + sumProcess + sumExecute) / count
+            if (averTotal <= 0.01) return 0f
+            val fps = (1000.0 / averTotal).toFloat()
             if (fps in 1f..400f) fps else 0f
         } catch (_: Exception) { 0f }
     }

@@ -79,6 +79,7 @@ android {
 }
 
 dependencies {
+    compileOnly(fileTree(mapOf("dir" to "${android.sdkDirectory}/platforms/android-33", "include" to listOf("android.jar"))))
     implementation(libs.androidx.core.ktx)
     implementation("androidx.navigation:navigation-compose:2.8.9")
     implementation("com.github.topjohnwu.libsu:core:6.0.0")

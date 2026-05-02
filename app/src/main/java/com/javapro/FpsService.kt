@@ -535,7 +535,7 @@ class FpsService : Service() {
 }
 
 @androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private object TaskFpsCallbackFactory {
+internal object TaskFpsCallbackFactory {
     fun create(onFps: (Float) -> Unit): android.window.TaskFpsCallback {
         return object : android.window.TaskFpsCallback() {
             override fun onFpsReported(fps: Float) = onFps(fps)

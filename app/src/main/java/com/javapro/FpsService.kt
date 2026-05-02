@@ -49,7 +49,6 @@ class FpsService : Service() {
     @Volatile private var gpuPathDetected = false
 
     // FPS state
-    private var fpsMethod = "non_root"
     private var taskFpsCallbackObj: Any? = null
     private var callbackRegistered = false
     private var currentTaskId = -1
@@ -93,8 +92,6 @@ class FpsService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        fpsMethod = intent?.getStringExtra("fps_method") ?: "non_root"
-        Log.i(TAG, "onStartCommand fpsMethod=$fpsMethod")
         if (!isRunning) {
             isRunning = true
             startFpsTracking()
@@ -118,11 +115,10 @@ class FpsService : Service() {
 
     private fun startFpsTracking() {
         stopFpsTracking()
+        val rooted = hasRoot()
+        Log.i(TAG, "startFpsTracking rooted=$rooted sdkInt=${Build.VERSION.SDK_INT}")
         when {
-            fpsMethod == "non_root" -> {
-                serviceScope.launch { sfPollLoop() }
-            }
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+            rooted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
                 initTaskFpsCallback()
                 val taskId = getFocusedTaskId()
                 if (taskId > 0) registerCallback(taskId)
@@ -435,18 +431,17 @@ class FpsService : Service() {
     private fun getCurrentFps(): Float {
         val maxRefresh = getDeviceRefreshRate() * 1.05f
         return when {
-            fpsMethod == "non_root" -> sfFps.coerceIn(0f, maxRefresh)
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> sfFps.coerceIn(0f, maxRefresh)
             callbackRegistered -> {
                 val now = System.currentTimeMillis()
                 if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) > STALENESS_THRESHOLD_MS) {
                     callbackFps = 0f
-                    0f
+                    sfFps.coerceIn(0f, maxRefresh)
                 } else {
                     callbackFps.coerceIn(0f, maxRefresh)
                 }
             }
-            else -> 0f
+            else -> sfFps.coerceIn(0f, maxRefresh)
         }
     }
 

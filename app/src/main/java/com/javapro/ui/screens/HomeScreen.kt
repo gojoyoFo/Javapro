@@ -14,8 +14,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -33,7 +31,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -979,24 +976,6 @@ private fun MonitorChip(modifier: Modifier, label: String, value: String, sub: S
     }
 }
 
-
-@Composable
-fun FpsModeItem(selected: Boolean, onClick: () -> Unit, title: String, subtitle: String, badge: String?, isDark: Boolean) {
-    Row(modifier = Modifier.fillMaxWidth().selectable(selected = selected, role = Role.RadioButton, onClick = onClick).padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(selected = selected, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.tertiary, unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant))
-        Spacer(modifier = Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title,    fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-            Text(text = subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (badge != null) {
-            Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiary.copy(0.15f)) {
-                Text(text = badge, modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp), fontSize = 9.sp, color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 @Composable
 private fun FpsMonitorCard(
     modifier        : Modifier,
@@ -1005,59 +984,11 @@ private fun FpsMonitorCard(
     isShizukuActive : Boolean,
     prefManager     : PreferenceManager
 ) {
-    val context = LocalContext.current
-    val canUse  = true // non-root support via UsageStatsManager
-
-    var showMethodDialog by remember { mutableStateOf(false) }
-
+    val context     = LocalContext.current
     val activeColor = MaterialTheme.colorScheme.tertiary
-    val borderColor = if (fpsEnabled && canUse) activeColor.copy(0.35f) else MaterialTheme.colorScheme.outlineVariant
-    val iconBg      = if (canUse) activeColor.copy(0.14f) else MaterialTheme.colorScheme.surfaceVariant
-    val iconBorder  = if (canUse) activeColor.copy(0.3f)  else MaterialTheme.colorScheme.outlineVariant
-    val iconTint    = if (canUse) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
-    val titleColor  = if (canUse) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-
-    if (showMethodDialog) {
-        FpsMethodDialog(
-            isRooted        = isRooted,
-            isShizukuActive = isShizukuActive,
-            prefManager     = prefManager,
-            onDismiss       = { showMethodDialog = false },
-            onConfirm       = { method ->
-                showMethodDialog = false
-                if (method == "non_root") {
-                    // Cek permission PACKAGE_USAGE_STATS untuk detect foreground app
-                    val appOps = context.getSystemService(android.content.Context.APP_OPS_SERVICE)
-                        as android.app.AppOpsManager
-                    val granted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        appOps.unsafeCheckOpNoThrow(
-                            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
-                            android.os.Process.myUid(), context.packageName
-                        ) == android.app.AppOpsManager.MODE_ALLOWED
-                    } else {
-                        @Suppress("DEPRECATION")
-                        appOps.checkOpNoThrow(
-                            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
-                            android.os.Process.myUid(), context.packageName
-                        ) == android.app.AppOpsManager.MODE_ALLOWED
-                    }
-                    if (!granted) {
-                        Toast.makeText(context, context.getString(R.string.fps_usage_stats_required), Toast.LENGTH_LONG).show()
-                        context.startActivity(
-                            android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
-                        return@FpsMethodDialog
-                    }
-                }
-                prefManager.setFpsEnabled(true)
-                prefManager.setFpsMethod(method)
-                val intent = Intent(context, FpsService::class.java).putExtra("fps_method", method)
-                context.startService(intent)
-                Toast.makeText(context, context.getString(R.string.home_fps_monitor_on, method), Toast.LENGTH_SHORT).show()
-            }
-        )
-    }
+    val borderColor = if (fpsEnabled) activeColor.copy(0.35f) else MaterialTheme.colorScheme.outlineVariant
+    val iconBg      = activeColor.copy(0.14f)
+    val iconBorder  = activeColor.copy(0.3f)
 
     Box(
         modifier = modifier
@@ -1072,14 +1003,14 @@ private fun FpsMonitorCard(
                     .background(iconBg, RoundedCornerShape(14.dp))
                     .border(BorderStroke(1.dp, iconBorder), RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
-            ) { Icon(Icons.Default.Speed, null, tint = iconTint, modifier = Modifier.size(26.dp)) }
+            ) { Icon(Icons.Default.Speed, null, tint = activeColor, modifier = Modifier.size(26.dp)) }
 
-            Text(stringResource(R.string.home_fps_monitor_title), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = titleColor)
+            Text(stringResource(R.string.home_fps_monitor_title), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
 
             Text(
                 stringResource(R.string.home_show_fps),
-                fontSize  = 11.sp,
-                color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize   = 11.sp,
+                color      = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 15.sp
             )
 
@@ -1094,7 +1025,9 @@ private fun FpsMonitorCard(
                     checked         = fpsEnabled,
                     onCheckedChange = { isChecked ->
                         if (isChecked) {
-                            showMethodDialog = true
+                            prefManager.setFpsEnabled(true)
+                            context.startService(Intent(context, FpsService::class.java))
+                            Toast.makeText(context, context.getString(R.string.home_fps_monitor_on), Toast.LENGTH_SHORT).show()
                         } else {
                             prefManager.setFpsEnabled(false)
                             context.stopService(Intent(context, FpsService::class.java))
@@ -1114,97 +1047,5 @@ private fun FpsMonitorCard(
     }
 }
 
-@Composable
-private fun FpsMethodDialog(
-    isRooted        : Boolean,
-    isShizukuActive : Boolean,
-    prefManager     : PreferenceManager,
-    onDismiss       : () -> Unit,
-    onConfirm       : (String) -> Unit
-) {
-    val context = LocalContext.current
-    val savedMethod  = prefManager.getFpsMethod()
-    val defaultMethod = when {
-        isRooted        -> "root"
-        isShizukuActive -> "shizuku"
-        else            -> "non_root"
-    }
-    var selected by remember { mutableStateOf(savedMethod ?: defaultMethod) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.Speed, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
-                Text(stringResource(R.string.fps_dialog_title), fontWeight = FontWeight.Bold)
-            }
-        },
-        text = {
-            Column(modifier = Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (isRooted) {
-                    FpsModeItem(
-                        selected  = selected == "root",
-                        onClick   = { selected = "root" },
-                        title     = stringResource(R.string.fps_method_root_title),
-                        subtitle  = stringResource(R.string.fps_method_root_subtitle),
-                        badge     = stringResource(R.string.fps_badge_accurate),
-                        isDark    = false
-                    )
-                }
-                if (isShizukuActive) {
-                    FpsModeItem(
-                        selected  = selected == "shizuku",
-                        onClick   = { selected = "shizuku" },
-                        title     = stringResource(R.string.fps_method_shizuku_title),
-                        subtitle  = stringResource(R.string.fps_method_shizuku_subtitle),
-                        badge     = stringResource(R.string.fps_badge_accurate),
-                        isDark    = false
-                    )
-                }
-                FpsModeItem(
-                    selected  = selected == "non_root",
-                    onClick   = { selected = "non_root" },
-                    title     = stringResource(R.string.fps_method_nonroot_title),
-                    subtitle  = stringResource(R.string.fps_method_nonroot_subtitle),
-                    badge     = null,
-                    isDark    = false
-                )
 
-                if (selected == "root" || selected == "shizuku") {
-                    Spacer(Modifier.height(4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.tertiary.copy(0.08f)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(13.dp).padding(top = 1.dp))
-                            Text(
-                                if (selected == "shizuku")
-                                    stringResource(R.string.fps_permission_shizuku_hint, context.packageName)
-                                else
-                                    stringResource(R.string.fps_permission_root_hint),
-                                fontSize = 10.sp,
-                                color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 14.sp
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(selected) }) {
-                Text(stringResource(R.string.fps_dialog_confirm), color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.fps_dialog_cancel))
-            }
-        }
-    )
-}

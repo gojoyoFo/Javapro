@@ -157,18 +157,32 @@ class FpsService : Service() {
 
     private fun startFpsTracking() {
         stopFpsTracking()
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                initTaskFpsCallback()
-                val taskId = getFocusedTaskId()
-                if (taskId > 0) registerCallback(taskId)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            initTaskFpsCallback()
+            // Coba dapat taskId dari SurfaceFlinger, bukan ActivityTaskManager (blocked)
+            val taskId = getTaskIdFromSurfaceFlinger()
+            if (taskId > 0 && registerCallback(taskId)) {
+                Log.i(TAG, "TaskFpsCallback registered via SurfaceFlinger taskId=$taskId")
                 mainHandler.post(taskCheckRunnable)
+                return
             }
-            else -> {
-                // Android < 13: coba sysfs dulu (root), fallback gfxinfo
-                serviceScope.launch { legacyFpsPollLoop() }
-            }
+            Log.w(TAG, "TaskFpsCallback unavailable, using gfxinfo fallback")
         }
+        serviceScope.launch { legacyFpsPollLoop() }
+    }
+
+    private fun getTaskIdFromSurfaceFlinger(): Int {
+        return try {
+            val output = runShellCommand("dumpsys SurfaceFlinger --list")
+            if (output.isBlank()) return -1
+            // Cari baris yang mengandung "Task=" lalu extract angkanya
+            // Format: "Task=294#9472" atau "Task{... #294 ...}"
+            val taskPattern = Regex("Task[=#{]+(\\d+)")
+            val match = output.lines()
+                .firstOrNull { taskPattern.containsMatchIn(it) }
+                ?: return -1
+            taskPattern.find(match)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
+        } catch (_: Exception) { -1 }
     }
 
     private fun stopFpsTracking() {
@@ -245,13 +259,17 @@ class FpsService : Service() {
         override fun run() {
             if (!isRunning) return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val newTaskId = getFocusedTaskId()
-                if (newTaskId > 0 && newTaskId != currentTaskId) {
-                    reinitCallback()
-                } else {
-                    val now = System.currentTimeMillis()
-                    if (now - lastFpsUpdateTime > STALENESS_THRESHOLD_MS) {
-                        reinitCallback()
+                val now = System.currentTimeMillis()
+                val stale = now - lastFpsUpdateTime > STALENESS_THRESHOLD_MS
+                if (stale) {
+                    val newTaskId = getTaskIdFromSurfaceFlinger()
+                    if (newTaskId > 0 && newTaskId != currentTaskId) {
+                        reinitCallback(newTaskId)
+                    } else if (!callbackRegistered) {
+                        Log.w(TAG, "TaskFpsCallback unavailable, switching to gfxinfo")
+                        mainHandler.removeCallbacks(this)
+                        serviceScope.launch { legacyFpsPollLoop() }
+                        return
                     }
                 }
             }
@@ -259,19 +277,23 @@ class FpsService : Service() {
         }
     }
 
-    private fun getFocusedTaskId(): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
-        return try {
-            val atmClass = Class.forName("android.app.ActivityTaskManager")
-            val atmService = atmClass.getDeclaredMethod("getService").invoke(null)
-            val taskInfo = atmService.javaClass
-                .getMethod("getFocusedRootTaskInfo")
-                .invoke(atmService) ?: return -1
-            try {
-                taskInfo.javaClass.getField("taskId").getInt(taskInfo)
-            } catch (_: NoSuchFieldException) {
-                taskInfo.javaClass.getField("mTaskId").getInt(taskInfo)
+    private fun reinitCallback(taskId: Int = -1) {
+        unregisterCallback()
+        mainHandler.postDelayed({
+            if (isRunning) {
+                val id = if (taskId > 0) taskId else getTaskIdFromSurfaceFlinger()
+                if (id > 0) registerCallback(id)
             }
+        }, 500)
+    }
+
+    private fun getTaskIdFromSurfaceFlinger(): Int {
+        return try {
+            val output = runShellCommand("dumpsys SurfaceFlinger --list")
+            if (output.isBlank()) return -1
+            val taskPattern = Regex("Task[=#{]+(\\d+)")
+            val line = output.lines().firstOrNull { taskPattern.containsMatchIn(it) } ?: return -1
+            taskPattern.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
         } catch (_: Exception) { -1 }
     }
 
@@ -289,15 +311,25 @@ class FpsService : Service() {
     }
 
     private fun readLegacyFps(): Float {
-        // 1. Sysfs fps node (root)
+        // 1. dumpsys SurfaceFlinger | grep fps — universal, Android 8+
+        val sfFps = readSurfaceFlingerFps()
+        if (sfFps > 0f) return sfFps
+
+        // 2. Sysfs fps node (root, MediaTek/universal)
         if (hasRoot()) {
-            for (path in legacySysfsPaths) {
+            val sysfsPaths = listOf(
+                "/sys/kernel/ged/hal/curr_fps",
+                "/sys/kernel/ged/hal/fps",
+                "/proc/mtk_mali/fps",
+                "/sys/class/drm/card0/fps"
+            )
+            for (path in sysfsPaths) {
                 val fps = readSysfsFps(path)
                 if (fps > 0f) return fps
             }
         }
 
-        // 2. gfxinfo framestats (non-root, semua Android)
+        // 3. gfxinfo framestats (non-root, semua Android)
         val now = System.currentTimeMillis()
         if (foregroundPkg.isEmpty() || now - fgPkgLastCheck > 5000L) {
             foregroundPkg  = getForegroundPackage()
@@ -309,6 +341,20 @@ class FpsService : Service() {
             if (fps > 0f) return fps
         }
         return 0f
+    }
+
+    private fun readSurfaceFlingerFps(): Float {
+        return try {
+            val output = runShellCommand("dumpsys SurfaceFlinger | grep -i fps")
+            if (output.isBlank()) return 0f
+            // Format: "FPS: 60.00" atau "refresh-rate = 60 fps"
+            val fpsPattern = Regex("(\\d+\\.?\\d*)\\s*fps", RegexOption.IGNORE_CASE)
+            val match = output.lines()
+                .mapNotNull { fpsPattern.find(it) }
+                .firstOrNull() ?: return 0f
+            val v = match.groupValues[1].toFloatOrNull() ?: return 0f
+            if (v in 1f..400f) v else 0f
+        } catch (_: Exception) { 0f }
     }
 
     private fun readSysfsFps(path: String): Float {
@@ -442,17 +488,15 @@ class FpsService : Service() {
     }
 
     private fun getCurrentFps(): Float {
-        return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && callbackRegistered -> {
-                val now = System.currentTimeMillis()
-                if (now - lastFpsUpdateTime > STALENESS_THRESHOLD_MS) {
-                    callbackFps = 0f; 0f
-                } else {
-                    callbackFps.coerceAtLeast(0f)
-                }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && callbackRegistered) {
+            val now = System.currentTimeMillis()
+            if (now - lastFpsUpdateTime > STALENESS_THRESHOLD_MS) {
+                callbackFps = 0f
+                return gfxFps.coerceAtLeast(0f)
             }
-            else -> gfxFps.coerceAtLeast(0f)
+            return callbackFps.coerceAtLeast(0f)
         }
+        return gfxFps.coerceAtLeast(0f)
     }
 
     // ── Poll loop ─────────────────────────────────────────────────────────────

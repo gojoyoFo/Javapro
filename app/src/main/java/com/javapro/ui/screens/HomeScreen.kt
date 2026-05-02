@@ -1006,7 +1006,7 @@ private fun FpsMonitorCard(
     prefManager     : PreferenceManager
 ) {
     val context = LocalContext.current
-    val canUse  = isRooted || isShizukuActive
+    val canUse  = true // non-root support via UsageStatsManager
 
     var showMethodDialog by remember { mutableStateOf(false) }
 
@@ -1025,6 +1025,31 @@ private fun FpsMonitorCard(
             onDismiss       = { showMethodDialog = false },
             onConfirm       = { method ->
                 showMethodDialog = false
+                if (method == "non_root") {
+                    // Cek permission PACKAGE_USAGE_STATS untuk detect foreground app
+                    val appOps = context.getSystemService(android.content.Context.APP_OPS_SERVICE)
+                        as android.app.AppOpsManager
+                    val granted = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        appOps.unsafeCheckOpNoThrow(
+                            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                            android.os.Process.myUid(), context.packageName
+                        ) == android.app.AppOpsManager.MODE_ALLOWED
+                    } else {
+                        @Suppress("DEPRECATION")
+                        appOps.checkOpNoThrow(
+                            android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                            android.os.Process.myUid(), context.packageName
+                        ) == android.app.AppOpsManager.MODE_ALLOWED
+                    }
+                    if (!granted) {
+                        Toast.makeText(context, context.getString(R.string.fps_usage_stats_required), Toast.LENGTH_LONG).show()
+                        context.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                        return@FpsMethodDialog
+                    }
+                }
                 prefManager.setFpsEnabled(true)
                 prefManager.setFpsMethod(method)
                 val intent = Intent(context, FpsService::class.java).putExtra("fps_method", method)
@@ -1158,7 +1183,6 @@ private fun FpsMethodDialog(
                         ) {
                             Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(13.dp).padding(top = 1.dp))
                             Text(
-                                // FIX: dulu pakai Build.ID (salah), sekarang pakai context.packageName (benar)
                                 if (selected == "shizuku")
                                     stringResource(R.string.fps_permission_shizuku_hint, context.packageName)
                                 else

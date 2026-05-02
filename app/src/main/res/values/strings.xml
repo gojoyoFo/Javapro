@@ -768,6 +768,6 @@
     <string name="home_fps_on">ON</string>
     <string name="home_fps_off">OFF</string>
     <string name="home_fps_monitor_off">FPS Monitor OFF</string>
-
+<string name="fps_usage_stats_required">Usage Access permission is required for Non-Root FPS mode. Please grant it in the next screen.</string>
 
 </resources>

@@ -768,4 +768,5 @@
     <string name="home_fps_on">NAKA-ON</string>
     <string name="home_fps_off">NAKA-OFF</string>
     <string name="home_fps_monitor_off">FPS Monitor NAKA-OFF</string>
+    <string name="fps_usage_stats_required">Kailangan ang pahintulot sa Pag-access ng Paggamit para sa Non-Root na mode ng FPS. Pakiaktibo ito sa susunod na screen.</string>
 </resources>

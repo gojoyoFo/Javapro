@@ -768,4 +768,5 @@
     <string name="home_fps_on">चालू</string>
     <string name="home_fps_off">बंद</string>
     <string name="home_fps_monitor_off">FPS मॉनिटर बंद</string>
+    <string name="fps_usage_stats_required">नॉन-रूट FPS मोड के लिए उपयोग पहुँच अनुमति आवश्यक है। कृपया अगली स्क्रीन पर इसे सक्षम करें।</string>
 </resources>

@@ -143,22 +143,17 @@ class FpsService : Service() {
     private fun initTaskFpsCallback() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         try {
-            val cbClass = Class.forName("android.window.TaskFpsCallback")
-            taskFpsCallbackObj = java.lang.reflect.Proxy.newProxyInstance(
-                cbClass.classLoader,
-                arrayOf(cbClass)
-            ) { _, method, args ->
-                if (method.name == "onFpsReported") {
-                    val fps = args?.getOrNull(0) as? Float ?: return@newProxyInstance null
+            taskFpsCallbackObj = object : android.window.TaskFpsCallback() {
+                override fun onFpsReported(fps: Float) {
                     if (fps > 0f) {
                         callbackFps = fps
                         lastFpsUpdateTime = System.currentTimeMillis()
                     }
                 }
-                null
             }
         } catch (e: Exception) {
             Log.w(TAG, "initTaskFpsCallback failed: ${e.message}")
+            taskFpsCallbackObj = null
         }
     }
 
@@ -166,10 +161,11 @@ class FpsService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val cb = taskFpsCallbackObj ?: return false
         return try {
-            val executorClass = Class.forName("java.util.concurrent.Executor")
-            val cbClass = Class.forName("android.window.TaskFpsCallback")
             val method = windowManager.javaClass.getMethod(
-                "registerTaskFpsCallback", Int::class.java, executorClass, cbClass
+                "registerTaskFpsCallback",
+                Int::class.java,
+                java.util.concurrent.Executor::class.java,
+                android.window.TaskFpsCallback::class.java
             )
             method.invoke(windowManager, taskId, java.util.concurrent.Executor { it.run() }, cb)
             callbackRegistered = true
@@ -188,8 +184,10 @@ class FpsService : Service() {
         val cb = taskFpsCallbackObj ?: run { callbackRegistered = false; return }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val cbClass = Class.forName("android.window.TaskFpsCallback")
-                val method = windowManager.javaClass.getMethod("unregisterTaskFpsCallback", cbClass)
+                val method = windowManager.javaClass.getMethod(
+                    "unregisterTaskFpsCallback",
+                    android.window.TaskFpsCallback::class.java
+                )
                 method.invoke(windowManager, cb)
             }
         } catch (_: Exception) {}
@@ -239,31 +237,109 @@ class FpsService : Service() {
     // Root/Shizuku Android < 13 fallback: sama, pakai SurfaceFlinger juga
     // karena lebih reliable dari gfxinfo untuk semua ROM.
 
+    private var foregroundPkg    = ""
+    private var fgPkgLastCheck   = 0L
+
     private suspend fun sfPollLoop() {
+        foregroundPkg  = getForegroundPackage()
+        fgPkgLastCheck = System.currentTimeMillis()
         while (currentCoroutineContext().isActive && isRunning) {
-            sfFps = readSurfaceFlingerFps()
+            sfFps = readFpsNonRoot()
             delay(POLL_MS)
         }
     }
 
-    private fun readSurfaceFlingerFps(): Float {
-        return try {
-            // Jalankan tanpa su dulu (non-root), kalau gagal coba dengan su
-            val output = runShellCommand("dumpsys SurfaceFlinger")
-                .ifBlank { runShellCommand("su -c dumpsys SurfaceFlinger") }
+    private fun readFpsNonRoot(): Float {
+        val now = System.currentTimeMillis()
+        if (foregroundPkg.isEmpty() || now - fgPkgLastCheck > 5000L) {
+            foregroundPkg  = getForegroundPackage()
+            fgPkgLastCheck = now
+        }
+        val pkg = foregroundPkg
+        // Metode 1: gfxinfo framestats — akurat, non-root, semua Android
+        if (pkg.isNotEmpty() && pkg != packageName) {
+            val fps = readGfxInfoFps(pkg)
+            if (fps > 0f) return fps
+        }
+        // Metode 2: SurfaceFlinger --fps — ringan, Android 11+
+        return readSfFpsFlag()
+    }
 
-            if (output.isBlank()) {
-                Log.d(TAG, "SurfaceFlinger output kosong")
-                return 0f
+    private fun readGfxInfoFps(pkg: String): Float {
+        return try {
+            val output = runShellCommand("dumpsys gfxinfo $pkg framestats")
+            if (output.isBlank()) return 0f
+            val lines = output.lines()
+
+            // Cari baris header kolom
+            val headerIdx = lines.indexOfFirst { l ->
+                l.startsWith("Flags,") || l.startsWith("IntendedVsync,")
+            }
+            if (headerIdx < 0) return 0f
+
+            val header   = lines[headerIdx].split(",").map { it.trim() }
+            val flagCol  = header.indexOf("Flags")
+            val vsyncCol = header.indexOf("IntendedVsync")
+            if (vsyncCol < 0) return 0f
+
+            val timestamps = mutableListOf<Long>()
+            for (i in headerIdx + 1 until lines.size) {
+                val l = lines[i].trim()
+                if (l.isEmpty() || l.startsWith("---")) break
+                val cols = l.split(",")
+                if (flagCol >= 0) {
+                    val flag = cols.getOrNull(flagCol)?.trim()?.toLongOrNull() ?: continue
+                    if (flag != 0L) continue
+                }
+                val ts = cols.getOrNull(vsyncCol)?.trim()?.toLongOrNull() ?: continue
+                if (ts > 0L && ts != Long.MAX_VALUE) timestamps.add(ts)
             }
 
-            val fps = parseSfFps(output)
-            if (fps <= 0f) Log.d(TAG, "SF parse gagal, output sample: ${output.take(300)}")
-            fps
-        } catch (e: Exception) {
-            Log.w(TAG, "readSurfaceFlingerFps failed: ${e.message}")
+            if (timestamps.size < 5) return 0f
+            val sorted = timestamps.sorted()
+            val deltas = (1 until sorted.size).mapNotNull { i ->
+                val d = (sorted[i] - sorted[i - 1]).toDouble()
+                if (d in 2_000_000.0..50_000_000.0) d else null
+            }
+            if (deltas.isEmpty()) return 0f
+            val fps = (1_000_000_000.0 / deltas.average()).toFloat()
+            val maxRefresh = getDeviceRefreshRate() * 1.05f
+            if (fps in 1f..maxRefresh) fps else 0f
+        } catch (_: Exception) { 0f }
+    }
+
+    private fun readSfFpsFlag(): Float {
+        return try {
+            val out = runShellCommand("dumpsys SurfaceFlinger --fps")
+            if (out.isBlank()) return 0f
+            val maxRefresh = getDeviceRefreshRate() * 1.05f
+            listOf(
+                Regex("""([\d.]+)\s+fps""", RegexOption.IGNORE_CASE),
+                Regex("""fps\s*=\s*([\d.]+)""", RegexOption.IGNORE_CASE),
+                Regex("""fps\s*:\s*([\d.]+)""", RegexOption.IGNORE_CASE)
+            ).forEach { re ->
+                val v = re.find(out)?.groupValues?.getOrNull(1)?.toFloatOrNull() ?: return@forEach
+                if (v in 1f..maxRefresh) return v
+            }
             0f
-        }
+        } catch (_: Exception) { 0f }
+    }
+
+    // UsageStatsManager — tidak butuh root, tapi butuh permission PACKAGE_USAGE_STATS (manual grant)
+    // HomeScreen sudah handle redirect ke Settings kalau belum di-grant
+    private fun getForegroundPackage(): String {
+        return try {
+            val usm = getSystemService(android.content.Context.USAGE_STATS_SERVICE)
+                as? android.app.usage.UsageStatsManager ?: return ""
+            val now = System.currentTimeMillis()
+            val stats = usm.queryUsageStats(
+                android.app.usage.UsageStatsManager.INTERVAL_DAILY,
+                now - 10_000L, now
+            )
+            stats?.filter { it.lastTimeUsed > 0 }
+                ?.maxByOrNull { it.lastTimeUsed }
+                ?.packageName ?: ""
+        } catch (_: Exception) { "" }
     }
 
     private fun runShellCommand(cmd: String): String {
@@ -274,39 +350,6 @@ class FpsService : Service() {
             proc.destroy()
             out
         } catch (_: Exception) { "" }
-    }
-
-    private fun parseSfFps(output: String): Float {
-        // Kumpulkan semua nilai FPS dari semua layer, ambil yang terbesar
-        // (layer foreground biasanya punya FPS tertinggi)
-        val results = mutableListOf<Float>()
-
-        // Format 1 — Android 12+: "fps=59.94" atau "fps  =  59.94"
-        Regex("""fps\s*=\s*([\d.]+)""", RegexOption.IGNORE_CASE)
-            .findAll(output)
-            .mapNotNull { it.groupValues.getOrNull(1)?.toFloatOrNull() }
-            .filter { it in 1f..400f }
-            .forEach { results += it }
-
-        // Format 2 — "FPS: 60.00" atau "FPS : 60"
-        Regex("""fps\s*:\s*([\d.]+)""", RegexOption.IGNORE_CASE)
-            .findAll(output)
-            .mapNotNull { it.groupValues.getOrNull(1)?.toFloatOrNull() }
-            .filter { it in 1f..400f }
-            .forEach { results += it }
-
-        // Format 3 — lama: "60.00 fps"
-        Regex("""([\d.]+)\s+fps""", RegexOption.IGNORE_CASE)
-            .findAll(output)
-            .mapNotNull { it.groupValues.getOrNull(1)?.toFloatOrNull() }
-            .filter { it in 1f..400f }
-            .forEach { results += it }
-
-        if (results.isEmpty()) return 0f
-        // Clamp ke refresh rate device - tidak boleh melebihi refresh rate
-        val maxRefresh = getDeviceRefreshRate()
-        val filtered = results.filter { it <= maxRefresh * 1.05f && it > 1f }
-        return if (filtered.isNotEmpty()) filtered.max() else 0f
     }
 
     private fun getDeviceRefreshRate(): Float {
@@ -368,32 +411,39 @@ class FpsService : Service() {
 
     private fun readCpuFromProcStat(): Int {
         return try {
-            // Baca dengan FileReader — lebih reliable dari File().bufferedReader()
-            // di beberapa ROM karena tidak trigger SecurityException
-            val line = BufferedReader(FileReader("/proc/stat")).use { it.readLine() }
-                ?: return -1
-            if (!line.startsWith("cpu ")) return -1
-            val p = line.trim().split("\\s+".toRegex())
+            // File.readLines() — sama persis dengan HomeScreen, terbukti bisa non-root
+            val directLine = try {
+                File("/proc/stat").readLines().firstOrNull { it.startsWith("cpu ") }
+            } catch (_: Exception) { null }
+
+            // Fallback shell: root pakai su, non-root langsung cat
+            val line = directLine ?: run {
+                val cmd = if (hasRoot()) "su -c cat /proc/stat" else "cat /proc/stat"
+                runShellCommand(cmd).lines().firstOrNull { it.startsWith("cpu ") }
+            } ?: return -1
+
+            val p = line.trim().split("\\s+".toRegex()).filter { it.isNotEmpty() }
             if (p.size < 8) return -1
 
-            val user    = p[1].toLong()
-            val nice    = p[2].toLong()
-            val system  = p[3].toLong()
-            val idle    = p[4].toLong()
-            val iowait  = p[5].toLong()
-            val irq     = p[6].toLong()
-            val softirq = p[7].toLong()
-            val steal   = if (p.size > 8) p[8].toLong() else 0L
-            val total   = user + nice + system + idle + iowait + irq + softirq + steal
+            val user    = p[1].toLongOrNull() ?: return -1
+            val nice    = p[2].toLongOrNull() ?: return -1
+            val system  = p[3].toLongOrNull() ?: return -1
+            val idle    = p[4].toLongOrNull() ?: return -1
+            val iowait  = p[5].toLongOrNull() ?: 0L
+            val irq     = p[6].toLongOrNull() ?: 0L
+            val softirq = p[7].toLongOrNull() ?: 0L
+            val steal   = p.getOrNull(8)?.toLongOrNull() ?: 0L
+            val totalIdle = idle + iowait
+            val total     = user + nice + system + totalIdle + irq + softirq + steal
 
             synchronized(cpuLock) {
                 val prevT = prevCpuTotal
                 val prevI = prevCpuIdle
                 prevCpuTotal = total
-                prevCpuIdle  = idle
-                if (prevT < 0) return@synchronized -1  // first read, belum ada delta
+                prevCpuIdle  = totalIdle
+                if (prevT < 0) return@synchronized -1
                 val dTotal = total - prevT
-                val dIdle  = idle - prevI
+                val dIdle  = totalIdle - prevI
                 if (dTotal <= 0) return@synchronized -1
                 ((100f * (dTotal - dIdle) / dTotal).coerceIn(0f, 100f)).toInt()
             }

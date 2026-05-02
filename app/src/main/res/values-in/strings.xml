@@ -768,4 +768,5 @@
     <string name="home_fps_on">AKTIF</string>
     <string name="home_fps_off">MATI</string>
     <string name="home_fps_monitor_off">Monitor FPS MATI</string>
+    <string name="fps_usage_stats_required">Izin Akses Penggunaan diperlukan untuk mode FPS Non-Root. Silakan aktifkan di layar berikutnya.</string>
 </resources>

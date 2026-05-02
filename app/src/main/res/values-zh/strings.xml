@@ -768,4 +768,5 @@
     <string name="home_fps_on">开启</string>
     <string name="home_fps_off">关闭</string>
     <string name="home_fps_monitor_off">FPS 监控已关闭</string>
+    <string name="fps_usage_stats_required">非Root FPS模式需要使用情况访问权限，请在下一个界面中开启。</string>
 </resources>

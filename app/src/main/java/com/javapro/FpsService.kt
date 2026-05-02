@@ -41,7 +41,7 @@ class FpsService : Service() {
     private lateinit var tvGpuLoad: TextView
     private lateinit var tvBatTemp: TextView
 
-    private var prevCpuIdle = -1L
+    private var prevCpuIdle  = -1L
     private var prevCpuTotal = -1L
     private val cpuLock = Any()
 
@@ -56,7 +56,6 @@ class FpsService : Service() {
     @Volatile private var callbackFps = 0f
     private var lastFpsUpdateTime = System.currentTimeMillis()
 
-    // SurfaceFlinger FPS untuk non_root
     @Volatile private var sfFps = 0f
 
     companion object {
@@ -86,6 +85,7 @@ class FpsService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         fpsMethod = intent?.getStringExtra("fps_method") ?: "non_root"
+        Log.i(TAG, "onStartCommand fpsMethod=$fpsMethod")
         if (!isRunning) {
             isRunning = true
             startFpsTracking()
@@ -111,18 +111,15 @@ class FpsService : Service() {
         stopFpsTracking()
         when {
             fpsMethod == "non_root" -> {
-                // SurfaceFlinger polling — tidak butuh root/shizuku
                 serviceScope.launch { sfPollLoop() }
             }
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                // root atau shizuku: pakai TaskFpsCallback via reflection
                 initTaskFpsCallback()
                 val taskId = getFocusedTaskId()
                 if (taskId > 0) registerCallback(taskId)
                 mainHandler.post(taskCheckRunnable)
             }
             else -> {
-                // Fallback untuk Android < 13 dengan root/shizuku: pakai SurfaceFlinger juga
                 serviceScope.launch { sfPollLoop() }
             }
         }
@@ -234,9 +231,13 @@ class FpsService : Service() {
         } catch (_: Exception) { -1 }
     }
 
-    // ── SurfaceFlinger FPS (non_root) ─────────────────────────────────────────
-    // Tidak butuh root. Baca dari dumpsys SurfaceFlinger.
-    // Catatan: di Android 12+ output format berubah, regex di parseSfFps sudah cover beberapa format.
+    // ── SurfaceFlinger FPS ────────────────────────────────────────────────────
+    // Non-root: pakai "dumpsys SurfaceFlinger" (tanpa --fps).
+    // Output lengkap berisi baris "fps=XX.XX" atau "FPS: XX.XX" per layer.
+    // Kita ambil nilai tertinggi dari semua layer aktif = FPS foreground app.
+    //
+    // Root/Shizuku Android < 13 fallback: sama, pakai SurfaceFlinger juga
+    // karena lebih reliable dari gfxinfo untuk semua ROM.
 
     private suspend fun sfPollLoop() {
         while (currentCoroutineContext().isActive && isRunning) {
@@ -247,12 +248,17 @@ class FpsService : Service() {
 
     private fun readSurfaceFlingerFps(): Float {
         return try {
-            val proc = Runtime.getRuntime().exec("dumpsys SurfaceFlinger --fps")
-            val output = proc.inputStream.bufferedReader().readText()
-            proc.waitFor()
-            proc.destroy()
+            // Jalankan tanpa su dulu (non-root), kalau gagal coba dengan su
+            val output = runShellCommand("dumpsys SurfaceFlinger")
+                .ifBlank { runShellCommand("su -c dumpsys SurfaceFlinger") }
+
+            if (output.isBlank()) {
+                Log.d(TAG, "SurfaceFlinger output kosong")
+                return 0f
+            }
+
             val fps = parseSfFps(output)
-            if (fps <= 0f) Log.d(TAG, "SF output was: ${output.take(200)}")
+            if (fps <= 0f) Log.d(TAG, "SF parse gagal, output sample: ${output.take(300)}")
             fps
         } catch (e: Exception) {
             Log.w(TAG, "readSurfaceFlingerFps failed: ${e.message}")
@@ -260,30 +266,54 @@ class FpsService : Service() {
         }
     }
 
+    private fun runShellCommand(cmd: String): String {
+        return try {
+            val proc = Runtime.getRuntime().exec(cmd)
+            val out  = proc.inputStream.bufferedReader().readText()
+            proc.waitFor()
+            proc.destroy()
+            out
+        } catch (_: Exception) { "" }
+    }
+
     private fun parseSfFps(output: String): Float {
-        // Format Android 12+: "fps         : 59.997002"
-        Regex("""fps\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(output)
-            ?.groupValues?.getOrNull(1)?.toFloatOrNull()
-            ?.takeIf { it > 0f }?.let { return it }
+        // Kumpulkan semua nilai FPS dari semua layer, ambil yang terbesar
+        // (layer foreground biasanya punya FPS tertinggi)
+        val results = mutableListOf<Float>()
 
-        // Format lama: "60.00 fps"
-        Regex("""([\d.]+)\s*fps""", RegexOption.IGNORE_CASE).find(output)
-            ?.groupValues?.getOrNull(1)?.toFloatOrNull()
-            ?.takeIf { it > 0f }?.let { return it }
+        // Format 1 — Android 12+: "fps=59.94" atau "fps  =  59.94"
+        Regex("""fps\s*=\s*([\d.]+)""", RegexOption.IGNORE_CASE)
+            .findAll(output)
+            .mapNotNull { it.groupValues.getOrNull(1)?.toFloatOrNull() }
+            .filter { it in 1f..400f }
+            .forEach { results += it }
 
-        // Format refresh rate fallback
-        Regex("""[Rr]efresh.?[Rr]ate[: =]+([\d.]+)""").find(output)
-            ?.groupValues?.getOrNull(1)?.toFloatOrNull()
-            ?.takeIf { it > 0f }?.let { return it }
+        // Format 2 — "FPS: 60.00" atau "FPS : 60"
+        Regex("""fps\s*:\s*([\d.]+)""", RegexOption.IGNORE_CASE)
+            .findAll(output)
+            .mapNotNull { it.groupValues.getOrNull(1)?.toFloatOrNull() }
+            .filter { it in 1f..400f }
+            .forEach { results += it }
 
-        return 0f
+        // Format 3 — lama: "60.00 fps"
+        Regex("""([\d.]+)\s+fps""", RegexOption.IGNORE_CASE)
+            .findAll(output)
+            .mapNotNull { it.groupValues.getOrNull(1)?.toFloatOrNull() }
+            .filter { it in 1f..400f }
+            .forEach { results += it }
+
+        if (results.isEmpty()) return 0f
+
+        // Ambil nilai terbesar yang masuk akal (bukan refresh rate statis 60/90/120)
+        // Filter dulu nilai yang persis bulat (kemungkinan refresh rate, bukan FPS aktual)
+        val nonStatic = results.filter { it % 1f != 0f || it !in setOf(60f, 90f, 120f, 144f) }
+        return if (nonStatic.isNotEmpty()) nonStatic.max() else results.max()
     }
 
     private fun getCurrentFps(): Float {
         return when {
-            fpsMethod == "non_root" || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> {
-                sfFps.coerceIn(0f, 400f)
-            }
+            fpsMethod == "non_root" -> sfFps.coerceIn(0f, 400f)
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> sfFps.coerceIn(0f, 400f)
             callbackRegistered -> {
                 val now = System.currentTimeMillis()
                 if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) > STALENESS_THRESHOLD_MS) {
@@ -300,9 +330,8 @@ class FpsService : Service() {
     // ── Poll loop ─────────────────────────────────────────────────────────────
 
     private suspend fun pollLoop() {
-        // Warmup CPU delta
-        readCpuLoad()
-        delay(200)
+        readCpuLoad() // warmup delta
+        delay(300)
         while (currentCoroutineContext().isActive && isRunning) {
             val fps     = getCurrentFps()
             val cpuLoad = readCpuLoad()
@@ -313,14 +342,29 @@ class FpsService : Service() {
         }
     }
 
-    // ── System stats ──────────────────────────────────────────────────────────
+    // ── CPU Load ──────────────────────────────────────────────────────────────
+    // /proc/stat bisa dibaca tanpa root di semua Android versi.
+    // Kalau gagal (ROM aneh/SELinux ketat), fallback ke ActivityManager.
 
     private fun readCpuLoad(): Int {
+        // Coba baca /proc/stat langsung
+        val fromProc = readCpuFromProcStat()
+        if (fromProc >= 0) return fromProc
+
+        // Fallback: estimasi dari ActivityManager (kurang akurat tapi selalu bisa)
+        return readCpuFromActivityManager()
+    }
+
+    private fun readCpuFromProcStat(): Int {
         return try {
-            val line = File("/proc/stat").bufferedReader().readLine() ?: return -1
+            // Baca dengan FileReader — lebih reliable dari File().bufferedReader()
+            // di beberapa ROM karena tidak trigger SecurityException
+            val line = BufferedReader(FileReader("/proc/stat")).use { it.readLine() }
+                ?: return -1
             if (!line.startsWith("cpu ")) return -1
             val p = line.trim().split("\\s+".toRegex())
             if (p.size < 8) return -1
+
             val user    = p[1].toLong()
             val nice    = p[2].toLong()
             val system  = p[3].toLong()
@@ -330,30 +374,125 @@ class FpsService : Service() {
             val softirq = p[7].toLong()
             val steal   = if (p.size > 8) p[8].toLong() else 0L
             val total   = user + nice + system + idle + iowait + irq + softirq + steal
+
             synchronized(cpuLock) {
                 val prevT = prevCpuTotal
                 val prevI = prevCpuIdle
                 prevCpuTotal = total
                 prevCpuIdle  = idle
-                if (prevT < 0) return@synchronized -1
+                if (prevT < 0) return@synchronized -1  // first read, belum ada delta
                 val dTotal = total - prevT
-                val dIdle  = idle  - prevI
+                val dIdle  = idle - prevI
                 if (dTotal <= 0) return@synchronized -1
                 ((100f * (dTotal - dIdle) / dTotal).coerceIn(0f, 100f)).toInt()
             }
+        } catch (e: Exception) {
+            Log.d(TAG, "readCpuFromProcStat failed: ${e.message}")
+            -1
+        }
+    }
+
+    private fun readCpuFromActivityManager(): Int {
+        return try {
+            // ActivityManager.getProcessMemoryInfo tidak kasih CPU tapi kita bisa
+            // estimasi dari jumlah proses aktif / memory pressure sebagai proxy.
+            // Ini bukan CPU usage yang akurat tapi lebih baik dari "--".
+            // Alternatif: baca /proc/loadavg yang lebih mudah di-parse.
+            val line = BufferedReader(FileReader("/proc/loadavg")).use { it.readLine() }
+                ?: return -1
+            // Format: "0.52 0.48 0.44 1/312 1234"
+            // Nilai pertama = load average 1 menit
+            // Normalize ke 0-100 berdasarkan jumlah CPU core
+            val load1min = line.trim().split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull()
+                ?: return -1
+            val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+            ((load1min / cores) * 100f).coerceIn(0f, 100f).toInt()
         } catch (_: Exception) { -1 }
     }
 
-    // GPU Usage — baca sysfs.
-    // CATATAN: path sysfs GPU memerlukan:
-    //   - Root: chmod otomatis via script javapro_grant.sh
-    //   - Non-root: sebagian besar path TIDAK bisa dibaca → tampil "--"
-    // Ini bukan bug kode, tapi keterbatasan SELinux Android.
+    // ── GPU Load ──────────────────────────────────────────────────────────────
+    // MASALAH UTAMA: SELinux memblokir akses node sysfs GPU dari proses app biasa.
+    // chmod 644 dari service.d tidak membantu karena SELinux context (u:object_r:sysfs_gpu:s0)
+    // tetap di-deny.
+    //
+    // SOLUSI BENAR:
+    //   - Untuk root: baca via shell "su -c cat <path>" — bypass SELinux context
+    //   - Untuk non-root: tampil "--" karena memang tidak bisa diakses, ini normal
+
     private fun readGpuLoad(): Int {
-        val path = getGpuUsagePath() ?: return -1
-        return tryReadGpuUsage(path)
+        if (fpsMethod == "root" || fpsMethod == "shizuku") {
+            return readGpuLoadViaShell()
+        }
+        // Non-root: coba baca langsung dulu (kalau device kebetulan izinkan)
+        val path = getGpuUsagePath()
+        if (path != null) return tryReadGpuUsage(path)
+        return -1 // tampil "--", ini normal untuk non-root
     }
 
+    // Baca GPU lewat su shell — ini yang BENAR-BENAR berhasil di root
+    private fun readGpuLoadViaShell(): Int {
+        val candidates = listOf(
+            "/sys/kernel/ged/hal/gpu_utilization",
+            "/proc/mtk_mali/utilization",
+            "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage",
+            "/sys/class/kgsl/kgsl-3d0/gpubusy",
+            "/sys/kernel/gpu/gpu_busy",
+            "/sys/class/misc/mali0/device/utilization",
+            "/sys/class/misc/mali0/device/utilization_pp",
+            "/sys/devices/platform/gpu/gpubusy"
+        )
+
+        // Kalau sudah punya cached path, pakai itu dulu
+        val cached = if (gpuPathDetected) cachedGpuUsagePath else null
+        if (cached != null) {
+            val result = readGpuPathViaShell(cached)
+            if (result >= 0) return result
+            // Path lama tidak valid lagi, reset
+            gpuPathDetected = false
+            cachedGpuUsagePath = null
+        }
+
+        // Scan semua kandidat via shell
+        for (path in candidates) {
+            val result = readGpuPathViaShell(path)
+            if (result >= 0) {
+                cachedGpuUsagePath = path
+                gpuPathDetected = true
+                Log.i(TAG, "GPU path via shell found: $path -> $result%")
+                return result
+            }
+        }
+
+        // Scan devfreq dinamis via shell
+        return readGpuFromDevfreqShell()
+    }
+
+    private fun readGpuPathViaShell(path: String): Int {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
+            val line = proc.inputStream.bufferedReader().readLine()?.trim()
+            proc.waitFor()
+            proc.destroy()
+            if (line.isNullOrEmpty()) return -1
+            parseGpuLine(path, line)
+        } catch (_: Exception) { -1 }
+    }
+
+    private fun readGpuFromDevfreqShell(): Int {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c",
+                "for d in /sys/class/devfreq/*; do n=\$(basename \$d | tr '[:upper:]' '[:lower:]'); " +
+                "case \$n in *gpu*|*kgsl*|*mali*|*mfg*) " +
+                "if [ -f \$d/gpu_busy_percentage ]; then cat \$d/gpu_busy_percentage && exit; fi; " +
+                "esac; done; echo -1"))
+            val line = proc.inputStream.bufferedReader().readLine()?.trim()
+            proc.waitFor()
+            proc.destroy()
+            line?.toIntOrNull()?.coerceIn(-1, 100) ?: -1
+        } catch (_: Exception) { -1 }
+    }
+
+    // Fallback baca langsung (non-root, kalau device izinkan)
     private fun getGpuUsagePath(): String? {
         if (gpuPathDetected) return cachedGpuUsagePath
         val candidates = listOf(
@@ -371,22 +510,19 @@ class FpsService : Service() {
             if (tryReadGpuUsage(path) >= 0) {
                 cachedGpuUsagePath = path
                 gpuPathDetected = true
-                Log.i(TAG, "GPU usage path: $path")
+                Log.i(TAG, "GPU usage path (direct): $path")
                 return path
             }
         }
         // Scan devfreq
-        val devfreq = File("/sys/class/devfreq")
-        if (devfreq.exists()) {
-            devfreq.listFiles()?.forEach { dir ->
-                val n = dir.name.lowercase()
-                if (n.contains("gpu") || n.contains("kgsl") || n.contains("mali")) {
-                    val f = File(dir, "trans_stat")
-                    if (f.exists() && f.canRead()) {
-                        cachedGpuUsagePath = f.absolutePath
-                        gpuPathDetected = true
-                        return f.absolutePath
-                    }
+        File("/sys/class/devfreq").takeIf { it.exists() }?.listFiles()?.forEach { dir ->
+            val n = dir.name.lowercase()
+            if (n.contains("gpu") || n.contains("kgsl") || n.contains("mali")) {
+                val f = File(dir, "trans_stat")
+                if (f.exists() && f.canRead()) {
+                    cachedGpuUsagePath = f.absolutePath
+                    gpuPathDetected = true
+                    return f.absolutePath
                 }
             }
         }
@@ -398,6 +534,10 @@ class FpsService : Service() {
     private fun tryReadGpuUsage(path: String): Int {
         val line = readLine(path)?.trim() ?: return -1
         if (line.isEmpty()) return -1
+        return parseGpuLine(path, line)
+    }
+
+    private fun parseGpuLine(path: String, line: String): Int {
         return when {
             path.contains("ged/hal/gpu_utilization") -> {
                 for (part in line.split("\\s+".toRegex())) {
@@ -438,10 +578,10 @@ class FpsService : Service() {
         val fpsInt = if (fps in 1f..400f) fps.toInt() else 0
         tvFps.text = if (fpsInt > 0) "$fpsInt" else "--"
         tvFps.setTextColor(when {
-            fpsInt == 0  -> Color.parseColor("#80FFFFFF")
-            fpsInt < 30  -> Color.parseColor("#FF5252")
-            fpsInt < 55  -> Color.parseColor("#FFD740")
-            else         -> Color.parseColor("#69FF47")
+            fpsInt == 0 -> Color.parseColor("#80FFFFFF")
+            fpsInt < 30 -> Color.parseColor("#FF5252")
+            fpsInt < 55 -> Color.parseColor("#FFD740")
+            else        -> Color.parseColor("#69FF47")
         })
         tvCpuLoad.text = if (cpuLoad >= 0) "$cpuLoad%" else "--"
         tvCpuLoad.setTextColor(when {
@@ -606,6 +746,6 @@ class FpsService : Service() {
     private fun readLine(path: String): String? {
         return try { BufferedReader(FileReader(path)).use { it.readLine() } }
         catch (_: IOException) { null }
-        catch (_: Exception) { null }
+        catch (_: Exception)   { null }
     }
 }

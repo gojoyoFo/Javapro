@@ -87,9 +87,21 @@ private fun readFreqDirect(path: String): Long {
 }
 
 private fun readFreqShell(path: String): Long {
+    // Coba tanpa su dulu, kalau 0 coba dengan su (root)
     return try {
-        val process = Runtime.getRuntime().exec(arrayOf("cat", path))
-        process.inputStream.bufferedReader().readLine()?.trim()?.toLongOrNull() ?: 0L
+        val proc = Runtime.getRuntime().exec(arrayOf("cat", path))
+        val v = proc.inputStream.bufferedReader().readLine()?.trim()?.toLongOrNull() ?: 0L
+        proc.waitFor(); proc.destroy()
+        if (v > 0L) v else readFreqShellRoot(path)
+    } catch (_: Exception) { readFreqShellRoot(path) }
+}
+
+private fun readFreqShellRoot(path: String): Long {
+    return try {
+        val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
+        val v = proc.inputStream.bufferedReader().readLine()?.trim()?.toLongOrNull() ?: 0L
+        proc.waitFor(); proc.destroy()
+        v
     } catch (_: Exception) { 0L }
 }
 
@@ -98,33 +110,100 @@ private fun readFreq(path: String): Long {
     return if (direct > 0L) direct else readFreqShell(path)
 }
 
+// Baca cluster dari cpufreq/policy* — cara BENAR karena policy folder
+// mencerminkan cluster fisik yang sesungguhnya di SoC.
+// Grouping berdasarkan cpuinfo_max_freq TIDAK akurat karena beberapa SoC
+// (mis. Helio G85, Snapdragon 680) bisa punya max_freq sama di cluster berbeda,
+// sehingga menghasilkan cluster palsu.
+private fun readPolicyClusters(): List<List<Int>> {
+    val policyDir = File("/sys/devices/system/cpu/cpufreq")
+    if (!policyDir.exists()) return emptyList()
+    return try {
+        policyDir.listFiles()
+            ?.filter { it.isDirectory && it.name.startsWith("policy") }
+            ?.sortedBy { it.name.removePrefix("policy").toIntOrNull() ?: Int.MAX_VALUE }
+            ?.mapNotNull { dir ->
+                val relatedFile = File(dir, "related_cpus")
+                    .takeIf { it.exists() && it.canRead() }
+                    ?: File(dir, "affected_cpus").takeIf { it.exists() && it.canRead() }
+                    ?: return@mapNotNull null
+                val cores = relatedFile.readText().trim()
+                    .split("\\s+".toRegex())
+                    .mapNotNull { it.toIntOrNull() }
+                    .sorted()
+                if (cores.isEmpty()) null else cores
+            }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+    } catch (_: Exception) { emptyList() }
+}
+
 suspend fun readCpuClustersSuspend(): List<CpuClusterInfo> = withContext(Dispatchers.IO) {
     try {
-        val cpuCount  = Runtime.getRuntime().availableProcessors()
-        val coreFreqs = (0 until cpuCount).map { core ->
-            val curPath = "/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq"
-            val maxPath = "/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq"
-            Pair(readFreq(curPath), readFreq(maxPath))
-        }
-        val maxFreqs       = coreFreqs.map { it.second }
-        val uniqueMaxFreqs = maxFreqs.distinct().filter { it > 0L }.sorted()
+        val cpuCount = Runtime.getRuntime().availableProcessors()
 
-        if (uniqueMaxFreqs.isEmpty()) return@withContext emptyList()
+        // ── Langkah 1: Ambil grup cluster dari policy (akurat) ──────────────
+        val policyGroups = readPolicyClusters()
 
-        val clusterColors  = listOf(Color(0xFF64B5F6), Color(0xFFFFD600), Color(0xFFEF5350))
-        uniqueMaxFreqs.mapIndexed { index, maxFreq ->
-            val cores  = maxFreqs.mapIndexedNotNull { i, f -> if (f == maxFreq) i else null }
-            val curValues = cores.map { coreFreqs[it].first }
-            val avgCur = if (curValues.isNotEmpty() && curValues.any { it > 0L })
-                curValues.filter { it > 0L }.average().toLong()
-            else
-                (maxFreq * 0.3).toLong()
-            val name = when {
-                index == 0 -> "Little Core"
-                index == uniqueMaxFreqs.size - 1 -> "Big Core"
-                else -> "Mid Core"
+        // ── Langkah 2: Fallback ke grouping max_freq kalau policy tidak ada ──
+        val groups: List<List<Int>> = if (policyGroups.isNotEmpty()) {
+            policyGroups
+        } else {
+            val maxFreqs = (0 until cpuCount).map { core ->
+                readFreq("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
             }
-            CpuClusterInfo(name, cores, (avgCur / 1000).toInt(), (maxFreq / 1000).toInt(), clusterColors.getOrElse(index) { Color(0xFFCE93D8) })
+            val uniqueMax = maxFreqs.distinct().filter { it > 0L }.sorted()
+            if (uniqueMax.isEmpty()) return@withContext emptyList()
+            uniqueMax.map { maxFreq ->
+                maxFreqs.mapIndexedNotNull { i, f -> if (f == maxFreq) i else null }
+            }
+        }
+
+        if (groups.isEmpty()) return@withContext emptyList()
+
+        // ── Langkah 3: Baca frekuensi tiap core ─────────────────────────────
+        val coreFreqs = (0 until cpuCount).map { core ->
+            val cur = readFreq("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq")
+            val max = readFreq("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
+            Pair(cur, max)
+        }
+
+        // ── Langkah 4: Nama cluster sesuai jumlah cluster yang benar-benar ada
+        // Tidak hardcode "Big Core" kalau HP hanya punya 2 cluster
+        val clusterColors = listOf(
+            Color(0xFF64B5F6), // Little — biru
+            Color(0xFFFFD600), // Mid    — kuning
+            Color(0xFFEF5350), // Big    — merah
+            Color(0xFFCE93D8)  // Prime  — ungu
+        )
+        val total = groups.size
+        val clusterNames = when (total) {
+            1    -> listOf("Core")
+            2    -> listOf("Little Core", "Big Core")
+            3    -> listOf("Little Core", "Mid Core", "Big Core")
+            else -> listOf("Little Core", "Mid Core", "Big Core", "Prime Core")
+        }
+
+        groups.mapIndexed { index, cores ->
+            val curValues = cores.mapNotNull { coreFreqs.getOrNull(it)?.first?.takeIf { v -> v > 0L } }
+            val maxValues = cores.mapNotNull { coreFreqs.getOrNull(it)?.second?.takeIf { v -> v > 0L } }
+            val avgCur    = if (curValues.isNotEmpty()) curValues.average().toLong() else 0L
+            val maxFreq   = maxValues.maxOrNull() ?: 0L
+
+            // Baca max_freq dari policy folder kalau ada (lebih akurat dari per-core)
+            val policyMaxFreq = try {
+                File("/sys/devices/system/cpu/cpufreq/policy${cores.first()}/cpuinfo_max_freq")
+                    .takeIf { it.exists() && it.canRead() }
+                    ?.readText()?.trim()?.toLongOrNull() ?: maxFreq
+            } catch (_: Exception) { maxFreq }
+
+            CpuClusterInfo(
+                name           = clusterNames.getOrElse(index) { "Cluster ${index + 1}" },
+                cores          = cores,
+                currentFreqMhz = (avgCur / 1000).toInt(),
+                maxFreqMhz     = (policyMaxFreq / 1000).toInt(),
+                color          = clusterColors.getOrElse(index) { Color(0xFFCE93D8) }
+            )
         }
     } catch (e: Exception) { emptyList() }
 }
@@ -465,12 +544,17 @@ fun HomeScreen(
                         }
 
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            val coreDisplayList = if (cpuClusters.isNotEmpty()) cpuClusters.take(3) else listOf(
-                                CpuClusterInfo("Little Core", listOf(0), 0, 1, Color(0xFF64B5F6)),
-                                CpuClusterInfo("Mid Core",    listOf(4), 0, 1, Color(0xFFFFD600)),
-                                CpuClusterInfo("Big Core",    listOf(7), 0, 1, Color(0xFFEF5350))
-                            )
-                            coreDisplayList.forEach { cluster ->
+                            // Tampilkan cluster hanya kalau data sudah tersedia.
+                            // Tidak pakai fallback hardcode karena bisa muncul cluster
+                            // yang tidak ada di HP (mis. Big Core padahal HP hanya 2 cluster)
+                            if (cpuClusters.isEmpty()) {
+                                Text(
+                                    "Detecting…",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                cpuClusters.take(4).forEach { cluster ->
                                 key(cluster.name) {
                                     val progress = if (cluster.maxFreqMhz > 0) (cluster.currentFreqMhz.toFloat() / cluster.maxFreqMhz).coerceIn(0f, 1f) else 0f
                                     val animProg by animateFloatAsState(targetValue = progress, animationSpec = tween(600), label = "cp_${cluster.name}")
@@ -490,6 +574,7 @@ fun HomeScreen(
                                         }
                                     }
                                 }
+                            }
                             }
                         }
                     }

@@ -40,7 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.javapro.FpsService
+import com.javapro.OverlayService as FpsService
 import com.javapro.R
 import com.javapro.ads.AdManager
 import com.javapro.utils.PreferenceManager
@@ -538,55 +538,13 @@ fun HomeScreen(
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(BorderStroke(0.8.dp, if (isRooted && fpsEnabled) MaterialTheme.colorScheme.tertiary.copy(0.35f) else MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(32.dp))
-                ) {
-                    Column(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            modifier         = Modifier
-                                .size(48.dp)
-                                .background(if (isRooted) MaterialTheme.colorScheme.tertiary.copy(0.14f) else MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
-                                .border(BorderStroke(1.dp, if (isRooted) MaterialTheme.colorScheme.tertiary.copy(0.3f) else MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(14.dp)),
-                            contentAlignment = Alignment.Center
-                        ) { Icon(Icons.Default.Speed, null, tint = if (isRooted) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(26.dp)) }
-                        Text("FPS Monitor", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = if (isRooted) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            stringResource(R.string.home_show_fps),
-                            fontSize = 11.sp, color = if (isRooted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.45f), lineHeight = 15.sp
-                        )
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                if (fpsEnabled && isRooted) "FPS" else "OFF",
-                                fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                color = if (isRooted && fpsEnabled) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f)
-                            )
-                            Switch(
-                                checked         = fpsEnabled,
-                                onCheckedChange = { isChecked ->
-                                    if (isRooted) {
-                                        prefManager.setFpsEnabled(isChecked)
-                                        val intent = Intent(context, FpsService::class.java)
-                                        if (isChecked) { context.startService(intent); Toast.makeText(context, "FPS On", Toast.LENGTH_SHORT).show() }
-                                        else           { context.stopService(intent);  Toast.makeText(context, "FPS Off", Toast.LENGTH_SHORT).show() }
-                                    }
-                                },
-                                enabled  = isRooted,
-                                modifier = Modifier.height(24.dp),
-                                colors   = SwitchDefaults.colors(
-                                    checkedThumbColor   = MaterialTheme.colorScheme.onTertiary,
-                                    checkedTrackColor   = MaterialTheme.colorScheme.tertiary,
-                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                                )
-                            )
-                        }
-                    }
-                }
+                FpsMonitorCard(
+                    modifier        = Modifier.weight(1f),
+                    fpsEnabled      = fpsEnabled,
+                    isRooted        = isRooted,
+                    isShizukuActive = isShizukuActive,
+                    prefManager     = prefManager
+                )
             }
 
             Row(
@@ -980,4 +938,191 @@ fun FpsModeItem(selected: Boolean, onClick: () -> Unit, title: String, subtitle:
             }
         }
     }
+}
+
+@Composable
+private fun FpsMonitorCard(
+    modifier        : Modifier,
+    fpsEnabled      : Boolean,
+    isRooted        : Boolean,
+    isShizukuActive : Boolean,
+    prefManager     : PreferenceManager
+) {
+    val context = LocalContext.current
+    val canUse  = isRooted || isShizukuActive
+
+    var showMethodDialog by remember { mutableStateOf(false) }
+
+    val activeColor = MaterialTheme.colorScheme.tertiary
+    val borderColor = if (fpsEnabled && canUse) activeColor.copy(0.35f) else MaterialTheme.colorScheme.outlineVariant
+    val iconBg      = if (canUse) activeColor.copy(0.14f) else MaterialTheme.colorScheme.surfaceVariant
+    val iconBorder  = if (canUse) activeColor.copy(0.3f)  else MaterialTheme.colorScheme.outlineVariant
+    val iconTint    = if (canUse) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
+    val titleColor  = if (canUse) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+
+    if (showMethodDialog) {
+        FpsMethodDialog(
+            isRooted        = isRooted,
+            isShizukuActive = isShizukuActive,
+            prefManager     = prefManager,
+            onDismiss       = { showMethodDialog = false },
+            onConfirm       = { method ->
+                showMethodDialog = false
+                prefManager.setFpsEnabled(true)
+                prefManager.setFpsMethod(method)
+                val intent = Intent(context, FpsService::class.java).putExtra("fps_method", method)
+                context.startService(intent)
+                Toast.makeText(context, "FPS Monitor On ($method)", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(32.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(BorderStroke(0.8.dp, borderColor), RoundedCornerShape(32.dp))
+    ) {
+        Column(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                modifier         = Modifier
+                    .size(48.dp)
+                    .background(iconBg, RoundedCornerShape(14.dp))
+                    .border(BorderStroke(1.dp, iconBorder), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Default.Speed, null, tint = iconTint, modifier = Modifier.size(26.dp)) }
+
+            Text("FPS Monitor", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = titleColor)
+
+            Text(
+                if (!canUse) "Butuh Root atau Shizuku"
+                else stringResource(R.string.home_show_fps),
+                fontSize  = 11.sp,
+                color     = if (canUse) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.45f),
+                lineHeight = 15.sp
+            )
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (fpsEnabled && canUse) "ON" else "OFF",
+                    fontSize   = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = if (fpsEnabled && canUse) activeColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f)
+                )
+                Switch(
+                    checked         = fpsEnabled,
+                    onCheckedChange = { isChecked ->
+                        if (isChecked && canUse) {
+                            showMethodDialog = true
+                        } else {
+                            prefManager.setFpsEnabled(false)
+                            context.stopService(Intent(context, FpsService::class.java))
+                            Toast.makeText(context, "FPS Monitor Off", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    enabled  = canUse,
+                    modifier = Modifier.height(24.dp),
+                    colors   = SwitchDefaults.colors(
+                        checkedThumbColor   = MaterialTheme.colorScheme.onTertiary,
+                        checkedTrackColor   = activeColor,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FpsMethodDialog(
+    isRooted        : Boolean,
+    isShizukuActive : Boolean,
+    prefManager     : PreferenceManager,
+    onDismiss       : () -> Unit,
+    onConfirm       : (String) -> Unit
+) {
+    val savedMethod  = prefManager.getFpsMethod()
+    val defaultMethod = when {
+        isRooted        -> "root"
+        isShizukuActive -> "shizuku"
+        else            -> "non_root"
+    }
+    var selected by remember { mutableStateOf(savedMethod ?: defaultMethod) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.Speed, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                Text("Metode FPS Monitor", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(modifier = Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (isRooted) {
+                    FpsModeItem(
+                        selected  = selected == "root",
+                        onClick   = { selected = "root" },
+                        title     = "Root",
+                        subtitle  = "Akurat, pakai API system. Butuh root.",
+                        badge     = "AKURAT",
+                        isDark    = false
+                    )
+                }
+                if (isShizukuActive) {
+                    FpsModeItem(
+                        selected  = selected == "shizuku",
+                        onClick   = { selected = "shizuku" },
+                        title     = "Shizuku (TaskFpsCallback)",
+                        subtitle  = "Sama akuratnya, pakai Shizuku ADB.",
+                        badge     = "AKURAT",
+                        isDark    = false
+                    )
+                }
+                FpsModeItem(
+                    selected  = selected == "non_root",
+                    onClick   = { selected = "non_root" },
+                    title     = "Non-Root",
+                    subtitle  = "FPS display",
+                    badge     = null,
+                    isDark    = false
+                )
+
+                if (selected == "root" || selected == "shizuku") {
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.tertiary.copy(0.08f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(13.dp).padding(top = 1.dp))
+                            Text(
+                                "Metode ini butuh permission READ_FRAME_BUFFER. " +
+                                if (selected == "shizuku") "Grant via: adb shell pm grant ${android.os.Build.ID} android.permission.READ_FRAME_BUFFER"
+                                else "Sudah di-grant otomatis via root.",
+                                fontSize = 10.sp,
+                                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 14.sp
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selected) }) {
+                Text("Aktifkan", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
 }

@@ -54,6 +54,12 @@ class PreferenceManager(context: Context) {
         _fpsMode.value = mode
     }
 
+    fun getFpsMethod(): String = prefs.getString("fps_method", null) ?: "non_root"
+
+    fun setFpsMethod(method: String) {
+        prefs.edit().putString("fps_method", method).apply()
+    }
+
     fun setDarkMode(enabled: Boolean) {
         prefs.edit().putBoolean("dark_mode", enabled).apply()
         _darkMode.value = enabled

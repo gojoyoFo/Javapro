@@ -48,15 +48,28 @@ class FpsService : Service() {
     @Volatile private var cachedGpuUsagePath: String? = null
     @Volatile private var gpuPathDetected = false
 
-    // FPS state
+    // FPS state — GameBarFpsMeter style
     private var fpsMethod = "non_root"
-    private var taskFpsCallbackObj: Any? = null
+
+    // Android 13+ TaskFpsCallback path
+    private var taskFpsCallback: android.window.TaskFpsCallback? = null
     private var callbackRegistered = false
     private var currentTaskId = -1
     @Volatile private var callbackFps = 0f
     private var lastFpsUpdateTime = System.currentTimeMillis()
 
-    @Volatile private var sfFps = 0f
+    // Legacy sysfs path (root, Android < 13)
+    private val legacySysfsPaths = listOf(
+        "/sys/kernel/ged/hal/fps",
+        "/proc/mtk_mali/fps",
+        "/sys/class/drm/card0/fps",
+        "/sys/kernel/debug/dri/0/fps"
+    )
+
+    // Non-root gfxinfo fallback
+    @Volatile private var gfxFps = 0f
+    private var foregroundPkg = ""
+    private var fgPkgLastCheck = 0L
 
     companion object {
         private const val TAG = "FpsService"
@@ -106,13 +119,14 @@ class FpsService : Service() {
     }
 
     // ── FPS Tracking ─────────────────────────────────────────────────────────
+    // Priority:
+    // 1. Android 13+ root/non-root: TaskFpsCallback (windowManager.registerTaskFpsCallback)
+    // 2. Android < 13 root: sysfs fps node (legacy)
+    // 3. Non-root fallback: gfxinfo framestats (real frame timing, bukan refresh rate)
 
     private fun startFpsTracking() {
         stopFpsTracking()
         when {
-            fpsMethod == "non_root" -> {
-                serviceScope.launch { sfPollLoop() }
-            }
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
                 initTaskFpsCallback()
                 val taskId = getFocusedTaskId()
@@ -120,7 +134,8 @@ class FpsService : Service() {
                 mainHandler.post(taskCheckRunnable)
             }
             else -> {
-                serviceScope.launch { sfPollLoop() }
+                // Android < 13: coba sysfs dulu (root), fallback gfxinfo
+                serviceScope.launch { legacyFpsPollLoop() }
             }
         }
     }
@@ -143,7 +158,7 @@ class FpsService : Service() {
     private fun initTaskFpsCallback() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         try {
-            taskFpsCallbackObj = object : android.window.TaskFpsCallback() {
+            taskFpsCallback = object : android.window.TaskFpsCallback() {
                 override fun onFpsReported(fps: Float) {
                     if (fps > 0f) {
                         callbackFps = fps
@@ -153,42 +168,35 @@ class FpsService : Service() {
             }
         } catch (e: Exception) {
             Log.w(TAG, "initTaskFpsCallback failed: ${e.message}")
-            taskFpsCallbackObj = null
+            taskFpsCallback = null
         }
     }
 
     private fun registerCallback(taskId: Int): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
-        val cb = taskFpsCallbackObj ?: return false
+        val cb = taskFpsCallback ?: return false
         return try {
-            val method = windowManager.javaClass.getMethod(
-                "registerTaskFpsCallback",
-                Int::class.java,
-                java.util.concurrent.Executor::class.java,
-                android.window.TaskFpsCallback::class.java
-            )
-            method.invoke(windowManager, taskId, java.util.concurrent.Executor { it.run() }, cb)
+            windowManager.registerTaskFpsCallback(taskId, { it.run() }, cb)
             callbackRegistered = true
             currentTaskId = taskId
             lastFpsUpdateTime = System.currentTimeMillis()
             Log.i(TAG, "TaskFpsCallback registered taskId=$taskId")
             true
         } catch (e: Exception) {
-            Log.w(TAG, "registerCallback failed: ${e.message}")
+            Log.w(TAG, "registerTaskFpsCallback failed: ${e.message}")
+            // Fallback: Android 13 device tapi registerTaskFpsCallback gagal
+            // Pindah ke gfxinfo poll
+            serviceScope.launch { legacyFpsPollLoop() }
             false
         }
     }
 
     private fun unregisterCallback() {
         if (!callbackRegistered) return
-        val cb = taskFpsCallbackObj ?: run { callbackRegistered = false; return }
+        val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val method = windowManager.javaClass.getMethod(
-                    "unregisterTaskFpsCallback",
-                    android.window.TaskFpsCallback::class.java
-                )
-                method.invoke(windowManager, cb)
+                windowManager.unregisterTaskFpsCallback(cb)
             }
         } catch (_: Exception) {}
         callbackRegistered = false
@@ -216,8 +224,7 @@ class FpsService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
         return try {
             val atmClass = Class.forName("android.app.ActivityTaskManager")
-            val getServiceMethod = atmClass.getDeclaredMethod("getService")
-            val atmService = getServiceMethod.invoke(null)
+            val atmService = atmClass.getDeclaredMethod("getService").invoke(null)
             val taskInfo = atmService.javaClass
                 .getMethod("getFocusedRootTaskInfo")
                 .invoke(atmService) ?: return -1
@@ -229,40 +236,53 @@ class FpsService : Service() {
         } catch (_: Exception) { -1 }
     }
 
-    // ── SurfaceFlinger FPS ────────────────────────────────────────────────────
-    // Non-root: pakai "dumpsys SurfaceFlinger" (tanpa --fps).
-    // Output lengkap berisi baris "fps=XX.XX" atau "FPS: XX.XX" per layer.
-    // Kita ambil nilai tertinggi dari semua layer aktif = FPS foreground app.
-    //
-    // Root/Shizuku Android < 13 fallback: sama, pakai SurfaceFlinger juga
-    // karena lebih reliable dari gfxinfo untuk semua ROM.
+    // ── Legacy FPS poll (Android < 13) ────────────────────────────────────────
+    // Prioritas: sysfs fps node (root) → gfxinfo framestats (non-root)
+    // TIDAK menggunakan refresh rate layar sama sekali
 
-    private var foregroundPkg    = ""
-    private var fgPkgLastCheck   = 0L
-
-    private suspend fun sfPollLoop() {
+    private suspend fun legacyFpsPollLoop() {
         foregroundPkg  = getForegroundPackage()
         fgPkgLastCheck = System.currentTimeMillis()
         while (currentCoroutineContext().isActive && isRunning) {
-            sfFps = readFpsNonRoot()
+            gfxFps = readLegacyFps()
             delay(POLL_MS)
         }
     }
 
-    private fun readFpsNonRoot(): Float {
+    private fun readLegacyFps(): Float {
+        // 1. Sysfs fps node (root)
+        if (hasRoot()) {
+            for (path in legacySysfsPaths) {
+                val fps = readSysfsFps(path)
+                if (fps > 0f) return fps
+            }
+        }
+
+        // 2. gfxinfo framestats (non-root, semua Android)
         val now = System.currentTimeMillis()
         if (foregroundPkg.isEmpty() || now - fgPkgLastCheck > 5000L) {
             foregroundPkg  = getForegroundPackage()
             fgPkgLastCheck = now
         }
         val pkg = foregroundPkg
-        // Metode 1: gfxinfo framestats — akurat, non-root, semua Android
         if (pkg.isNotEmpty() && pkg != packageName) {
             val fps = readGfxInfoFps(pkg)
             if (fps > 0f) return fps
         }
-        // Metode 2: SurfaceFlinger --fps — ringan, Android 11+
-        return readSfFpsFlag()
+        return 0f
+    }
+
+    private fun readSysfsFps(path: String): Float {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
+            val line = proc.inputStream.bufferedReader().readLine()?.trim()
+            proc.waitFor(); proc.destroy()
+            if (line.isNullOrEmpty()) return 0f
+            // Format "fps: 60.00" atau langsung angka
+            val raw = if (line.contains(":")) line.substringAfter(":").trim() else line
+            val v = raw.split("\s+".toRegex()).firstOrNull()?.toFloatOrNull() ?: return 0f
+            if (v in 1f..400f) v else 0f
+        } catch (_: Exception) { 0f }
     }
 
     private fun readGfxInfoFps(pkg: String): Float {
@@ -271,7 +291,6 @@ class FpsService : Service() {
             if (output.isBlank()) return 0f
             val lines = output.lines()
 
-            // Cari baris header kolom
             val headerIdx = lines.indexOfFirst { l ->
                 l.startsWith("Flags,") || l.startsWith("IntendedVsync,")
             }
@@ -303,78 +322,48 @@ class FpsService : Service() {
             }
             if (deltas.isEmpty()) return 0f
             val fps = (1_000_000_000.0 / deltas.average()).toFloat()
-            val maxRefresh = getDeviceRefreshRate() * 1.05f
-            if (fps in 1f..maxRefresh) fps else 0f
+            if (fps in 1f..400f) fps else 0f
         } catch (_: Exception) { 0f }
     }
 
-    private fun readSfFpsFlag(): Float {
-        return try {
-            val out = runShellCommand("dumpsys SurfaceFlinger --fps")
-            if (out.isBlank()) return 0f
-            val maxRefresh = getDeviceRefreshRate() * 1.05f
-            listOf(
-                Regex("""([\d.]+)\s+fps""", RegexOption.IGNORE_CASE),
-                Regex("""fps\s*=\s*([\d.]+)""", RegexOption.IGNORE_CASE),
-                Regex("""fps\s*:\s*([\d.]+)""", RegexOption.IGNORE_CASE)
-            ).forEach { re ->
-                val v = re.find(out)?.groupValues?.getOrNull(1)?.toFloatOrNull() ?: return@forEach
-                if (v in 1f..maxRefresh) return v
-            }
-            0f
-        } catch (_: Exception) { 0f }
-    }
-
-    // UsageStatsManager — tidak butuh root, tapi butuh permission PACKAGE_USAGE_STATS (manual grant)
-    // HomeScreen sudah handle redirect ke Settings kalau belum di-grant
     private fun getForegroundPackage(): String {
         return try {
             val usm = getSystemService(android.content.Context.USAGE_STATS_SERVICE)
                 as? android.app.usage.UsageStatsManager ?: return ""
             val now = System.currentTimeMillis()
             val stats = usm.queryUsageStats(
-                android.app.usage.UsageStatsManager.INTERVAL_DAILY,
-                now - 10_000L, now
+                android.app.usage.UsageStatsManager.INTERVAL_BEST,
+                now - 3_000L, now
             )
-            stats?.filter { it.lastTimeUsed > 0 }
+            stats?.filter { it.lastTimeUsed > 0 && it.packageName != packageName }
                 ?.maxByOrNull { it.lastTimeUsed }
                 ?.packageName ?: ""
         } catch (_: Exception) { "" }
     }
 
-    private fun runShellCommand(cmd: String): String {
+    private fun runShellCommand(cmd: String, useRoot: Boolean = false): String {
         return try {
-            val proc = Runtime.getRuntime().exec(cmd)
-            val out  = proc.inputStream.bufferedReader().readText()
-            proc.waitFor()
-            proc.destroy()
+            val proc = if (useRoot)
+                Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
+            else
+                Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
+            val out = proc.inputStream.bufferedReader().readText()
+            proc.waitFor(); proc.destroy()
             out
         } catch (_: Exception) { "" }
     }
 
-    private fun getDeviceRefreshRate(): Float {
-        return try {
-            @Suppress("DEPRECATION")
-            val rate = windowManager.defaultDisplay.refreshRate
-            if (rate in 30f..360f) rate else 60f
-        } catch (_: Exception) { 60f }
-    }
-
     private fun getCurrentFps(): Float {
-        val maxRefresh = getDeviceRefreshRate() * 1.05f
         return when {
-            fpsMethod == "non_root" -> sfFps.coerceIn(0f, maxRefresh)
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> sfFps.coerceIn(0f, maxRefresh)
-            callbackRegistered -> {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && callbackRegistered -> {
                 val now = System.currentTimeMillis()
-                if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) > STALENESS_THRESHOLD_MS) {
-                    callbackFps = 0f
-                    0f
+                if (now - lastFpsUpdateTime > STALENESS_THRESHOLD_MS) {
+                    callbackFps = 0f; 0f
                 } else {
-                    callbackFps.coerceIn(0f, maxRefresh)
+                    callbackFps.coerceAtLeast(0f)
                 }
             }
-            else -> 0f
+            else -> gfxFps.coerceAtLeast(0f)
         }
     }
 

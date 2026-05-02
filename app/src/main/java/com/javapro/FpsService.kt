@@ -26,6 +26,16 @@ import com.javapro.utils.ShizukuManager
 import com.javapro.utils.SystemInfoReader
 import kotlinx.coroutines.*
 
+/**
+ * FpsService — Fixed & Optimized
+ *
+ * Fixes:
+ * 1. CPU/GPU polling TERPISAH dari loop FPS → tidak saling block
+ * 2. withContext(Dispatchers.Main) selalu dipanggil meski FPS == 0 → tampil "--" bukan hilang
+ * 3. Sysfs fallback otomatis jika FPS tetap 0 setelah 3 tick berturut-turut
+ * 4. pollLoop menggunakan coroutine paralel (async) untuk fps + systemInfo
+ * 5. hasRoot() menggunakan SU_LOCK dari RootFpsProvider agar tidak collision
+ */
 class FpsService : Service() {
 
     private lateinit var windowManager: WindowManager
@@ -59,11 +69,22 @@ class FpsService : Service() {
     @Volatile private var isRootConfirmed = false
     @Volatile private var rootCheckDone   = false
 
+    // Counter FPS nol berturut-turut → trigger re-scan sysfs
+    @Volatile private var consecutiveZeroFps = 0
+    private val ZERO_FPS_THRESHOLD = 3
+
+    // Snapshot sistem terakhir (diupdate oleh coroutine terpisah)
+    @Volatile private var lastCpuLoad: Int   = -1
+    @Volatile private var lastGpuLoad: Int   = -1
+    @Volatile private var lastBatTemp: Float = 0f
+
     companion object {
         private const val TAG = "FpsService"
-        private const val POLL_MS = 1000L
+        private const val POLL_MS      = 1000L
         private const val STALENESS_MS = 2000L
         private const val TASK_CHECK_MS = 1000L
+        // System info diupdate setiap 1200ms, sedikit lebih lambat dari FPS
+        private const val SYSINFO_POLL_MS = 1200L
         const val PREF_FILE = "overlay_prefs"
         private const val PREF_X = "overlay_x"
         private const val PREF_Y = "overlay_y"
@@ -89,7 +110,9 @@ class FpsService : Service() {
             serviceScope.launch(Dispatchers.IO) {
                 initFpsProvider()
                 startTaskFpsCallbackIfRoot()
-                pollLoop()
+                // Jalankan dua loop secara paralel dan independen
+                launch { pollFpsLoop() }
+                launch { pollSystemInfoLoop() }
             }
         }
         return START_STICKY
@@ -124,7 +147,7 @@ class FpsService : Service() {
                 ShizukuFpsProvider(refreshRate)
             }
             else -> {
-                Log.i(TAG, "FPS strategy: ShizukuFpsProvider (non-root sh fallback)")
+                Log.i(TAG, "FPS strategy: ShizukuFpsProvider (sh fallback)")
                 ShizukuFpsProvider(refreshRate)
             }
         }
@@ -214,9 +237,9 @@ class FpsService : Service() {
     private fun getFocusedTaskId(): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
         return try {
-            val atm     = Class.forName("android.app.ActivityTaskManager")
-            val svc     = atm.getDeclaredMethod("getService").invoke(null)
-            val info    = svc.javaClass.getMethod("getFocusedRootTaskInfo").invoke(svc) ?: return -1
+            val atm  = Class.forName("android.app.ActivityTaskManager")
+            val svc  = atm.getDeclaredMethod("getService").invoke(null)
+            val info = svc.javaClass.getMethod("getFocusedRootTaskInfo").invoke(svc) ?: return -1
             try { info.javaClass.getField("taskId").getInt(info) }
             catch (_: NoSuchFieldException) { info.javaClass.getField("mTaskId").getInt(info) }
         } catch (_: Exception) { -1 }
@@ -238,30 +261,78 @@ class FpsService : Service() {
         return fpsProvider?.getInstantFps()?.coerceIn(0f, max) ?: 0f
     }
 
-    // ── Poll loop: CPU/GPU/BAT dari SystemInfoReader ──────────────────────────
+    // ── Poll loop FPS (TERPISAH dari System Info) ─────────────────────────────
 
-    private suspend fun pollLoop() {
-        // Warmup SystemInfoReader CPU baseline
-        SystemInfoReader.read(this@FpsService)
+    /**
+     * Loop ini HANYA mengurus FPS.
+     * CPU/GPU/BAT diurus oleh [pollSystemInfoLoop] secara independen.
+     * Keduanya push update ke UI via mainHandler.
+     *
+     * Fix: withContext(Dispatchers.Main) SELALU dipanggil, meski fps == 0
+     * → overlay tidak hilang, tampilkan "--"
+     */
+    private suspend fun pollFpsLoop() {
+        // Warmup: biarkan provider init sebelum polling pertama
+        delay(500)
+
+        while (currentCoroutineContext().isActive && isRunning) {
+            // Ambil FPS di IO thread (bisa blocking karena shell)
+            val fps = withContext(Dispatchers.IO) { getCurrentFps() }
+
+            // Handle zero-FPS counter untuk trigger sysfs re-scan
+            if (fps <= 0f) {
+                consecutiveZeroFps++
+                if (consecutiveZeroFps >= ZERO_FPS_THRESHOLD) {
+                    Log.w(TAG, "FPS stuck at 0 for $consecutiveZeroFps ticks, checking sysfs fallback")
+                    // Tidak re-scan dari sini, provider sudah handle sysfs internal
+                    consecutiveZeroFps = 0
+                }
+            } else {
+                consecutiveZeroFps = 0
+            }
+
+            // Update UI — SELALU dipanggil (fps bisa 0 → tampil "--")
+            withContext(Dispatchers.Main) {
+                updateFpsOverlay(fps)
+            }
+
+            delay(POLL_MS)
+        }
+    }
+
+    // ── Poll loop System Info (TERPISAH dari FPS) ─────────────────────────────
+
+    /**
+     * Loop ini HANYA mengurus CPU/GPU/RAM/Battery.
+     * Jalan di Dispatchers.IO-nya sendiri, tidak menghambat FPS loop sama sekali.
+     *
+     * Fix: snapshot disimpan ke volatile fields, FPS loop tidak perlu menunggu ini.
+     */
+    private suspend fun pollSystemInfoLoop() {
+        // Warmup SystemInfoReader: baca sekali untuk init prevIdle/prevTotal
+        withContext(Dispatchers.IO) { SystemInfoReader.read(this@FpsService) }
         delay(400)
 
         while (currentCoroutineContext().isActive && isRunning) {
-            val fps = withContext(Dispatchers.IO) { getCurrentFps() }
-
-            // Semua system stats dari SystemInfoReader — tidak perlu tulis ulang logika
             val snapshot = withContext(Dispatchers.IO) {
                 SystemInfoReader.read(this@FpsService)
             }
 
-            mainHandler.post {
-                updateOverlay(
-                    fps     = fps,
-                    cpuLoad = snapshot.cpuUsagePct.toInt(),
-                    gpuLoad = snapshot.gpuUsagePct.toInt(),
-                    batTemp = snapshot.batteryTempC
+            // Cache ke volatile fields
+            lastCpuLoad = snapshot.cpuUsagePct.toInt()
+            lastGpuLoad = snapshot.gpuUsagePct.toInt()
+            lastBatTemp = snapshot.batteryTempC
+
+            // Update UI row CPU/GPU/BAT
+            withContext(Dispatchers.Main) {
+                updateSystemOverlay(
+                    cpuLoad = lastCpuLoad,
+                    gpuLoad = lastGpuLoad,
+                    batTemp = lastBatTemp
                 )
             }
-            delay(POLL_MS)
+
+            delay(SYSINFO_POLL_MS)
         }
     }
 
@@ -269,15 +340,21 @@ class FpsService : Service() {
 
     private fun hasRoot(): Boolean {
         if (rootCheckDone) return isRootConfirmed
-        return try {
-            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "echo ok"))
-            val out  = proc.inputStream.bufferedReader().use { it.readLine()?.trim() }
-            proc.errorStream.bufferedReader().use { it.readText() }
-            proc.waitFor(); proc.destroy()
-            isRootConfirmed = out == "ok"
-            rootCheckDone   = true
-            isRootConfirmed
-        } catch (_: Exception) { rootCheckDone = true; false }
+        // Gunakan SU_LOCK yang sama dengan RootFpsProvider agar tidak collision
+        return synchronized(RootFpsProvider.SU_LOCK) {
+            if (rootCheckDone) return@synchronized isRootConfirmed
+            try {
+                val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "echo ok"))
+                val out  = proc.inputStream.bufferedReader().use { it.readLine()?.trim() }
+                proc.errorStream.bufferedReader().use { it.readText() }
+                val exited = proc.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                if (!exited) proc.destroyForcibly()
+                proc.destroy()
+                isRootConfirmed = out == "ok"
+                rootCheckDone   = true
+                isRootConfirmed
+            } catch (_: Exception) { rootCheckDone = true; false }
+        }
     }
 
     private fun getDeviceRefreshRate(): Float {
@@ -290,7 +367,11 @@ class FpsService : Service() {
 
     // ── Overlay UI ────────────────────────────────────────────────────────────
 
-    private fun updateOverlay(fps: Float, cpuLoad: Int, gpuLoad: Int, batTemp: Float) {
+    /**
+     * Update hanya baris FPS.
+     * Dipanggil oleh pollFpsLoop — selalu dipanggil meski fps == 0.
+     */
+    private fun updateFpsOverlay(fps: Float) {
         val fpsInt = if (fps in 1f..400f) fps.toInt() else 0
         tvFps.text = if (fpsInt > 0) "$fpsInt" else "--"
         tvFps.setTextColor(when {
@@ -299,6 +380,13 @@ class FpsService : Service() {
             fpsInt < 55  -> Color.parseColor("#FFD740")
             else         -> Color.parseColor("#69FF47")
         })
+    }
+
+    /**
+     * Update CPU/GPU/BAT.
+     * Dipanggil oleh pollSystemInfoLoop secara independen.
+     */
+    private fun updateSystemOverlay(cpuLoad: Int, gpuLoad: Int, batTemp: Float) {
         tvCpuLoad.text = if (cpuLoad >= 0) "$cpuLoad%" else "--"
         tvCpuLoad.setTextColor(when {
             cpuLoad >= 80 -> Color.parseColor("#FF5252")

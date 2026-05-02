@@ -3,21 +3,31 @@ package com.javapro.fps
 import android.util.Log
 import com.javapro.utils.ShizukuManager
 import java.io.File
+import java.io.InputStream
 import java.util.LinkedList
 import java.util.concurrent.TimeUnit
 
+/**
+ * ShizukuFpsProvider — Fixed & Optimized
+ *
+ * Fixes:
+ * 1. FPS stuck 61Hz: ganti readFpsTimestats() yg hanya baca global refresh rate
+ *    → sekarang gunakan Smart Layer Targeting via --latency pada layer game spesifik
+ * 2. Anti-deadlock: stream draining + 500ms hard timeout + destroyForcibly
+ * 3. Timestats sebagai Layer 3 fallback tetap ada (delta frame counter per layer)
+ */
 class ShizukuFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
 
     private val TAG = "ShizukuFpsProvider"
 
-    // Layer 1: sysfs cached path
-    private var activeFpsPath: String? = null
-    private var sysfsScanned  = false
+    // ── Layer 1: sysfs cached path ────────────────────────────────────────────
+    @Volatile private var activeFpsPath: String? = null
+    @Volatile private var sysfsScanned  = false
 
-    // Layer 2: SurfaceFlinger latency state
+    // ── Layer 2: SurfaceFlinger latency state ─────────────────────────────────
     private var lastLatencyTimestamp: Long = 0L
 
-    // Timestats delta state (non-root fallback)
+    // ── Layer 3: Timestats delta state ────────────────────────────────────────
     private val tsLayerSnapshot = mutableMapOf<String, Long>()
     private var tsLastMs = 0L
     private val TS_LAYER_SKIP = listOf(
@@ -26,28 +36,33 @@ class ShizukuFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
         "ShellDropTarget", "PointerLocation", "mouse pointer"
     )
 
-    // SMA buffer 15 sampel
+    // SMA buffer 12 sampel
     private val smaBuffer = LinkedList<Float>()
-    private val SMA_SIZE  = 15
+    private val SMA_SIZE  = 12
 
-    // Shell script untuk latency parsing langsung di shell
-    private val LATENCY_SHELL_SCRIPT =
-        "dumpsys SurfaceFlinger --latency 2>/dev/null | tail -127 | awk '{print \$2}' | grep -v '^0\$' | grep -v '^\$'"
+    // Cache layer game agar tidak re-scan setiap tick
+    @Volatile private var cachedGameLayer: String? = null
+    private var layerCacheMs: Long = 0L
+    private val LAYER_CACHE_TTL_MS = 3_000L
+
+    companion object {
+        private const val SHELL_TIMEOUT_MS = 500L
+    }
 
     init {
         scanSysfsFpsNode()
     }
 
     override fun getInstantFps(): Float {
-        // Layer 1: sysfs node
+        // Layer 1: sysfs node (paling cepat)
         val sysfs = readSysfsFps()
         if (sysfs > 0f) return applySma(sysfs)
 
-        // Layer 2: SurfaceFlinger latency via Shizuku atau sh
+        // Layer 2: SurfaceFlinger latency – Smart Layer Targeting
         val latency = readLatencyFps()
-        if (latency > 0f) return latency  // SMA sudah diapply di dalam
+        if (latency > 0f) return latency
 
-        // Layer 3 (non-root fallback): timestats delta
+        // Layer 3: timestats delta (fallback non-root)
         val ts = readFpsTimestats()
         if (ts > 0f) return applySma(ts)
 
@@ -58,6 +73,7 @@ class ShizukuFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
         smaBuffer.clear()
         lastLatencyTimestamp = 0L
         tsLayerSnapshot.clear()
+        cachedGameLayer = null
     }
 
     // ── Layer 1: Sysfs Scanner ────────────────────────────────────────────────
@@ -97,32 +113,87 @@ class ShizukuFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
         } catch (_: Exception) { activeFpsPath = null; 0f }
     }
 
-    // ── Layer 2: SurfaceFlinger Latency via Shizuku / sh ─────────────────────
+    // ── Layer 2: Smart Layer Targeting + SurfaceFlinger Latency ──────────────
+
+    /**
+     * Resolve target layer:
+     * Prioritas: SurfaceView > Sprite > UnityMain > GameActivity > global
+     * Cache TTL 3 detik agar tidak re-scan setiap tick.
+     */
+    private fun resolveGameLayer(): String {
+        val now = System.currentTimeMillis()
+        val cached = cachedGameLayer
+        if (cached != null && (now - layerCacheMs) < LAYER_CACHE_TTL_MS) {
+            return cached
+        }
+
+        val listOutput = runShell("dumpsys SurfaceFlinger --list 2>/dev/null")
+        val target = listOutput.lines()
+            .map { it.trim() }
+            .firstOrNull { line ->
+                line.contains("SurfaceView", ignoreCase = true) ||
+                line.contains("Sprite",      ignoreCase = true) ||
+                line.contains("UnityMain",   ignoreCase = true) ||
+                line.contains("GameActivity",ignoreCase = true)
+            } ?: ""
+
+        cachedGameLayer = target
+        layerCacheMs    = now
+        if (target.isNotEmpty()) {
+            Log.i(TAG, "Smart layer resolved: $target")
+        } else {
+            Log.d(TAG, "Smart layer: no game layer, using global")
+        }
+        return target
+    }
 
     private fun readLatencyFps(): Float {
         return try {
-            val output = runShell(LATENCY_SHELL_SCRIPT)
-            if (output.isBlank()) return 0f
-            var lastResult = 0f
-            for (line in output.lines()) {
-                val currentTimestamp: Long = line.trim().toLongOrNull() ?: continue
-                if (currentTimestamp <= 0L || currentTimestamp == Long.MAX_VALUE) continue
-                if (lastLatencyTimestamp > 0L) {
-                    val delta = currentTimestamp - lastLatencyTimestamp
-                    if (delta in 2_000_000L..50_000_000L) {
-                        val instantFps = 1_000_000_000f / delta
-                        if (instantFps in 1f..maxRefreshRate * 1.05f) {
-                            lastResult = applySma(instantFps)
-                        }
-                    }
-                }
-                lastLatencyTimestamp = currentTimestamp
+            val layer    = resolveGameLayer()
+            val layerArg = if (layer.isNotEmpty()) "\"$layer\"" else ""
+            val script   = buildLatencyScript(layerArg)
+
+            var output = runShell(script)
+
+            // Fallback ke global jika layer spesifik tidak menghasilkan data
+            if (output.isBlank() && layer.isNotEmpty()) {
+                Log.d(TAG, "Smart layer empty, fallback to global")
+                cachedGameLayer = ""
+                output = runShell(buildLatencyScript(""))
             }
-            lastResult
+
+            if (output.isBlank()) return 0f
+            parseLatencyOutput(output)
         } catch (_: Exception) { 0f }
     }
 
-    // ── Timestats delta (non-root, tidak butuh permission khusus) ────────────
+    private fun buildLatencyScript(layerArg: String): String =
+        "dumpsys SurfaceFlinger --latency $layerArg 2>/dev/null" +
+        " | tail -127 | awk '{print \$2}' | grep -v '^0\$' | grep -v '^\$'"
+
+    private fun parseLatencyOutput(output: String): Float {
+        var lastResult = 0f
+        for (line in output.lines()) {
+            val currentTimestamp = line.trim().toLongOrNull() ?: continue
+            if (currentTimestamp <= 0L || currentTimestamp == Long.MAX_VALUE) continue
+            if (lastLatencyTimestamp > 0L) {
+                val delta = currentTimestamp - lastLatencyTimestamp
+                if (delta in 2_000_000L..50_000_000L) {
+                    val instantFps = 1_000_000_000f / delta
+                    if (instantFps in 1f..maxRefreshRate * 1.05f) {
+                        lastResult = applySma(instantFps)
+                    }
+                }
+            }
+            lastLatencyTimestamp = currentTimestamp
+        }
+        return lastResult
+    }
+
+    // ── Layer 3: Timestats delta (non-root fallback) ──────────────────────────
+    // Membaca totalFrames per-layer dan menghitung delta antar polling interval.
+    // TIDAK lagi digunakan sebagai primary karena stuck di refresh rate global.
+    // Sekarang hanya dipakai jika Layer 1 dan 2 gagal.
 
     private fun readFpsTimestats(): Float {
         return try {
@@ -146,6 +217,7 @@ class ShizukuFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
                 }
             }
             if (frameMap.isEmpty()) return 0f
+            // Pilih layer dengan frame count tertinggi, bukan layer sistem
             val best = frameMap.entries
                 .filter { (l, _) -> TS_LAYER_SKIP.none { s -> l.contains(s, ignoreCase = true) } }
                 .maxByOrNull { it.value }?.key ?: return 0f
@@ -160,27 +232,74 @@ class ShizukuFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
         } catch (_: Exception) { 0f }
     }
 
-    // ── Shell helper: Shizuku kalau tersedia, fallback sh ─────────────────────
+    // ── Shell helper: Anti-Deadlock ───────────────────────────────────────────
 
+    /**
+     * runShell — Gunakan Shizuku kalau tersedia, fallback ke `sh`.
+     * Kedua path punya hard timeout 500ms + aggressive stream drain.
+     */
     private fun runShell(cmd: String): String {
+        // Coba Shizuku dulu (lebih cepat, non-blocking)
         if (ShizukuManager.isAvailable()) {
-            val result = ShizukuManager.runCommand(cmd)
+            val result = runCatching { ShizukuManager.runCommand(cmd) }.getOrElse { "" }
             if (result.isNotBlank()) return result
         }
+
+        // Fallback ke sh dengan anti-deadlock
         var process: Process? = null
         return try {
             process = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            process.errorStream.bufferedReader().use { it.readText() }
-            process.waitFor(5, TimeUnit.SECONDS)
+            val p = process
+
+            // Drain stderr di background agar tidak block stdout pipe
+            val errThread = Thread { drainStream(p.errorStream) }
+                .also { it.isDaemon = true; it.start() }
+
+            val output = readWithTimeout(p.inputStream, SHELL_TIMEOUT_MS)
+
+            val exited = p.waitFor(200, TimeUnit.MILLISECONDS)
+            if (!exited) {
+                Log.w(TAG, "runShell timeout, killing process")
+                p.destroyForcibly()
+            }
+
+            errThread.join(100)
             output.trim()
-        } catch (_: Exception) { "" }
-        finally {
-            process?.inputStream?.runCatching { close() }
-            process?.errorStream?.runCatching { close() }
-            process?.outputStream?.runCatching { close() }
-            process?.destroy()
+        } catch (e: Exception) {
+            Log.w(TAG, "runShell error: ${e.message}")
+            ""
+        } finally {
+            process?.runCatching { destroyForcibly() }
         }
+    }
+
+    private fun readWithTimeout(stream: InputStream, timeoutMs: Long): String {
+        val sb = StringBuilder()
+        val deadline = System.currentTimeMillis() + timeoutMs
+        try {
+            val buf = ByteArray(4096)
+            while (System.currentTimeMillis() < deadline) {
+                val available = stream.available()
+                if (available > 0) {
+                    val read = stream.read(buf, 0, minOf(available, buf.size))
+                    if (read < 0) break
+                    sb.append(String(buf, 0, read))
+                } else {
+                    Thread.sleep(10)
+                }
+            }
+        } catch (_: Exception) {}
+        return sb.toString()
+    }
+
+    private fun drainStream(stream: InputStream) {
+        try {
+            val buf = ByteArray(1024)
+            while (true) {
+                val n = stream.read(buf)
+                if (n < 0) break
+            }
+        } catch (_: Exception) {}
     }
 
     // ── SMA ───────────────────────────────────────────────────────────────────

@@ -183,7 +183,7 @@ class FpsService : Service() {
     }
 
     private suspend fun startShellFpsLoop() {
-        while (coroutineContext.isActive && isRunning) {
+        while (currentCoroutineContext().isActive && isRunning) {
             val fps = when (detectedMode) {
                 FpsMode.ROOT     -> readFpsRoot()
                 FpsMode.SHIZUKU  -> readFpsShizuku()
@@ -375,7 +375,7 @@ class FpsService : Service() {
         delay(500)
         readCpuFromProcStat()
         delay(500)
-        while (coroutineContext.isActive && isRunning) {
+        while (currentCoroutineContext().isActive && isRunning) {
             val fps = smoothedFps
             val cpu = readCpuLoad()
             val gpu = readGpuLoadAuto()

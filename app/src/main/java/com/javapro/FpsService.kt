@@ -14,7 +14,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
-import android.view.Choreographer
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -49,19 +48,20 @@ class FpsService : Service() {
     @Volatile private var cachedGpuUsagePath: String? = null
     @Volatile private var gpuPathDetected = false
 
-    private var taskFpsCallback: Any? = null
+    // FPS state (ported from GameBarFpsMeter)
+    private var fpsMethod = "non_root"
+    private var taskFpsCallbackObj: Any? = null
     private var callbackRegistered = false
     private var currentTaskId = -1
     @Volatile private var callbackFps = 0f
-    private var lastCallbackTime = 0L
-
-    private val choreographerFpsCounter = ChoreographerFpsCounter()
+    private var lastFpsUpdateTime = System.currentTimeMillis()
+    @Volatile private var sfFps = 0f
 
     companion object {
-        private const val TAG = "OverlayService"
+        private const val TAG = "FpsService"
         private const val POLL_MS = 1000L
-        private const val STALE_MS = 2500L
-        private const val TASK_CHECK_MS = 1000L
+        private const val STALENESS_THRESHOLD_MS = 2000L
+        private const val TASK_CHECK_INTERVAL_MS = 1000L
         const val PREF_FILE = "overlay_prefs"
         private const val PREF_X = "overlay_x"
         private const val PREF_Y = "overlay_y"
@@ -83,10 +83,10 @@ class FpsService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val method = intent?.getStringExtra("fps_method") ?: "non_root"
+        fpsMethod = intent?.getStringExtra("fps_method") ?: "non_root"
         if (!isRunning) {
             isRunning = true
-            startFpsTracking(method)
+            startFpsTracking()
             serviceScope.launch { pollLoop() }
         }
         return START_STICKY
@@ -94,8 +94,7 @@ class FpsService : Service() {
 
     override fun onDestroy() {
         isRunning = false
-        choreographerFpsCounter.stop()
-        unregisterFpsCallback()
+        stopFpsTracking()
         mainHandler.removeCallbacksAndMessages(null)
         serviceScope.cancel()
         if (::overlayView.isInitialized && overlayView.windowToken != null) {
@@ -104,94 +103,86 @@ class FpsService : Service() {
         super.onDestroy()
     }
 
-    private fun startFpsTracking(method: String = "non_root") {
-        if (method != "non_root" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            initTaskFpsCallbackInstance()
+    // ── FPS tracking (ported 1:1 from GameBarFpsMeter) ───────────────────────
+
+    private fun startFpsTracking() {
+        stopFpsTracking()
+        if (fpsMethod != "non_root" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            initTaskFpsCallback()
             val taskId = getFocusedTaskId()
-            if (taskId > 0 && registerFpsCallbackForTask(taskId)) {
-                mainHandler.post(taskCheckRunnable)
-                return
-            }
-        }
-        mainHandler.post { choreographerFpsCounter.start() }
-    }
-
-    private fun tryRegisterTaskFpsCallback(): Boolean {
-        return try {
-            val cbClass = Class.forName("android.window.TaskFpsCallback")
-            taskFpsCallback = object : Any() {}.let {
-                java.lang.reflect.Proxy.newProxyInstance(
-                    cbClass.classLoader,
-                    arrayOf(cbClass)
-                ) { _, method, args ->
-                    if (method.name == "onFpsReported") {
-                        val fps = (args?.getOrNull(0) as? Float) ?: return@newProxyInstance null
-                        if (fps > 0f) {
-                            callbackFps = fps
-                            lastCallbackTime = System.currentTimeMillis()
-                        }
-                    }
-                    null
-                }
-            }
-
-            taskFpsCallback = cbClass.getDeclaredConstructor().newInstance().also { cb ->
-                val onFps = cb.javaClass.getDeclaredMethod("onFpsReported", Float::class.java)
-                onFps.isAccessible = true
-            }
-
-            val taskId = getFocusedTaskId()
-            if (taskId <= 0) return false
-            registerFpsCallbackForTask(taskId)
-            true
-        } catch (e: Exception) {
-            Log.w(TAG, "TaskFpsCallback not available: ${e.message}")
-            false
+            if (taskId > 0) registerCallback(taskId)
+            mainHandler.post(taskCheckRunnable)
+        } else {
+            serviceScope.launch { sfPollLoop() }
         }
     }
 
-    private fun initTaskFpsCallbackInstance() {
+    private fun stopFpsTracking() {
+        unregisterCallback()
+        mainHandler.removeCallbacks(taskCheckRunnable)
+    }
+
+    private fun reinitCallback() {
+        unregisterCallback()
+        mainHandler.postDelayed({
+            if (isRunning) {
+                val taskId = getFocusedTaskId()
+                if (taskId > 0) registerCallback(taskId)
+            }
+        }, 500)
+    }
+
+    private fun initTaskFpsCallback() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         try {
-            taskFpsCallback = object : android.window.TaskFpsCallback() {
-                override fun onFpsReported(fps: Float) {
+            val cbClass = Class.forName("android.window.TaskFpsCallback")
+            taskFpsCallbackObj = java.lang.reflect.Proxy.newProxyInstance(
+                cbClass.classLoader,
+                arrayOf(cbClass)
+            ) { _, method, args ->
+                if (method.name == "onFpsReported") {
+                    val fps = args?.getOrNull(0) as? Float ?: return@newProxyInstance null
                     if (fps > 0f) {
                         callbackFps = fps
-                        lastCallbackTime = System.currentTimeMillis()
+                        lastFpsUpdateTime = System.currentTimeMillis()
                     }
                 }
+                null
             }
         } catch (e: Exception) {
-            Log.w(TAG, "TaskFpsCallback init failed: ${e.message}")
+            Log.w(TAG, "initTaskFpsCallback failed: ${e.message}")
         }
     }
 
-    @Suppress("NewApi")
-    private fun registerFpsCallbackForTask(taskId: Int): Boolean {
+    private fun registerCallback(taskId: Int): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
-        val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: return false
+        val cb = taskFpsCallbackObj ?: return false
         return try {
-            windowManager.registerTaskFpsCallback(taskId, Runnable::run, cb)
+            val executorClass = Class.forName("java.util.concurrent.Executor")
+            val cbClass = Class.forName("android.window.TaskFpsCallback")
+            val method = windowManager.javaClass.getMethod(
+                "registerTaskFpsCallback", Int::class.java, executorClass, cbClass
+            )
+            method.invoke(windowManager, taskId, java.util.concurrent.Executor { it.run() }, cb)
             callbackRegistered = true
             currentTaskId = taskId
-            lastCallbackTime = System.currentTimeMillis()
+            lastFpsUpdateTime = System.currentTimeMillis()
             Log.i(TAG, "TaskFpsCallback registered taskId=$taskId")
             true
         } catch (e: Exception) {
-            Log.w(TAG, "registerTaskFpsCallback failed: ${e.message}")
+            Log.w(TAG, "registerCallback failed: ${e.message}")
             false
         }
     }
 
-    @Suppress("NewApi")
-    private fun unregisterFpsCallback() {
+    private fun unregisterCallback() {
         if (!callbackRegistered) return
-        val cb = taskFpsCallback as? android.window.TaskFpsCallback ?: run {
-            callbackRegistered = false; return
-        }
+        val cb = taskFpsCallbackObj ?: run { callbackRegistered = false; return }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                windowManager.unregisterTaskFpsCallback(cb)
+                val cbClass = Class.forName("android.window.TaskFpsCallback")
+                val method = windowManager.javaClass.getMethod("unregisterTaskFpsCallback", cbClass)
+                method.invoke(windowManager, cb)
             }
         } catch (_: Exception) {}
         callbackRegistered = false
@@ -200,57 +191,92 @@ class FpsService : Service() {
     private val taskCheckRunnable = object : Runnable {
         override fun run() {
             if (!isRunning) return
-            val newId = getFocusedTaskId()
-            val now = System.currentTimeMillis()
-            when {
-                newId > 0 && newId != currentTaskId -> {
-                    unregisterFpsCallback()
-                    mainHandler.postDelayed({
-                        if (isRunning) registerFpsCallbackForTask(newId)
-                    }, 300)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val newTaskId = getFocusedTaskId()
+                if (newTaskId > 0 && newTaskId != currentTaskId) {
+                    reinitCallback()
+                } else {
+                    val now = System.currentTimeMillis()
+                    if (now - lastFpsUpdateTime > STALENESS_THRESHOLD_MS) {
+                        reinitCallback()
+                    }
                 }
-                callbackRegistered && lastCallbackTime > 0 && (now - lastCallbackTime) > STALE_MS -> {
-                    unregisterFpsCallback()
-                    mainHandler.postDelayed({
-                        val id = getFocusedTaskId()
-                        if (isRunning && id > 0) registerFpsCallbackForTask(id)
-                    }, 300)
-                }
-                !callbackRegistered && newId > 0 -> registerFpsCallbackForTask(newId)
             }
-            mainHandler.postDelayed(this, TASK_CHECK_MS)
+            mainHandler.postDelayed(this, TASK_CHECK_INTERVAL_MS)
         }
     }
 
     private fun getFocusedTaskId(): Int {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
         return try {
-            val atm = Class.forName("android.app.ActivityTaskManager")
-            val svc = atm.getDeclaredMethod("getService").invoke(null)
-            val info = svc.javaClass.getMethod("getFocusedRootTaskInfo").invoke(svc) ?: return -1
-            try { info.javaClass.getField("taskId").getInt(info) }
-            catch (_: NoSuchFieldException) { info.javaClass.getField("mTaskId").getInt(info) }
+            val atmClass = Class.forName("android.app.ActivityTaskManager")
+            val getServiceMethod = atmClass.getDeclaredMethod("getService")
+            val atmService = getServiceMethod.invoke(null)
+            val taskInfo = atmService.javaClass
+                .getMethod("getFocusedRootTaskInfo")
+                .invoke(atmService) ?: return -1
+            try {
+                taskInfo.javaClass.getField("taskId").getInt(taskInfo)
+            } catch (_: NoSuchFieldException) {
+                taskInfo.javaClass.getField("mTaskId").getInt(taskInfo)
+            }
         } catch (_: Exception) { -1 }
     }
 
-    private fun getCurrentFps(): Float {
-        if (callbackRegistered) {
-            val now = System.currentTimeMillis()
-            if (lastCallbackTime > 0 && (now - lastCallbackTime) > STALE_MS) {
-                callbackFps = 0f
-                return 0f
-            }
-            val raw = callbackFps
-            if (raw > 0f) return raw.coerceIn(1f, 400f)
+    // ── SurfaceFlinger FPS untuk non-root (menggantikan Choreographer) ────────
+
+    private suspend fun sfPollLoop() {
+        while (currentCoroutineContext().isActive && isRunning) {
+            sfFps = readSurfaceFlingerFps()
+            delay(POLL_MS)
         }
-        return choreographerFpsCounter.getFps()
     }
+
+    private fun readSurfaceFlingerFps(): Float {
+        return try {
+            val proc = Runtime.getRuntime().exec("dumpsys SurfaceFlinger --fps")
+            val output = proc.inputStream.bufferedReader().readText()
+            proc.destroy()
+            parseSfFps(output)
+        } catch (_: Exception) { 0f }
+    }
+
+    private fun parseSfFps(output: String): Float {
+        Regex("""fps\s*=\s*([\d.]+)""").find(output)
+            ?.groupValues?.getOrNull(1)?.toFloatOrNull()
+            ?.takeIf { it > 0f }?.let { return it }
+        Regex("""([\d.]+)\s*fps""").find(output)
+            ?.groupValues?.getOrNull(1)?.toFloatOrNull()
+            ?.takeIf { it > 0f }?.let { return it }
+        Regex("""[Rr]efresh.?[Rr]ate[: =]+([\d.]+)""").find(output)
+            ?.groupValues?.getOrNull(1)?.toFloatOrNull()
+            ?.takeIf { it > 0f }?.let { return it }
+        return 0f
+    }
+
+    private fun getCurrentFps(): Float {
+        return if (fpsMethod != "non_root" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (callbackRegistered) {
+                val now = System.currentTimeMillis()
+                if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) > STALENESS_THRESHOLD_MS) {
+                    callbackFps = 0f
+                    0f
+                } else {
+                    callbackFps.coerceIn(0f, 400f)
+                }
+            } else 0f
+        } else {
+            sfFps.coerceIn(0f, 400f)
+        }
+    }
+
+    // ── Poll loop ─────────────────────────────────────────────────────────────
 
     private suspend fun pollLoop() {
         readCpuLoad()
         delay(200)
         while (currentCoroutineContext().isActive && isRunning) {
-            val fps = getCurrentFps()
+            val fps     = getCurrentFps()
             val cpuLoad = readCpuLoad()
             val gpuLoad = readGpuLoad()
             val batTemp = readBatteryTemp()
@@ -258,6 +284,8 @@ class FpsService : Service() {
             delay(POLL_MS)
         }
     }
+
+    // ── System stats ──────────────────────────────────────────────────────────
 
     private fun readCpuLoad(): Int {
         return try {
@@ -310,7 +338,6 @@ class FpsService : Service() {
             if (tryReadGpuUsage(path) >= 0) {
                 cachedGpuUsagePath = path
                 gpuPathDetected = true
-                Log.i(TAG, "GPU usage path: $path")
                 return path
             }
         }
@@ -338,8 +365,7 @@ class FpsService : Service() {
         if (line.isEmpty()) return -1
         return when {
             path.contains("ged/hal/gpu_utilization") -> {
-                val parts = line.split("\\s+".toRegex())
-                for (part in parts) {
+                for (part in line.split("\\s+".toRegex())) {
                     val v = part.replace("%", "").toIntOrNull() ?: continue
                     if (v in 0..100) return v
                 }
@@ -366,41 +392,39 @@ class FpsService : Service() {
     }
 
     private fun readBatteryTemp(): Float {
-        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            ?: return 0f
+        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return 0f
         val raw = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0)
         return raw / 10f
     }
+
+    // ── Overlay UI ────────────────────────────────────────────────────────────
 
     private fun updateOverlay(fps: Float, cpuLoad: Int, gpuLoad: Int, batTemp: Float) {
         val fpsInt = if (fps in 1f..400f) fps.toInt() else 0
         tvFps.text = if (fpsInt > 0) "$fpsInt" else "--"
         tvFps.setTextColor(when {
-            fpsInt == 0     -> Color.parseColor("#80FFFFFF")
-            fpsInt < 30     -> Color.parseColor("#FF5252")
-            fpsInt < 55     -> Color.parseColor("#FFD740")
-            else            -> Color.parseColor("#69FF47")
+            fpsInt == 0  -> Color.parseColor("#80FFFFFF")
+            fpsInt < 30  -> Color.parseColor("#FF5252")
+            fpsInt < 55  -> Color.parseColor("#FFD740")
+            else         -> Color.parseColor("#69FF47")
         })
-
         tvCpuLoad.text = if (cpuLoad >= 0) "$cpuLoad%" else "--"
         tvCpuLoad.setTextColor(when {
-            cpuLoad >= 80   -> Color.parseColor("#FF5252")
-            cpuLoad >= 50   -> Color.parseColor("#FFD740")
-            else            -> Color.parseColor("#58A6FF")
+            cpuLoad >= 80 -> Color.parseColor("#FF5252")
+            cpuLoad >= 50 -> Color.parseColor("#FFD740")
+            else          -> Color.parseColor("#58A6FF")
         })
-
         tvGpuLoad.text = if (gpuLoad >= 0) "$gpuLoad%" else "--"
         tvGpuLoad.setTextColor(when {
-            gpuLoad >= 80   -> Color.parseColor("#FF5252")
-            gpuLoad >= 50   -> Color.parseColor("#FFD740")
-            else            -> Color.parseColor("#CE93D8")
+            gpuLoad >= 80 -> Color.parseColor("#FF5252")
+            gpuLoad >= 50 -> Color.parseColor("#FFD740")
+            else          -> Color.parseColor("#CE93D8")
         })
-
         tvBatTemp.text = if (batTemp > 0f) "${"%.0f".format(batTemp)}°" else "--"
         tvBatTemp.setTextColor(when {
-            batTemp >= 45f  -> Color.parseColor("#FF5252")
-            batTemp >= 38f  -> Color.parseColor("#FFD740")
-            else            -> Color.parseColor("#66BB6A")
+            batTemp >= 45f -> Color.parseColor("#FF5252")
+            batTemp >= 38f -> Color.parseColor("#FFD740")
+            else           -> Color.parseColor("#66BB6A")
         })
     }
 
@@ -462,7 +486,6 @@ class FpsService : Service() {
             letterSpacing = 0.1f
             setTextColor(Color.parseColor("#66FFFFFF"))
         }
-
         fun valTv(hex: String) = TextView(this).apply {
             text     = "--"
             textSize = 13f
@@ -549,50 +572,5 @@ class FpsService : Service() {
         return try { BufferedReader(FileReader(path)).use { it.readLine() } }
         catch (_: IOException) { null }
         catch (_: Exception) { null }
-    }
-
-    inner class ChoreographerFpsCounter {
-        private var running = false
-        private var frameCount = 0
-        private var lastNanos = 0L
-        @Volatile private var currentFps = 0f
-        private val choreographerHandler = Handler(Looper.getMainLooper())
-
-        private val frameCallback = object : Choreographer.FrameCallback {
-            override fun doFrame(frameTimeNanos: Long) {
-                if (!running) return
-                frameCount++
-                if (lastNanos == 0L) {
-                    lastNanos = frameTimeNanos
-                } else {
-                    val elapsed = frameTimeNanos - lastNanos
-                    if (elapsed >= 500_000_000L) {
-                        currentFps = frameCount * 1_000_000_000f / elapsed
-                        frameCount = 0
-                        lastNanos = frameTimeNanos
-                    }
-                }
-                Choreographer.getInstance().postFrameCallback(this)
-            }
-        }
-
-        fun start() {
-            if (running) return
-            running = true
-            frameCount = 0
-            lastNanos = 0L
-            choreographerHandler.post {
-                Choreographer.getInstance().postFrameCallback(frameCallback)
-            }
-        }
-
-        fun stop() {
-            running = false
-            choreographerHandler.post {
-                Choreographer.getInstance().removeFrameCallback(frameCallback)
-            }
-        }
-
-        fun getFps(): Float = currentFps
     }
 }

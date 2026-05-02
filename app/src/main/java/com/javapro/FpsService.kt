@@ -377,15 +377,13 @@ class FpsService : Service() {
     private suspend fun privilegedFpsLoop() {
         var useLatency = true
         while (currentCoroutineContext().isActive && isRunning) {
-            // Jalankan di shellThread agar tidak block pollLoop
-            val result = withContext(shellThread.looper.asCoroutineDispatcher()) {
+            val result = withContext(Dispatchers.IO) {
                 if (useLatency) readLatencyFps() else readServiceCallFps()
             }
             if (result > 0f) {
                 latencyFps     = if (useLatency) result else latencyFps
                 serviceCallFps = if (!useLatency) result else serviceCallFps
             } else {
-                // Toggle ke layer lain kalau layer ini gagal
                 useLatency = !useLatency
             }
             delay(POLL_MS)
@@ -395,9 +393,7 @@ class FpsService : Service() {
     // Loop untuk non-root: timestats delta (paling reliable tanpa permission khusus)
     private suspend fun nonRootFpsLoop() {
         while (currentCoroutineContext().isActive && isRunning) {
-            val tsFps = withContext(shellThread.looper.asCoroutineDispatcher()) {
-                readFpsTimestats()
-            }
+            val tsFps = withContext(Dispatchers.IO) { readFpsTimestats() }
             if (tsFps > 0f) latencyFps = tsFps
             delay(POLL_MS)
         }

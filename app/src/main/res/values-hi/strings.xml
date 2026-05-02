@@ -743,4 +743,21 @@
 <string name="info_key_watt_in">पावर इन</string>
 <string name="notif_big_watt_out" formatted="false">पावर ↓   : %.2fW</string>
 <string name="notif_big_watt_in" formatted="false">पावर ↑   : %.2fW</string>
+    <string name="fps_dialog_title">FPS मॉनिटर विधि</string>
+    <string name="fps_dialog_confirm">सक्रिय करें</string>
+    <string name="fps_dialog_cancel">रद्द करें</string>
+
+    <string name="fps_method_root_title">Root</string>
+    <string name="fps_method_root_subtitle">सटीक, सिस्टम API का उपयोग करता है। Root की आवश्यकता।</string>
+
+    <string name="fps_method_shizuku_title">Shizuku (TaskFpsCallback)</string>
+    <string name="fps_method_shizuku_subtitle">समान रूप से सटीक, Shizuku ADB का उपयोग करता है।</string>
+
+    <string name="fps_method_nonroot_title">Non-Root</string>
+    <string name="fps_method_nonroot_subtitle">SurfaceFlinger से पढ़ता है। Root की आवश्यकता नहीं।</string>
+
+    <string name="fps_badge_accurate">सटीक</string>
+
+    <string name="fps_permission_shizuku_hint">इस विधि को READ_FRAME_BUFFER अनुमति की आवश्यकता है। इसे इस प्रकार दें: adb shell pm grant %s android.permission.READ_FRAME_BUFFER</string>
+    <string name="fps_permission_root_hint">इस विधि को READ_FRAME_BUFFER अनुमति की आवश्यकता है। Root के माध्यम से स्वचालित रूप से दी गई (javapro_grant.sh देखें)।</string>
 </resources>

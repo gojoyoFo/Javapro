@@ -119,7 +119,11 @@ suspend fun readCpuClustersSuspend(): List<CpuClusterInfo> = withContext(Dispatc
                 curValues.filter { it > 0L }.average().toLong()
             else
                 (maxFreq * 0.3).toLong()
-            val name   = when { index == 0 -> "Little Core"; index == uniqueMaxFreqs.size - 1 -> "Big Core"; else -> "Mid Core" }
+            val name = when {
+                index == 0 -> "Little Core"
+                index == uniqueMaxFreqs.size - 1 -> "Big Core"
+                else -> "Mid Core"
+            }
             CpuClusterInfo(name, cores, (avgCur / 1000).toInt(), (maxFreq / 1000).toInt(), clusterColors.getOrElse(index) { Color(0xFFCE93D8) })
         }
     } catch (e: Exception) { emptyList() }
@@ -157,13 +161,8 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val toastSkipWarning = stringResource(R.string.home_toast_watch_ad)
 
-    // guardedShowAd: tampilkan iklan, tunggu max timeout.
-    // Kalau iklan tidak load → langsung izinkan navigasi (tidak block user).
-    // Kalau iklan mulai tayang tapi user skip terlalu cepat → toast peringatan, tidak navigate.
-    // Kalau iklan selesai ditonton → navigasi normal.
-    // Setelah selesai/gagal → preload iklan berikutnya otomatis.
-    val AD_LOAD_TIMEOUT_HOME = 8  // detik tunggu iklan load
-    val AD_MIN_WATCH_HOME    = 5  // detik minimal tonton setelah iklan mulai
+    val AD_LOAD_TIMEOUT_HOME = 8
+    val AD_MIN_WATCH_HOME    = 5
 
     val guardedShowAd: (String, () -> Unit) -> Unit = { slot, onGranted ->
         var adCompleted = false
@@ -175,7 +174,6 @@ fun HomeScreen(
         }
 
         scope.launch {
-            // Tunggu iklan load
             var loadWait = 0
             while (!adStarted && loadWait < AD_LOAD_TIMEOUT_HOME) {
                 delay(1000)
@@ -183,14 +181,11 @@ fun HomeScreen(
             }
 
             if (!adStarted) {
-                // Iklan tidak load → langsung izinkan, jangan block user
                 onGranted()
-                // Preload berikutnya
                 onShowAd("${slot}_preload") {}
                 return@launch
             }
 
-            // Iklan mulai tayang, tunggu minimal AD_MIN_WATCH_HOME detik
             var watchWait = 0
             while (!adCompleted && watchWait < AD_MIN_WATCH_HOME) {
                 delay(1000)
@@ -200,11 +195,9 @@ fun HomeScreen(
             if (adCompleted) {
                 onGranted()
             } else {
-                // User skip sebelum waktunya
                 Toast.makeText(context, toastSkipWarning, Toast.LENGTH_SHORT).show()
             }
 
-            // Preload iklan berikutnya segera
             onShowAd("${slot}_preload") {}
         }
     }
@@ -414,7 +407,7 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Box(Modifier.size(7.dp).background(Color(0xFF39FF14).copy(pulseAlpha), CircleShape))
-                        Text("Alive", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF39FF14))
+                        Text(stringResource(R.string.home_status_alive), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF39FF14))
                     }
                 }
             }
@@ -422,7 +415,6 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    
                     .clip(RoundedCornerShape(36.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(36.dp))
@@ -460,7 +452,11 @@ fun HomeScreen(
 
                             Surface(shape = RoundedCornerShape(50), color = cpuColor.copy(0.16f)) {
                                 Text(
-                                    when { displayValue >= 80f -> stringResource(R.string.home_cpu_high); displayValue >= 50f -> stringResource(R.string.home_cpu_med); else -> stringResource(R.string.home_cpu_low) },
+                                    when {
+                                        displayValue >= 80f -> stringResource(R.string.home_cpu_high)
+                                        displayValue >= 50f -> stringResource(R.string.home_cpu_med)
+                                        else                -> stringResource(R.string.home_cpu_low)
+                                    },
                                     fontSize = 10.sp, fontWeight = FontWeight.Bold, color = cpuColor,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
@@ -501,9 +497,9 @@ fun HomeScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                        DeviceInfoChip(Icons.Default.PhoneAndroid,       info["model"]?.take(10) ?: "—", isDark)
-                        DeviceInfoChip(Icons.Default.Android,       info["android"] ?: "—",          isDark)
-                        DeviceInfoChip(Icons.Default.Memory,        info["RAM"] ?: "—",              isDark)
+                        DeviceInfoChip(Icons.Default.PhoneAndroid, info["model"]?.take(10) ?: "—", isDark)
+                        DeviceInfoChip(Icons.Default.Android,      info["android"] ?: "—",          isDark)
+                        DeviceInfoChip(Icons.Default.Memory,       info["RAM"] ?: "—",              isDark)
                         DeviceInfoChip(Icons.Default.BatteryChargingFull, info["Battery"] ?: "—",   isDark)
                     }
                 }
@@ -513,7 +509,6 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        
                         .clip(RoundedCornerShape(32.dp))
                         .background(MaterialTheme.colorScheme.surface)
                         .border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(0.22f)), RoundedCornerShape(32.dp))
@@ -527,7 +522,7 @@ fun HomeScreen(
                                 .border(BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.3f)), RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center
                         ) { Icon(Icons.Default.GridView, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp)) }
-                        Text("App Profiles", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                        Text(stringResource(R.string.home_app_profiles_title), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
                         Text(
                             stringResource(R.string.home_set_perf_per_app),
                             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp
@@ -550,7 +545,6 @@ fun HomeScreen(
             Row(
                 modifier              = Modifier
                     .fillMaxWidth()
-                    
                     .clip(RoundedCornerShape(32.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(32.dp))
@@ -561,7 +555,7 @@ fun HomeScreen(
                 StatusPill(
                     modifier = Modifier.weight(1f),
                     icon     = Icons.Default.VerifiedUser,
-                    label    = "Root Access",
+                    label    = stringResource(R.string.home_root_label),
                     status   = if (isRooted) stringResource(R.string.home_root_active) else stringResource(R.string.home_root_inactive),
                     isActive = isRooted,
                     isDark   = isDark
@@ -593,7 +587,6 @@ fun HomeScreen(
 private fun ExclusiveFeaturesCard(lang: String, isDark: Boolean, navController: NavController) {
     val context   = LocalContext.current
     val isPremium = remember { PremiumManager.isPremium(context) }
-    // Check free-user ad-unlock state
     val AD_PREFS       = "exclusive_ad_prefs"
     val KEY_AD_COUNT   = "ad_watch_count"
     val KEY_AD_UNLOCK  = "ad_unlock_until"
@@ -632,15 +625,14 @@ private fun ExclusiveFeaturesCard(lang: String, isDark: Boolean, navController: 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                
                 .clip(RoundedCornerShape(20.dp))
                 .background(MaterialTheme.colorScheme.secondaryContainer)
                 .border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.secondary.copy(0.3f)), RoundedCornerShape(20.dp))
                 .clickable {
                     when {
-                        isPremium    -> navController.navigate("exclusive_features")   // premium: langsung masuk
-                        isAdUnlocked -> navController.navigate("exclusive_features")   // free, sudah unlock via iklan
-                        else         -> showFreeDialog = true                          // free, belum unlock
+                        isPremium    -> navController.navigate("exclusive_features")
+                        isAdUnlocked -> navController.navigate("exclusive_features")
+                        else         -> showFreeDialog = true
                     }
                 }
                 .padding(16.dp)
@@ -674,7 +666,6 @@ private fun ExclusiveFeaturesCard(lang: String, isDark: Boolean, navController: 
                         fontSize = 11.sp,
                         color    = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    // Show mini progress bar for free users not yet unlocked
                     if (!isPremium && !isAdUnlocked) {
                         Spacer(Modifier.height(6.dp))
                         val prog = adWatchCount.value.toFloat() / AD_REQUIRED.toFloat()
@@ -759,32 +750,14 @@ private fun SupportGridSection(lang: String, isDark: Boolean, navController: Nav
                 letterSpacing = 1.sp
             )
         }
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items.take(2).forEach { item ->
-                SupportTile(
-                    icon    = item.icon,
-                    label   = item.label,
-                    isDark  = isDark,
-                    onClick = item.onClick,
-                    modifier = Modifier.weight(1f)
-                )
+                SupportTile(icon = item.icon, label = item.label, isDark = isDark, onClick = item.onClick, modifier = Modifier.weight(1f))
             }
         }
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items.drop(2).forEach { item ->
-                SupportTile(
-                    icon    = item.icon,
-                    label   = item.label,
-                    isDark  = isDark,
-                    onClick = item.onClick,
-                    modifier = Modifier.weight(1f)
-                )
+                SupportTile(icon = item.icon, label = item.label, isDark = isDark, onClick = item.onClick, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -800,7 +773,6 @@ private fun SupportTile(
 ) {
     Box(
         modifier = modifier
-            
             .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surface)
             .border(BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(20.dp))
@@ -972,7 +944,7 @@ private fun FpsMonitorCard(
                 prefManager.setFpsMethod(method)
                 val intent = Intent(context, FpsService::class.java).putExtra("fps_method", method)
                 context.startService(intent)
-                Toast.makeText(context, "FPS Monitor On ($method)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.home_fps_monitor_on, method), Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -992,35 +964,33 @@ private fun FpsMonitorCard(
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Default.Speed, null, tint = iconTint, modifier = Modifier.size(26.dp)) }
 
-            Text("FPS Monitor", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = titleColor)
+            Text(stringResource(R.string.home_fps_monitor_title), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = titleColor)
 
             Text(
-                if (!canUse) "Butuh Root atau Shizuku"
-                else stringResource(R.string.home_show_fps),
+                stringResource(R.string.home_show_fps),
                 fontSize  = 11.sp,
-                color     = if (canUse) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.45f),
+                color     = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 15.sp
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (fpsEnabled && canUse) "ON" else "OFF",
+                    if (fpsEnabled) stringResource(R.string.home_fps_on) else stringResource(R.string.home_fps_off),
                     fontSize   = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color      = if (fpsEnabled && canUse) activeColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f)
+                    color      = if (fpsEnabled) activeColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f)
                 )
                 Switch(
                     checked         = fpsEnabled,
                     onCheckedChange = { isChecked ->
-                        if (isChecked && canUse) {
+                        if (isChecked) {
                             showMethodDialog = true
                         } else {
                             prefManager.setFpsEnabled(false)
                             context.stopService(Intent(context, FpsService::class.java))
-                            Toast.makeText(context, "FPS Monitor Off", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.home_fps_monitor_off), Toast.LENGTH_SHORT).show()
                         }
                     },
-                    enabled  = canUse,
                     modifier = Modifier.height(24.dp),
                     colors   = SwitchDefaults.colors(
                         checkedThumbColor   = MaterialTheme.colorScheme.onTertiary,
@@ -1042,6 +1012,7 @@ private fun FpsMethodDialog(
     onDismiss       : () -> Unit,
     onConfirm       : (String) -> Unit
 ) {
+    val context = LocalContext.current
     val savedMethod  = prefManager.getFpsMethod()
     val defaultMethod = when {
         isRooted        -> "root"
@@ -1055,7 +1026,7 @@ private fun FpsMethodDialog(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Default.Speed, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
-                Text("Metode FPS Monitor", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.fps_dialog_title), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -1064,9 +1035,9 @@ private fun FpsMethodDialog(
                     FpsModeItem(
                         selected  = selected == "root",
                         onClick   = { selected = "root" },
-                        title     = "Root",
-                        subtitle  = "Akurat, pakai API system. Butuh root.",
-                        badge     = "AKURAT",
+                        title     = stringResource(R.string.fps_method_root_title),
+                        subtitle  = stringResource(R.string.fps_method_root_subtitle),
+                        badge     = stringResource(R.string.fps_badge_accurate),
                         isDark    = false
                     )
                 }
@@ -1074,17 +1045,17 @@ private fun FpsMethodDialog(
                     FpsModeItem(
                         selected  = selected == "shizuku",
                         onClick   = { selected = "shizuku" },
-                        title     = "Shizuku (TaskFpsCallback)",
-                        subtitle  = "Sama akuratnya, pakai Shizuku ADB.",
-                        badge     = "AKURAT",
+                        title     = stringResource(R.string.fps_method_shizuku_title),
+                        subtitle  = stringResource(R.string.fps_method_shizuku_subtitle),
+                        badge     = stringResource(R.string.fps_badge_accurate),
                         isDark    = false
                     )
                 }
                 FpsModeItem(
                     selected  = selected == "non_root",
                     onClick   = { selected = "non_root" },
-                    title     = "Non-Root",
-                    subtitle  = "FPS display",
+                    title     = stringResource(R.string.fps_method_nonroot_title),
+                    subtitle  = stringResource(R.string.fps_method_nonroot_subtitle),
                     badge     = null,
                     isDark    = false
                 )
@@ -1102,9 +1073,11 @@ private fun FpsMethodDialog(
                         ) {
                             Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(13.dp).padding(top = 1.dp))
                             Text(
-                                "Metode ini butuh permission READ_FRAME_BUFFER. " +
-                                if (selected == "shizuku") "Grant via: adb shell pm grant ${android.os.Build.ID} android.permission.READ_FRAME_BUFFER"
-                                else "Sudah di-grant otomatis via root.",
+                                // FIX: dulu pakai Build.ID (salah), sekarang pakai context.packageName (benar)
+                                if (selected == "shizuku")
+                                    stringResource(R.string.fps_permission_shizuku_hint, context.packageName)
+                                else
+                                    stringResource(R.string.fps_permission_root_hint),
                                 fontSize = 10.sp,
                                 color    = MaterialTheme.colorScheme.onSurfaceVariant,
                                 lineHeight = 14.sp
@@ -1116,12 +1089,12 @@ private fun FpsMethodDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(selected) }) {
-                Text("Aktifkan", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.fps_dialog_confirm), color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text(stringResource(R.string.fps_dialog_cancel))
             }
         }
     )

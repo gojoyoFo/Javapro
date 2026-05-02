@@ -48,13 +48,15 @@ class FpsService : Service() {
     @Volatile private var cachedGpuUsagePath: String? = null
     @Volatile private var gpuPathDetected = false
 
-    // FPS state (ported from GameBarFpsMeter)
+    // FPS state
     private var fpsMethod = "non_root"
     private var taskFpsCallbackObj: Any? = null
     private var callbackRegistered = false
     private var currentTaskId = -1
     @Volatile private var callbackFps = 0f
     private var lastFpsUpdateTime = System.currentTimeMillis()
+
+    // SurfaceFlinger FPS untuk non_root
     @Volatile private var sfFps = 0f
 
     companion object {
@@ -103,17 +105,26 @@ class FpsService : Service() {
         super.onDestroy()
     }
 
-    // ── FPS tracking (ported 1:1 from GameBarFpsMeter) ───────────────────────
+    // ── FPS Tracking ─────────────────────────────────────────────────────────
 
     private fun startFpsTracking() {
         stopFpsTracking()
-        if (fpsMethod != "non_root" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            initTaskFpsCallback()
-            val taskId = getFocusedTaskId()
-            if (taskId > 0) registerCallback(taskId)
-            mainHandler.post(taskCheckRunnable)
-        } else {
-            serviceScope.launch { sfPollLoop() }
+        when {
+            fpsMethod == "non_root" -> {
+                // SurfaceFlinger polling — tidak butuh root/shizuku
+                serviceScope.launch { sfPollLoop() }
+            }
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                // root atau shizuku: pakai TaskFpsCallback via reflection
+                initTaskFpsCallback()
+                val taskId = getFocusedTaskId()
+                if (taskId > 0) registerCallback(taskId)
+                mainHandler.post(taskCheckRunnable)
+            }
+            else -> {
+                // Fallback untuk Android < 13 dengan root/shizuku: pakai SurfaceFlinger juga
+                serviceScope.launch { sfPollLoop() }
+            }
         }
     }
 
@@ -223,7 +234,9 @@ class FpsService : Service() {
         } catch (_: Exception) { -1 }
     }
 
-    // ── SurfaceFlinger FPS untuk non-root (menggantikan Choreographer) ────────
+    // ── SurfaceFlinger FPS (non_root) ─────────────────────────────────────────
+    // Tidak butuh root. Baca dari dumpsys SurfaceFlinger.
+    // Catatan: di Android 12+ output format berubah, regex di parseSfFps sudah cover beberapa format.
 
     private suspend fun sfPollLoop() {
         while (currentCoroutineContext().isActive && isRunning) {
@@ -236,27 +249,42 @@ class FpsService : Service() {
         return try {
             val proc = Runtime.getRuntime().exec("dumpsys SurfaceFlinger --fps")
             val output = proc.inputStream.bufferedReader().readText()
+            proc.waitFor()
             proc.destroy()
-            parseSfFps(output)
-        } catch (_: Exception) { 0f }
+            val fps = parseSfFps(output)
+            if (fps <= 0f) Log.d(TAG, "SF output was: ${output.take(200)}")
+            fps
+        } catch (e: Exception) {
+            Log.w(TAG, "readSurfaceFlingerFps failed: ${e.message}")
+            0f
+        }
     }
 
     private fun parseSfFps(output: String): Float {
-        Regex("""fps\s*=\s*([\d.]+)""").find(output)
+        // Format Android 12+: "fps         : 59.997002"
+        Regex("""fps\s*[=:]\s*([\d.]+)""", RegexOption.IGNORE_CASE).find(output)
             ?.groupValues?.getOrNull(1)?.toFloatOrNull()
             ?.takeIf { it > 0f }?.let { return it }
-        Regex("""([\d.]+)\s*fps""").find(output)
+
+        // Format lama: "60.00 fps"
+        Regex("""([\d.]+)\s*fps""", RegexOption.IGNORE_CASE).find(output)
             ?.groupValues?.getOrNull(1)?.toFloatOrNull()
             ?.takeIf { it > 0f }?.let { return it }
+
+        // Format refresh rate fallback
         Regex("""[Rr]efresh.?[Rr]ate[: =]+([\d.]+)""").find(output)
             ?.groupValues?.getOrNull(1)?.toFloatOrNull()
             ?.takeIf { it > 0f }?.let { return it }
+
         return 0f
     }
 
     private fun getCurrentFps(): Float {
-        return if (fpsMethod != "non_root" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (callbackRegistered) {
+        return when {
+            fpsMethod == "non_root" || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> {
+                sfFps.coerceIn(0f, 400f)
+            }
+            callbackRegistered -> {
                 val now = System.currentTimeMillis()
                 if (lastFpsUpdateTime > 0 && (now - lastFpsUpdateTime) > STALENESS_THRESHOLD_MS) {
                     callbackFps = 0f
@@ -264,15 +292,15 @@ class FpsService : Service() {
                 } else {
                     callbackFps.coerceIn(0f, 400f)
                 }
-            } else 0f
-        } else {
-            sfFps.coerceIn(0f, 400f)
+            }
+            else -> 0f
         }
     }
 
     // ── Poll loop ─────────────────────────────────────────────────────────────
 
     private suspend fun pollLoop() {
+        // Warmup CPU delta
         readCpuLoad()
         delay(200)
         while (currentCoroutineContext().isActive && isRunning) {
@@ -316,6 +344,11 @@ class FpsService : Service() {
         } catch (_: Exception) { -1 }
     }
 
+    // GPU Usage — baca sysfs.
+    // CATATAN: path sysfs GPU memerlukan:
+    //   - Root: chmod otomatis via script javapro_grant.sh
+    //   - Non-root: sebagian besar path TIDAK bisa dibaca → tampil "--"
+    // Ini bukan bug kode, tapi keterbatasan SELinux Android.
     private fun readGpuLoad(): Int {
         val path = getGpuUsagePath() ?: return -1
         return tryReadGpuUsage(path)
@@ -338,9 +371,11 @@ class FpsService : Service() {
             if (tryReadGpuUsage(path) >= 0) {
                 cachedGpuUsagePath = path
                 gpuPathDetected = true
+                Log.i(TAG, "GPU usage path: $path")
                 return path
             }
         }
+        // Scan devfreq
         val devfreq = File("/sys/class/devfreq")
         if (devfreq.exists()) {
             devfreq.listFiles()?.forEach { dir ->
@@ -538,7 +573,7 @@ class FpsService : Service() {
 
     private fun setupDrag() {
         var downX = 0f; var downY = 0f
-        var startX = 0;  var startY = 0
+        var startX = 0; var startY = 0
         var moved = false
 
         overlayView.setOnTouchListener { _, event ->
@@ -551,7 +586,7 @@ class FpsService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - downX).toInt()
                     val dy = (event.rawY - downY).toInt()
-                    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) moved = true
+                    if (kotlin.math.abs(dx) > 8 || kotlin.math.abs(dy) > 8) moved = true
                     params.x = startX + dx; params.y = startY + dy
                     try { windowManager.updateViewLayout(overlayView, params) } catch (_: Exception) {}
                     true

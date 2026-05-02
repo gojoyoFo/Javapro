@@ -171,33 +171,9 @@ class FpsService : Service() {
         serviceScope.launch { legacyFpsPollLoop() }
     }
 
-    private fun getTaskIdFromSurfaceFlinger(): Int {
-        return try {
-            val output = runShellCommand("dumpsys SurfaceFlinger --list")
-            if (output.isBlank()) return -1
-            // Cari baris yang mengandung "Task=" lalu extract angkanya
-            // Format: "Task=294#9472" atau "Task{... #294 ...}"
-            val taskPattern = Regex("Task[=#{]+(\\d+)")
-            val match = output.lines()
-                .firstOrNull { taskPattern.containsMatchIn(it) }
-                ?: return -1
-            taskPattern.find(match)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
-        } catch (_: Exception) { -1 }
-    }
-
     private fun stopFpsTracking() {
         unregisterCallback()
         mainHandler.removeCallbacks(taskCheckRunnable)
-    }
-
-    private fun reinitCallback() {
-        unregisterCallback()
-        mainHandler.postDelayed({
-            if (isRunning) {
-                val taskId = getFocusedTaskId()
-                if (taskId > 0) registerCallback(taskId)
-            }
-        }, 500)
     }
 
     private fun initTaskFpsCallback() {

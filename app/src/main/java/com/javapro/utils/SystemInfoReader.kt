@@ -5,22 +5,20 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.io.IOException
-import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.max
 
 data class SystemSnapshot(
     val cpuUsagePct   : Float,
     val cpuTempC      : Float,
     val clusters      : List<ClusterSnapshot>,
     val gpuUsagePct   : Float,
-    val gpuFreqMhz    : Int,
+    // gpuFreqMhz dihapus - tidak ditampilkan
     val gpuTempC      : Float,
     val ramUsedMb     : Long,
     val ramTotalMb    : Long,
@@ -39,17 +37,19 @@ data class ClusterSnapshot(
 
 object SystemInfoReader {
 
+    private const val TAG = "SystemInfoReader"
+
+    // CPU usage state - synchronized untuk thread safety
+    private val cpuLock = Any()
     private var prevIdle  = -1L
     private var prevTotal = -1L
 
-    private val CPU_TEMP_PATHS = listOf(
-        "/sys/class/thermal/thermal_zone0/temp" to 1000,
-        "/sys/class/thermal/thermal_zone1/temp" to 1000,
-        "/sys/devices/virtual/thermal/thermal_zone0/temp" to 1000,
-        "/sys/class/hwmon/hwmon0/temp1_input" to 1000,
-        "/sys/kernel/debug/hisi_thermal/temp" to 1,
-        "/proc/mtktscpu/mtktscpu" to 1000
-    )
+    // Cache path + divider dari SysfsDetector agar tidak scan berulang
+    @Volatile private var cachedCpuTempPath: String?   = null
+    @Volatile private var cachedCpuTempDiv : Int        = 1000
+    @Volatile private var cpuTempDetected  : Boolean    = false
+
+    @Volatile private var cachedPolicyClusters: List<List<Int>>? = null
 
     private val GPU_USAGE_PATHS = listOf(
         "/sys/kernel/ged/hal/gpu_utilization",
@@ -62,44 +62,19 @@ object SystemInfoReader {
         "/sys/kernel/debug/mali/utilization_gp_pp"
     )
 
-    private val GPU_FREQ_PATHS = listOf(
-        "/sys/kernel/ged/hal/current_freqency"              to 1_000L,
-        "/proc/mtk_mali/current_opp_freq"                   to 1_000L,
-        "/sys/class/kgsl/kgsl-3d0/gpuclk"                  to 1_000_000L,
-        "/sys/class/kgsl/kgsl-3d0/max_gpuclk"              to 1_000_000L,
-        "/sys/kernel/gpu/gpu_clock"                         to 1_000L,
-        "/sys/class/devfreq/gpufreq/cur_freq"               to 1_000_000L,
-        "/sys/class/devfreq/ff9a0000.gpu/cur_freq"          to 1_000_000L,
-        "/sys/class/devfreq/13000000.mali/cur_freq"         to 1_000_000L,
-        "/sys/class/devfreq/fde60000.gpu/cur_freq"          to 1_000_000L,
-        "/sys/class/misc/mali0/device/clock"                to 1_000L,
-        "/sys/class/misc/mali0/device/devfreq/mali/cur_freq" to 1_000_000L,
-        "/sys/devices/platform/gpufreq/cur_freq"            to 1_000_000L,
-        "/sys/devices/platform/gpu/devfreq/gpu/cur_freq"    to 1_000_000L
-    )
-
     private val GPU_TEMP_PATHS = listOf(
-        "/sys/class/thermal/thermal_zone2/temp" to 1000,
-        "/sys/class/thermal/thermal_zone3/temp" to 1000,
-        "/sys/kernel/gpu/gpu_tmu"               to 1000,
-        "/sys/class/hwmon/hwmon1/temp1_input"   to 1000
+        "/sys/class/kgsl/kgsl-3d0/temp"            to 1000,
+        "/sys/class/thermal/thermal_zone2/temp"     to 1000,
+        "/sys/class/thermal/thermal_zone3/temp"     to 1000,
+        "/sys/kernel/gpu/gpu_tmu"                   to 1000,
+        "/sys/class/hwmon/hwmon1/temp1_input"       to 1000
     )
-
-    private val RAM_FREQ_PATHS = listOf(
-        "/sys/class/devfreq/ddrfreq/cur_freq",
-        "/sys/devices/platform/ddrfreq/cur_freq",
-        "/sys/kernel/debug/clk/ddr/clk_rate",
-        "/sys/class/devfreq/rockchip-dmc/cur_freq"
-    )
-
-    @Volatile private var cachedPolicyClusters: List<List<Int>>? = null
 
     suspend fun read(context: Context): SystemSnapshot = withContext(Dispatchers.IO) {
         val cpuUsage  = readCpuUsage()
         val cpuTemp   = readCpuTemp()
         val clusters  = readClusters()
         val gpuUsage  = readGpuUsage()
-        val gpuFreq   = readGpuFreq()
         val gpuTemp   = readGpuTemp()
         val (ramUsed, ramTotal) = readRam(context)
         val (batPct, batTemp, batVolt, charging) = readBattery(context)
@@ -109,7 +84,6 @@ object SystemInfoReader {
             cpuTempC      = cpuTemp,
             clusters      = clusters,
             gpuUsagePct   = gpuUsage,
-            gpuFreqMhz    = gpuFreq,
             gpuTempC      = gpuTemp,
             ramUsedMb     = ramUsed,
             ramTotalMb    = ramTotal,
@@ -119,6 +93,8 @@ object SystemInfoReader {
             isCharging    = charging
         )
     }
+
+    // ─── CPU Usage ───────────────────────────────────────────────────────────
 
     private fun readCpuUsage(): Float {
         return try {
@@ -137,35 +113,138 @@ object SystemInfoReader {
             val steal   = if (parts.size > 8) parts[8].toLong() else 0L
             val total   = user + nice + system + idle + iowait + irq + softirq + steal
 
-            if (prevTotal != -1L && total != prevTotal) {
-                val diffTotal = total - prevTotal
-                val diffIdle  = idle  - prevIdle
-                val usage = (100f * (diffTotal - diffIdle) / diffTotal).coerceIn(0f, 100f)
-                prevTotal = total; prevIdle = idle
-                usage
-            } else {
-                prevTotal = total; prevIdle = idle
-                0f
+            synchronized(cpuLock) {
+                val prev = prevTotal
+                val prevI = prevIdle
+                prevTotal = total
+                prevIdle  = idle
+
+                if (prev == -1L || total == prev) return@synchronized 0f
+                val diffTotal = total - prev
+                val diffIdle  = idle  - prevI
+                if (diffTotal <= 0L) return@synchronized 0f
+                (100f * (diffTotal - diffIdle) / diffTotal).coerceIn(0f, 100f)
             }
-        } catch (_: Exception) { 0f }
+        } catch (e: Exception) {
+            Log.w(TAG, "readCpuUsage failed: ${e.message}")
+            0f
+        }
     }
 
+    // ─── CPU Temp — port SysfsDetector (dynamic thermal zone scan) ───────────
+
     private fun readCpuTemp(): Float {
-        for ((path, divider) in CPU_TEMP_PATHS) {
-            val raw = readFirstLine(path)?.trim()?.toFloatOrNull() ?: continue
-            val celsius = raw / divider
-            if (celsius in 1f..150f) return celsius
-        }
-        return 0f
+        val (path, divider) = getCpuTempInfo()
+        if (path == null) return 0f
+        val raw = readFirstLine(path)?.trim()?.toFloatOrNull() ?: return 0f
+        val celsius = raw / divider
+        return if (celsius in 1f..150f) celsius else 0f
     }
+
+    /**
+     * Port dari SysfsDetector.getCpuTempInfo():
+     * Scan thermal zones berdasarkan prioritas type, auto-detect divider.
+     * Hasil di-cache setelah deteksi pertama.
+     */
+    private fun getCpuTempInfo(): Pair<String?, Int> {
+        if (cpuTempDetected) return Pair(cachedCpuTempPath, cachedCpuTempDiv)
+
+        val path = findCpuTempPath()
+        val divider = if (path != null) detectTempDivider(path) else 1000
+
+        cachedCpuTempPath = path
+        cachedCpuTempDiv  = divider
+        cpuTempDetected   = true
+
+        Log.i(TAG, "CPU temp path detected: $path (divider=$divider)")
+        return Pair(path, divider)
+    }
+
+    private fun findCpuTempPath(): String? {
+        val thermalBaseDirs = arrayOf("/sys/class/thermal", "/sys/devices/virtual/thermal")
+
+        // Prioritas: sensor spesifik CPU lebih dulu
+        val priorityTypes = arrayOf("cpu_therm", "cpuss", "cpu", "cluster0")
+
+        for (baseDirPath in thermalBaseDirs) {
+            val baseDir = File(baseDirPath)
+            if (!baseDir.exists() || !baseDir.isDirectory) continue
+
+            // Pass 1: cari berdasarkan priority type
+            for (priorityType in priorityTypes) {
+                baseDir.listFiles()?.forEach { zone ->
+                    val typeFile = File(zone, "type")
+                    val tempFile = File(zone, "temp")
+                    if (!typeFile.exists() || !tempFile.exists() || !tempFile.canRead()) return@forEach
+                    try {
+                        val type = typeFile.readText().trim().lowercase()
+                        val isMatch = when {
+                            priorityType == "cpuss" && type.startsWith("cpuss") -> true
+                            else -> type == priorityType
+                        }
+                        if (isMatch) return tempFile.absolutePath
+                    } catch (_: Exception) {}
+                }
+            }
+
+            // Pass 2: fallback — thermal zone dengan nilai suhu masuk akal
+            baseDir.listFiles()?.forEach { zone ->
+                val typeFile = File(zone, "type")
+                val tempFile = File(zone, "temp")
+                if (!typeFile.exists() || !tempFile.exists() || !tempFile.canRead()) return@forEach
+                try {
+                    val type = typeFile.readText().trim().lowercase()
+                    if (type.contains("cpu") || type.contains("core") ||
+                        type.contains("cluster") || type.contains("tsens") ||
+                        type.startsWith("thermal")) {
+                        val tempValue = tempFile.readText().trim().toIntOrNull()
+                        // 20000..90000 = 20-90°C dalam milli-celsius
+                        if (tempValue != null && tempValue in 20000..90000) {
+                            return tempFile.absolutePath
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        // Hard-coded fallback terakhir
+        val fallbacks = listOf(
+            "/sys/class/thermal/thermal_zone0/temp",
+            "/sys/class/hwmon/hwmon0/temp1_input",
+            "/proc/mtktscpu/mtktscpu"
+        )
+        for (path in fallbacks) {
+            if (File(path).let { it.exists() && it.canRead() }) return path
+        }
+        return null
+    }
+
+    /**
+     * Port dari SysfsDetector.detectTemperatureDivider():
+     * Auto-detect divider berdasarkan nilai raw.
+     */
+    private fun detectTempDivider(path: String): Int {
+        return try {
+            val raw = File(path).readText().trim().toInt()
+            when {
+                raw in 20000..150000 -> 1000  // milli-celsius
+                raw in 2000..15000   -> 100   // centi-celsius
+                raw in 200..1500     -> 10    // deci-celsius
+                raw in 20..150       -> 1     // langsung celsius
+                else                 -> 1000
+            }
+        } catch (_: Exception) { 1000 }
+    }
+
+    // ─── CPU Clusters ─────────────────────────────────────────────────────────
 
     private fun readClusters(): List<ClusterSnapshot> {
         return try {
             val cpuCount = Runtime.getRuntime().availableProcessors()
             val freqs = (0 until cpuCount).map { core ->
-                val cur = readSysNode("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq")
+                val cur = readFirstLine("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq")
                     ?.trim()?.toLongOrNull() ?: 0L
-                val max = readSysNode("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
+                val max = readFirstLine("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
                     ?.trim()?.toLongOrNull() ?: 0L
                 cur to max
             }
@@ -174,11 +253,14 @@ object SystemInfoReader {
             val groups: List<List<Int>> = if (policyClusters.isNotEmpty()) {
                 policyClusters
             } else {
+                // Fallback: grup berdasarkan max freq yang sama
                 val uniqueMax = freqs.map { it.second }.distinct().filter { it > 0L }.sorted()
-                uniqueMax.map { maxFreq -> freqs.mapIndexedNotNull { i, f -> if (f.second == maxFreq) i else null } }
+                uniqueMax.map { maxFreq ->
+                    freqs.mapIndexedNotNull { i, f -> if (f.second == maxFreq) i else null }
+                }
             }
 
-            val labels = listOf("Little", "Mid", "Big")
+            val labels = listOf("Little", "Mid", "Big", "Prime")
             groups.mapIndexed { idx, cores ->
                 val curValues = cores.mapNotNull { freqs.getOrNull(it)?.first?.takeIf { v -> v > 0L } }
                 val avgCur    = if (curValues.isNotEmpty()) curValues.average().toLong() else 0L
@@ -190,7 +272,10 @@ object SystemInfoReader {
                     maxFreqMhz = (maxFreq / 1000).toInt()
                 )
             }
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) {
+            Log.w(TAG, "readClusters failed: ${e.message}")
+            emptyList()
+        }
     }
 
     private fun getPolicyClusters(): List<List<Int>> {
@@ -204,27 +289,32 @@ object SystemInfoReader {
                 ?.mapNotNull { policyDir ->
                     val f = File(policyDir, "related_cpus")
                     if (!f.exists() || !f.canRead()) return@mapNotNull null
-                    val cores = f.bufferedReader().use { it.readLine() ?: "" }
+                    val cores = runCatching {
+                        f.bufferedReader().use { it.readLine() ?: "" }
+                    }.getOrElse { return@mapNotNull null }
                         .trim().split(Regex("\\s+"))
                         .mapNotNull { it.toIntOrNull() }.sorted()
                     if (cores.isEmpty()) null else cores
                 }.orEmpty()
             if (result.isNotEmpty()) cachedPolicyClusters = result
             result
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) {
+            Log.w(TAG, "getPolicyClusters failed: ${e.message}")
+            emptyList()
+        }
     }
+
+    // ─── GPU ─────────────────────────────────────────────────────────────────
 
     private fun readGpuUsage(): Float {
         for (path in GPU_USAGE_PATHS) {
-            val line = readSysNode(path)?.trim() ?: continue
-            // Format GED: "265000 265000 100" — kolom ketiga adalah utilization %
+            val line = readFirstLine(path)?.trim() ?: continue
             if (path.contains("ged")) {
                 val parts = line.split(Regex("\\s+"))
                 val v = parts.lastOrNull()?.toFloatOrNull() ?: continue
                 if (v in 0f..100f) return v
                 continue
             }
-            // Format mtk_mali utilization: bisa "50" atau "50%"
             val cleaned = line.replace("%", "").split(Regex("[\\s,]+")).firstOrNull()?.trim() ?: continue
             val v = cleaned.toFloatOrNull() ?: continue
             if (v in 0f..100f) return v
@@ -232,28 +322,15 @@ object SystemInfoReader {
         return 0f
     }
 
-    private fun readGpuFreq(): Int {
-        for ((path, divider) in GPU_FREQ_PATHS) {
-            val line = readSysNode(path)?.trim() ?: continue
-            // GED format: "265000 265000 100" — kolom pertama adalah freq dalam KHz
-            val raw = if (path.contains("ged") || path.contains("mtk_mali")) {
-                line.split(Regex("\\s+")).firstOrNull()?.toLongOrNull()
-            } else {
-                line.toLongOrNull()
-            } ?: continue
-            if (raw <= 0L) continue
-            val mhz = (raw / divider).toInt()
-            if (mhz in 1..5000) return mhz
-            // auto-detect unit fallback
-            val fromKhz = (raw / 1_000L).toInt()
-            if (fromKhz in 1..5000) return fromKhz
-            val fromHz = (raw / 1_000_000L).toInt()
-            if (fromHz in 1..5000) return fromHz
-        }
-        return 0
-    }
-
     private fun readGpuTemp(): Float {
+        // Coba kgsl langsung (Snapdragon)
+        val kgslPath = "/sys/class/kgsl/kgsl-3d0/temp"
+        val kgslRaw = readFirstLine(kgslPath)?.trim()?.toFloatOrNull()
+        if (kgslRaw != null) {
+            val c = kgslRaw / 1000f
+            if (c in 1f..150f) return c
+        }
+        // Fallback list
         for ((path, divider) in GPU_TEMP_PATHS) {
             val raw = readFirstLine(path)?.trim()?.toFloatOrNull() ?: continue
             val celsius = raw / divider
@@ -261,6 +338,8 @@ object SystemInfoReader {
         }
         return 0f
     }
+
+    // ─── RAM ─────────────────────────────────────────────────────────────────
 
     private fun readRam(context: Context): Pair<Long, Long> {
         return try {
@@ -276,21 +355,18 @@ object SystemInfoReader {
                     if (memTotal > 0 && memAvailable > 0) return@use
                 }
             }
-            if (memTotal == 0L) {
-                val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                val mi = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
-                return Pair(
-                    (mi.totalMem - mi.availMem) / (1024 * 1024),
-                    mi.totalMem / (1024 * 1024)
-                )
-            }
-            Pair((memTotal - memAvailable) / 1024, memTotal / 1024)
-        } catch (_: Exception) {
-            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            val mi = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
-            Pair((mi.totalMem - mi.availMem) / (1024 * 1024), mi.totalMem / (1024 * 1024))
-        }
+            if (memTotal == 0L) fallbackRam(context)
+            else Pair((memTotal - memAvailable) / 1024, memTotal / 1024)
+        } catch (_: Exception) { fallbackRam(context) }
     }
+
+    private fun fallbackRam(context: Context): Pair<Long, Long> {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val mi = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
+        return Pair((mi.totalMem - mi.availMem) / (1024 * 1024), mi.totalMem / (1024 * 1024))
+    }
+
+    // ─── Battery ─────────────────────────────────────────────────────────────
 
     private fun readBattery(context: Context): Quadruple<Int, Float, Int, Boolean> {
         val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -306,31 +382,15 @@ object SystemInfoReader {
         return Quadruple(pct, temp, volt, charging)
     }
 
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
     private fun parseMemKb(line: String): Long =
         line.trim().split("\\s+".toRegex()).getOrNull(1)?.toLongOrNull() ?: 0L
 
     private fun readFirstLine(path: String): String? {
         return try { BufferedReader(FileReader(path)).use { it.readLine() } }
         catch (_: IOException) { null }
-        catch (_: Exception) { null }
-    }
-
-    private fun readSysNode(path: String): String? {
-        val direct = readFirstLine(path)
-        if (!direct.isNullOrBlank()) return direct
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
-            val out = process.inputStream.bufferedReader().use { it.readLine() }
-            process.waitFor()
-            out?.trim()?.takeIf { it.isNotEmpty() }
-        } catch (_: Exception) {
-            try {
-                val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", "cat $path"))
-                val out = process.inputStream.bufferedReader().use { it.readLine() }
-                process.waitFor()
-                out?.trim()?.takeIf { it.isNotEmpty() }
-            } catch (_: Exception) { null }
-        }
+        catch (_: Exception)   { null }
     }
 
     private data class Quadruple<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)

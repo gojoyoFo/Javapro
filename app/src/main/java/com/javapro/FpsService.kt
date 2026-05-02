@@ -23,7 +23,6 @@ import com.javapro.utils.SystemSnapshot
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import java.util.regex.Pattern
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -38,44 +37,53 @@ class FpsService : Service() {
     private var monitoringJob: Job? = null
     private var isRunning    = false
 
-    private var activeMethod       : FpsMethod = FpsMethod.NONE
-    private var fpsFilePath        : String?   = null
-    private var taskFpsCallback    : Any?   = null
+    // ── FPS state ─────────────────────────────────────────────────────────────
+    // Pakai TaskFpsCallback langsung (bukan reflection) karena TaskFpsCallback.kt
+    // sudah ada di project sebagai stub — sama persis dengan cara GameBar.
+    private var taskFpsCallback    : android.window.TaskFpsCallback? = null
     private var callbackRegistered = false
     private var currentTaskId      = -1
     private var lastCallbackTime   = 0L
-    private var callbackFps        = 0f
-    private val fpsHistory         = mutableListOf<Float>()
-    private val maxHistory         = 120
+    @Volatile private var callbackFps = 0f
+
+    private val fpsHistory = mutableListOf<Float>()
+    private val maxHistory = 120
+
+    // Refresh rate device — dipakai untuk clamp FPS agar tidak ngawur
+    private var deviceRefreshRate = 60f
 
     private lateinit var tvFps      : TextView
     private lateinit var tvCpuUsage : TextView
     private lateinit var tvCpuTemp  : TextView
     private lateinit var tvGpuUsage : TextView
-    private lateinit var tvGpuFreq  : TextView
     private lateinit var tvRam      : TextView
     private lateinit var tvBattery  : TextView
     private lateinit var tvBatTemp  : TextView
 
     companion object {
-        private const val TAG           = "FpsService"
-        private const val SAMPLE_MS     = 1000L
-        private const val TASK_CHECK_MS = 1000L
-        private const val STALE_MS      = 2500L
-        private const val PREF_FILE     = "overlay_prefs"
-        private const val PREF_X        = "overlay_x"
-        private const val PREF_Y        = "overlay_y"
+        private const val TAG            = "FpsService"
+        private const val SAMPLE_MS      = 1000L
+        private const val TASK_CHECK_MS  = 1000L
+        /** Kalau callback tidak update lebih dari ini, anggap stale → re-register */
+        private const val STALE_MS       = 2500L
+        private const val PREF_FILE      = "overlay_prefs"
+        private const val PREF_X         = "overlay_x"
+        private const val PREF_Y         = "overlay_y"
+
         private val _currentFps = MutableStateFlow(0f)
         val currentFps: StateFlow<Float> = _currentFps
     }
-
-    private enum class FpsMethod { TASK_CALLBACK, DUMPSYS, SYSFS, NONE }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+
+        // Deteksi refresh rate device sekali saja
+        deviceRefreshRate = getDeviceRefreshRate()
+        Log.i(TAG, "Device refresh rate: $deviceRefreshRate Hz")
+
         buildOverlay()
         setupParams()
         setupDrag()
@@ -86,7 +94,7 @@ class FpsService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         monitoringJob?.cancel()
         isRunning = true
-        serviceScope.launch { resolveAndStart() }
+        serviceScope.launch { startMonitoring() }
         return START_STICKY
     }
 
@@ -94,18 +102,177 @@ class FpsService : Service() {
         isRunning = false
         mainHandler.removeCallbacksAndMessages(null)
         monitoringJob?.cancel()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) unregisterCallback()
-        if (activeMethod == FpsMethod.DUMPSYS) {
-            serviceScope.launch {
-                try { shell("dumpsys SurfaceFlinger --timestats -disable") } catch (_: Exception) {}
-            }
-        }
+        unregisterFpsCallback()
         serviceScope.cancel()
         if (::overlayView.isInitialized && overlayView.windowToken != null) {
             try { windowManager.removeView(overlayView) } catch (_: Exception) {}
         }
         super.onDestroy()
     }
+
+    // ── Monitoring utama ──────────────────────────────────────────────────────
+
+    private suspend fun startMonitoring() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            initTaskFpsCallback()
+            val taskId = getFocusedTaskId()
+            if (taskId > 0) registerFpsCallback(taskId)
+            // Jalankan task checker di main thread
+            mainHandler.post(taskCheckRunnable)
+        }
+        // Loop polling: update system info + ambil FPS dari callback
+        startPollingLoop()
+    }
+
+    private fun startPollingLoop() {
+        monitoringJob = serviceScope.launch {
+            while (coroutineContext.isActive && isRunning) {
+                val fps = getCurrentFps()
+                val snap = runCatching { SystemInfoReader.read(this@FpsService) }.getOrNull()
+                mainHandler.post { updateOverlay(fps, snap) }
+                delay(SAMPLE_MS)
+            }
+        }
+    }
+
+    /**
+     * Ambil FPS saat ini dari callback.
+     * - Kalau callback stale (tidak update > STALE_MS) → return 0 (tampil --)
+     * - Clamp ke deviceRefreshRate + toleransi kecil (5%) supaya tidak ngawur
+     */
+    private fun getCurrentFps(): Float {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return 0f
+        val now = System.currentTimeMillis()
+        val isStale = lastCallbackTime > 0 && (now - lastCallbackTime) > STALE_MS
+        if (isStale) {
+            callbackFps = 0f
+            return 0f
+        }
+        val raw = callbackFps
+        if (raw <= 0f) return 0f
+
+        // Clamp: tidak boleh melebihi refresh rate + 5% toleransi
+        val maxAllowed = deviceRefreshRate * 1.05f
+        val clamped = raw.coerceIn(1f, maxAllowed)
+
+        recordHistory(clamped)
+        return clamped
+    }
+
+    // ── TaskFpsCallback — direct API (bukan reflection) ───────────────────────
+
+    private fun initTaskFpsCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        // Sama persis dengan cara GameBarFpsMeter: langsung subclass TaskFpsCallback
+        taskFpsCallback = object : android.window.TaskFpsCallback() {
+            override fun onFpsReported(fps: Float) {
+                if (fps > 0f) {
+                    callbackFps = fps
+                    lastCallbackTime = System.currentTimeMillis()
+                }
+            }
+        }
+    }
+
+    private fun registerFpsCallback(taskId: Int) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        unregisterFpsCallback()
+        val cb = taskFpsCallback ?: return
+        try {
+            // Direct API — tidak pakai reflection
+            windowManager.registerTaskFpsCallback(taskId, Runnable::run, cb)
+            callbackRegistered = true
+            currentTaskId      = taskId
+            lastCallbackTime   = System.currentTimeMillis()
+            Log.i(TAG, "TaskFpsCallback registered for taskId=$taskId")
+        } catch (e: Exception) {
+            Log.e(TAG, "registerFpsCallback failed: ${e.message}")
+        }
+    }
+
+    private fun unregisterFpsCallback() {
+        if (!callbackRegistered) return
+        val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                windowManager.unregisterTaskFpsCallback(cb)
+            }
+        } catch (_: Exception) {}
+        callbackRegistered = false
+    }
+
+    // ── Task checker — re-register kalau task berubah atau stale ─────────────
+
+    private val taskCheckRunnable = object : Runnable {
+        override fun run() {
+            if (!isRunning || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+            val newId = getFocusedTaskId()
+            val now   = System.currentTimeMillis()
+            when {
+                // Task berganti → re-register ke task baru
+                newId > 0 && newId != currentTaskId -> {
+                    Log.d(TAG, "Task changed $currentTaskId → $newId, re-registering")
+                    reinitCallback(newId)
+                }
+                // Belum terdaftar padahal ada task → daftarkan
+                !callbackRegistered && newId > 0 -> {
+                    Log.d(TAG, "Callback not registered, registering for task $newId")
+                    registerFpsCallback(newId)
+                }
+                // Terdaftar tapi sudah stale → re-register
+                callbackRegistered && lastCallbackTime > 0 &&
+                    (now - lastCallbackTime) > STALE_MS -> {
+                    Log.d(TAG, "Callback stale, re-registering for task ${newId.takeIf { it > 0 } ?: currentTaskId}")
+                    reinitCallback(newId.takeIf { it > 0 } ?: currentTaskId)
+                }
+            }
+            mainHandler.postDelayed(this, TASK_CHECK_MS)
+        }
+    }
+
+    private fun reinitCallback(taskId: Int) {
+        unregisterFpsCallback()
+        // Delay sedikit sebelum re-register, sama seperti GameBar
+        mainHandler.postDelayed({ if (isRunning) registerFpsCallback(taskId) }, 500)
+    }
+
+    // ── getFocusedTaskId (reflection karena API internal) ─────────────────────
+
+    private fun getFocusedTaskId(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
+        return try {
+            val atm  = Class.forName("android.app.ActivityTaskManager")
+            val svc  = atm.getDeclaredMethod("getService").invoke(null)
+            val info = svc.javaClass.getMethod("getFocusedRootTaskInfo").invoke(svc) ?: return -1
+            try { info.javaClass.getField("taskId").getInt(info) }
+            catch (_: NoSuchFieldException) { info.javaClass.getField("mTaskId").getInt(info) }
+        } catch (_: Exception) { -1 }
+    }
+
+    // ── Refresh rate detection ─────────────────────────────────────────────────
+
+    private fun getDeviceRefreshRate(): Float {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                windowManager.currentWindowMetrics  // pastikan WM sudah init
+                // Ambil dari display modes
+                val display = windowManager.defaultDisplay
+                @Suppress("DEPRECATION")
+                display.supportedModes.maxOfOrNull { it.refreshRate } ?: 60f
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay.refreshRate
+            }.let { rate ->
+                // Sanity check: pastikan nilainya masuk akal
+                if (rate in 30f..360f) rate else 60f
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "getDeviceRefreshRate failed: ${e.message}, defaulting to 60")
+            60f
+        }
+    }
+
+    // ── Overlay UI ────────────────────────────────────────────────────────────
 
     private fun buildOverlay() {
         val density = resources.displayMetrics.density
@@ -149,11 +316,10 @@ class FpsService : Service() {
         fun row(lbl: String, tv: TextView): LinearLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity     = Gravity.CENTER_VERTICAL
-            val lp = LinearLayout.LayoutParams(
+            layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.setMargins(0, dp(1.5f), 0, dp(1.5f)) }
-            layoutParams = lp
             addView(label(lbl), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(tv)
         }
@@ -177,11 +343,10 @@ class FpsService : Service() {
         val fpsBlock = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity     = Gravity.CENTER
-            val lp = LinearLayout.LayoutParams(
+            layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.setMargins(0, 0, 0, dp(4f)) }
-            layoutParams = lp
             addView(tvFps)
             addView(fpsLabel)
         }
@@ -189,7 +354,7 @@ class FpsService : Service() {
         tvCpuUsage = value("--", "#58A6FF")
         tvCpuTemp  = value("--", "#FF6B6B")
         tvGpuUsage = value("--", "#CE93D8")
-        tvGpuFreq  = value("--", "#AB47BC")
+        // tvGpuFreq DIHAPUS
         tvRam      = value("--", "#26C6DA")
         tvBattery  = value("--", "#66BB6A")
         tvBatTemp  = value("--", "#80FFFFFF")
@@ -200,7 +365,7 @@ class FpsService : Service() {
         overlayView.addView(row("TMP", tvCpuTemp))
         overlayView.addView(divider())
         overlayView.addView(row("GPU", tvGpuUsage))
-        overlayView.addView(row("FRQ", tvGpuFreq))
+        // Row FRQ DIHAPUS
         overlayView.addView(divider())
         overlayView.addView(row("RAM", tvRam))
         overlayView.addView(divider())
@@ -263,150 +428,7 @@ class FpsService : Service() {
         })
     }
 
-    private suspend fun resolveAndStart() {
-        activeMethod = detectMethod()
-        Log.i(TAG, "FPS method resolved: $activeMethod")
-        if (activeMethod == FpsMethod.TASK_CALLBACK) startTaskCallback()
-        else startPolling()
-    }
-
-    private fun detectMethod(): FpsMethod {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && canUseTaskFpsCallback())
-            return FpsMethod.TASK_CALLBACK
-        return try {
-            val r = shell("dumpsys SurfaceFlinger --timestats -enable -clear")
-            if (r != null) FpsMethod.DUMPSYS
-            else if (findSysfsPath() != null) FpsMethod.SYSFS
-            else FpsMethod.NONE
-        } catch (_: Exception) {
-            if (findSysfsPath() != null) FpsMethod.SYSFS else FpsMethod.NONE
-        }
-    }
-
-    private fun canUseTaskFpsCallback(): Boolean {
-        return try {
-            Class.forName("android.window.TaskFpsCallback")
-            windowManager.javaClass.getMethod(
-                "registerTaskFpsCallback", Int::class.java,
-                java.util.concurrent.Executor::class.java,
-                Class.forName("android.window.TaskFpsCallback")
-            )
-            true
-        } catch (_: Exception) { false }
-    }
-
-    private fun startTaskCallback() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) { startPolling(); return }
-        taskFpsCallback = createTaskFpsCallback()
-        if (taskFpsCallback == null) {
-            Log.e(TAG, "TaskFpsCallback creation failed, falling back to DUMPSYS")
-            activeMethod = FpsMethod.DUMPSYS
-            startPolling(); return
-        }
-        val taskId = getFocusedTaskId()
-        if (taskId > 0) registerCallback(taskId)
-        else Log.w(TAG, "No focused task at start, will register via taskCheckRunnable")
-        mainHandler.post(taskCheckRunnable)
-        startPolling(fpsFromCallback = true)
-    }
-
-    private fun createTaskFpsCallback(): Any? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
-        return try {
-            TaskFpsCallbackFactory.create(
-                onFps = { fps ->
-                    if (fps > 0f) {
-                        callbackFps = fps
-                        lastCallbackTime = System.currentTimeMillis()
-                        recordHistory(fps)
-                    }
-                }
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "createTaskFpsCallback failed: ${e.message}")
-            null
-        }
-    }
-
-    private var _fpsCallbackInvoker: java.lang.reflect.InvocationHandler? = null
-
-    private fun registerCallback(taskId: Int) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        unregisterCallback()
-        val cb = taskFpsCallback ?: return
-        try {
-            val cbClass = Class.forName("android.window.TaskFpsCallback")
-            val register = windowManager.javaClass.getMethod(
-                "registerTaskFpsCallback",
-                Int::class.java,
-                java.util.concurrent.Executor::class.java,
-                cbClass
-            )
-            register.invoke(windowManager, taskId, java.util.concurrent.Executors.newSingleThreadExecutor(), cb)
-            callbackRegistered = true; currentTaskId = taskId
-            lastCallbackTime = System.currentTimeMillis()
-            Log.i(TAG, "TaskFpsCallback registered for taskId=$taskId")
-        } catch (e: Exception) { Log.e(TAG, "registerCallback failed: ${e.message}") }
-    }
-
-    private fun unregisterCallback() {
-        if (!callbackRegistered) return
-        val cb = taskFpsCallback ?: run { callbackRegistered = false; return }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val cbClass = Class.forName("android.window.TaskFpsCallback")
-                val unregister = windowManager.javaClass.getMethod("unregisterTaskFpsCallback", cbClass)
-                unregister.invoke(windowManager, cb)
-            }
-        } catch (_: Exception) {}
-        callbackRegistered = false
-    }
-
-    private fun startPolling(fpsFromCallback: Boolean = false) {
-        monitoringJob = serviceScope.launch {
-            if (!fpsFromCallback && activeMethod == FpsMethod.DUMPSYS) {
-                shell("dumpsys SurfaceFlinger --timestats -enable -clear")
-                delay(800)
-            }
-            while (coroutineContext.isActive && isRunning) {
-                val fps = when {
-                    fpsFromCallback -> {
-                        val stale = lastCallbackTime > 0 &&
-                            System.currentTimeMillis() - lastCallbackTime > STALE_MS
-                        if (stale) { callbackFps = 0f }
-                        callbackFps
-                    }
-                    activeMethod == FpsMethod.DUMPSYS -> readDumpsysFps()
-                    activeMethod == FpsMethod.SYSFS   -> readSysfsFps()
-                    else                              -> 0f
-                }
-                if (!fpsFromCallback) recordHistory(fps)
-                val snap = runCatching { SystemInfoReader.read(this@FpsService) }.getOrNull()
-                mainHandler.post { updateOverlay(fps, snap) }
-                delay(SAMPLE_MS)
-            }
-        }
-    }
-
-    private val taskCheckRunnable = object : Runnable {
-        override fun run() {
-            if (!isRunning || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-            val newId = getFocusedTaskId()
-            when {
-                newId > 0 && newId != currentTaskId -> reinitCallback(newId)
-                !callbackRegistered && newId > 0     -> registerCallback(newId)
-                callbackRegistered && lastCallbackTime > 0 &&
-                    System.currentTimeMillis() - lastCallbackTime > STALE_MS ->
-                        reinitCallback(newId.takeIf { it > 0 } ?: currentTaskId)
-            }
-            mainHandler.postDelayed(this, TASK_CHECK_MS)
-        }
-    }
-
-    private fun reinitCallback(taskId: Int) {
-        unregisterCallback()
-        mainHandler.postDelayed({ registerCallback(taskId) }, 500)
-    }
+    // ── Update overlay UI ─────────────────────────────────────────────────────
 
     private fun updateOverlay(fps: Float, snap: SystemSnapshot?) {
         val fpsInt = if (fps in 1f..360f) fps.roundToInt() else 0
@@ -414,10 +436,10 @@ class FpsService : Service() {
 
         tvFps.text = if (fpsInt > 0) "$fpsInt" else "--"
         tvFps.setTextColor(when {
+            fpsInt == 0      -> Color.parseColor("#80FFFFFF")
             fpsInt in 1..29  -> Color.parseColor("#FF5252")
             fpsInt in 30..54 -> Color.parseColor("#FFD740")
-            fpsInt >= 55     -> Color.parseColor("#69FF47")
-            else             -> Color.parseColor("#80FFFFFF")
+            else             -> Color.parseColor("#69FF47")
         })
 
         snap ?: return
@@ -443,8 +465,6 @@ class FpsService : Service() {
             else                    -> Color.parseColor("#CE93D8")
         })
 
-        tvGpuFreq.text = if (snap.gpuFreqMhz > 0) "${snap.gpuFreqMhz}M" else "--"
-
         val ramPct = if (snap.ramTotalMb > 0) snap.ramUsedMb * 100 / snap.ramTotalMb else 0L
         tvRam.text = if (snap.ramTotalMb > 0) "${snap.ramUsedMb}M" else "--"
         tvRam.setTextColor(when {
@@ -464,86 +484,13 @@ class FpsService : Service() {
         tvBatTemp.text = if (snap.batteryTempC > 0f) "${"%.0f".format(snap.batteryTempC)}°C" else "--"
     }
 
-    private fun readDumpsysFps(): Float {
-        return try {
-            val out = com.topjohnwu.superuser.Shell.cmd("dumpsys SurfaceFlinger --timestats -dump")
-                .exec().out.joinToString("\n")
-            com.topjohnwu.superuser.Shell.cmd("dumpsys SurfaceFlinger --timestats -clear -enable").exec()
-            val m1 = Pattern.compile("averageFPS\\s*[=:]\\s*([0-9]+\\.?[0-9]*)").matcher(out)
-            if (m1.find()) return m1.group(1)?.toFloatOrNull()?.takeIf { it in 1f..360f } ?: 0f
-            val m2 = Pattern.compile("fps[=:]\\s*([0-9]+\\.?[0-9]*)", Pattern.CASE_INSENSITIVE).matcher(out)
-            if (m2.find()) return m2.group(1)?.toFloatOrNull()?.takeIf { it in 1f..360f } ?: 0f
-            0f
-        } catch (_: Exception) { 0f }
-    }
-
-    private fun readSysfsFps(): Float {
-        val path = fpsFilePath ?: return 0f
-        return try {
-            val raw = com.topjohnwu.superuser.Shell.cmd("cat $path").exec().out.joinToString("").trim()
-            val cleaned = raw.lowercase()
-                .replace("fps","").replace("refresh","")
-                .replace("rate","").replace(":","").replace("=","").trim()
-            cleaned.toFloatOrNull()?.takeIf { it in 1f..360f } ?: 0f
-        } catch (_: Exception) { 0f }
-    }
-
-    private fun findSysfsPath(): String? {
-        val paths = listOf(
-            "/sys/class/drm/sde-crtc-0/measured_fps",
-            "/sys/class/graphics/fb0/measured_fps",
-            "/sys/class/drm/card0/sde-crtc-0/measured_fps",
-            "/sys/class/drm/card0/measured_fps",
-            "/sys/class/graphics/fb0/dynamic_fps",
-            "/sys/devices/platform/13000000.dispsys/fps",
-            "/sys/class/drm/card0/device/perf/fps",
-            "/sys/module/mali/parameters/fps",
-            "/sys/class/drm/sde-crtc-1/measured_fps"
-        )
-        for (path in paths) {
-            try {
-                val exists = com.topjohnwu.superuser.Shell.cmd("[ -r $path ] && echo 1 || echo 0")
-                    .exec().out.joinToString("").trim() == "1"
-                if (!exists) continue
-                val v = com.topjohnwu.superuser.Shell.cmd("cat $path").exec().out.joinToString("").trim()
-                if (v.isNotEmpty() && v.length < 20) { fpsFilePath = path; return path }
-            } catch (_: Exception) { continue }
-        }
-        return null
-    }
-
-    private fun getFocusedTaskId(): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
-        return try {
-            val atm  = Class.forName("android.app.ActivityTaskManager")
-            val svc  = atm.getDeclaredMethod("getService").invoke(null)
-            val info = svc.javaClass.getMethod("getFocusedRootTaskInfo").invoke(svc) ?: return -1
-            try { info.javaClass.getField("taskId").getInt(info) }
-            catch (_: NoSuchFieldException) { info.javaClass.getField("mTaskId").getInt(info) }
-        } catch (_: Exception) { -1 }
-    }
-
-    private fun shell(cmd: String): String? {
-        return try {
-            val r = com.topjohnwu.superuser.Shell.cmd(cmd).exec()
-            if (r.isSuccess) r.out.joinToString("\n") else null
-        } catch (_: Exception) { null }
-    }
+    // ── History ───────────────────────────────────────────────────────────────
 
     private fun recordHistory(fps: Float) {
         if (fps <= 0f) return
         synchronized(fpsHistory) {
             fpsHistory.add(fps)
             if (fpsHistory.size > maxHistory) fpsHistory.removeAt(0)
-        }
-    }
-}
-
-@androidx.annotation.RequiresApi(Build.VERSION_CODES.TIRAMISU)
-internal object TaskFpsCallbackFactory {
-    fun create(onFps: (Float) -> Unit): android.window.TaskFpsCallback {
-        return object : android.window.TaskFpsCallback() {
-            override fun onFpsReported(fps: Float) = onFps(fps)
         }
     }
 }

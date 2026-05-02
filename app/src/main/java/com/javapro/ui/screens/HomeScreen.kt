@@ -933,8 +933,6 @@ fun InfoItem(icon: ImageVector, title: String, value: String, modifier: Modifier
 }
 
 @Composable
-
-@Composable
 private fun MonitorRow(label: String, value: String, icon: ImageVector, color: Color) {
     Row(
         Modifier.fillMaxWidth(),

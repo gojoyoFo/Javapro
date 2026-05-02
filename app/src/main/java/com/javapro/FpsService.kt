@@ -6,12 +6,10 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -27,11 +25,8 @@ import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import com.javapro.utils.SystemInfoReader
 import kotlinx.coroutines.*
-import java.io.BufferedReader
-import java.io.File
-import java.io.FileReader
-import java.io.IOException
 
 class FpsService : Service() {
 
@@ -50,25 +45,18 @@ class FpsService : Service() {
     private lateinit var tvGpuLoad: TextView
     private lateinit var tvBatTemp: TextView
 
-    private var prevCpuIdle = -1L
-    private var prevCpuTotal = -1L
-    private val cpuLock = Any()
-
-    @Volatile private var cachedGpuUsagePath: String? = null
-    @Volatile private var gpuPathDetected = false
-
     private var detectedMode: FpsMode = FpsMode.STANDARD_NON_ROOT
 
+    // SMA untuk smoothing fps
     private val smaWindow = ArrayDeque<Float>(20)
-    private val smaSize = 15
+    private val smaSize = 10
     @Volatile private var smoothedFps = 0f
 
+    // FrameMetrics fallback
     private var bgThread: HandlerThread? = null
     private var bgHandler: Handler? = null
-
     private var frameMetricsListener: Window.OnFrameMetricsAvailableListener? = null
     private var frameMetricsAttached = false
-
     private val forcedInvalidateRunnable = object : Runnable {
         override fun run() {
             if (isRunning && frameMetricsAttached) {
@@ -78,17 +66,30 @@ class FpsService : Service() {
         }
     }
 
+    // Root check
     @Volatile private var isRootConfirmed = false
-    @Volatile private var rootCheckDone = false
+    @Volatile private var rootCheckDone   = false
+
+    // Timestats state: simpan totalFrames snapshot terakhir per layer
+    private val layerFrameSnapshot = mutableMapOf<String, Long>()
+    private var lastTimestatsMs = 0L
 
     companion object {
-        private const val TAG = "FpsService"
-        private const val POLL_MS = 800L
-        const val PREF_FILE = "overlay_prefs"
-        private const val PREF_X = "overlay_x"
-        private const val PREF_Y = "overlay_y"
+        private const val TAG      = "FpsService"
+        private const val POLL_MS  = 800L
+        const val  PREF_FILE       = "overlay_prefs"
+        private const val PREF_X   = "overlay_x"
+        private const val PREF_Y   = "overlay_y"
         private const val CHANNEL_ID = "fps_overlay_channel"
-        private const val NOTIF_ID = 9001
+        private const val NOTIF_ID   = 9001
+
+        // Layer yang harus di-skip (system UI, overlay kita sendiri)
+        private val LAYER_SKIP = listOf(
+            "NavigationBar", "StatusBar", "ScreenDecor",
+            "InputMethod", "com.javapro", "WallpaperSurface",
+            "pip-dismiss-overlay", "Splash Screen", "ShellDropTarget",
+            "PointerLocation", "mouse pointer"
+        )
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -102,11 +103,8 @@ class FpsService : Service() {
         buildOverlay()
         setupParams()
         setupDrag()
-        try {
-            windowManager.addView(overlayView, params)
-        } catch (e: Exception) {
-            Log.e(TAG, "addView failed: ${e.message}")
-        }
+        try { windowManager.addView(overlayView, params) }
+        catch (e: Exception) { Log.e(TAG, "addView failed: ${e.message}") }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -115,13 +113,7 @@ class FpsService : Service() {
             serviceScope.launch {
                 detectedMode = detectFpsMode()
                 Log.i(TAG, "FPS mode: $detectedMode")
-                when (detectedMode) {
-                    FpsMode.ROOT, FpsMode.SHIZUKU -> startShellFpsLoop()
-                    FpsMode.STANDARD_NON_ROOT -> {
-                        mainHandler.post { attachFrameMetrics() }
-                        startShellFpsLoop()
-                    }
-                }
+                startFpsLoop()
                 pollSystemStats()
             }
         }
@@ -140,16 +132,17 @@ class FpsService : Service() {
         super.onDestroy()
     }
 
+    // ─── Thread ──────────────────────────────────────────────────────────────
+
     private fun startBgThread() {
         bgThread = HandlerThread("FpsBgThread").also { it.start() }
         bgHandler = Handler(bgThread!!.looper)
     }
-
     private fun stopBgThread() {
-        bgThread?.quitSafely()
-        bgThread = null
-        bgHandler = null
+        bgThread?.quitSafely(); bgThread = null; bgHandler = null
     }
+
+    // ─── Mode detection ──────────────────────────────────────────────────────
 
     private suspend fun detectFpsMode(): FpsMode {
         if (hasRoot()) return FpsMode.ROOT
@@ -160,142 +153,204 @@ class FpsService : Service() {
     private fun hasRoot(): Boolean {
         if (rootCheckDone) return isRootConfirmed
         return try {
-            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "echo ok"))
-            val out = proc.inputStream.bufferedReader().readLine()?.trim()
-            proc.waitFor(); proc.destroy()
-            isRootConfirmed = out == "ok"
-            rootCheckDone = true
-            isRootConfirmed
-        } catch (_: Exception) {
-            rootCheckDone = true
-            false
-        }
+            val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "echo ok"))
+            val ok = p.inputStream.bufferedReader().readLine()?.trim() == "ok"
+            p.waitFor(); p.destroy()
+            isRootConfirmed = ok; rootCheckDone = true; ok
+        } catch (_: Exception) { rootCheckDone = true; false }
     }
 
     private fun isShizukuAvailable(): Boolean {
         return try {
-            val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
-            val isAlive = shizukuClass.getMethod("pingBinder").invoke(null) as? Boolean ?: false
-            if (!isAlive) return false
-            val result = shizukuClass.getMethod("checkSelfPermission").invoke(null) as? Int ?: -1
-            result == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val cls = Class.forName("rikka.shizuku.Shizuku")
+            val alive = cls.getMethod("pingBinder").invoke(null) as? Boolean ?: false
+            if (!alive) return false
+            val perm = cls.getMethod("checkSelfPermission").invoke(null) as? Int ?: -1
+            perm == android.content.pm.PackageManager.PERMISSION_GRANTED
         } catch (_: Exception) { false }
     }
 
-    private suspend fun startShellFpsLoop() {
+    // ─── FPS loop utama ──────────────────────────────────────────────────────
+
+    private suspend fun startFpsLoop() {
+        // Non-root: attach FrameMetrics sebagai last-resort fallback
+        if (detectedMode == FpsMode.STANDARD_NON_ROOT) {
+            mainHandler.post { attachFrameMetrics() }
+        }
+
         while (currentCoroutineContext().isActive && isRunning) {
-            val fps = when (detectedMode) {
-                FpsMode.ROOT     -> readFpsRoot()
-                FpsMode.SHIZUKU  -> readFpsShizuku()
-                FpsMode.STANDARD_NON_ROOT -> smoothedFps
-            }
+            val fps = readFps()
             if (fps > 0f) addToSma(fps)
             delay(POLL_MS)
         }
     }
 
-    private fun readFpsRoot(): Float {
-        val sfFps = readSurfaceFlingerServiceCall()
-        if (sfFps > 0f) return sfFps
-        val latencyFps = readSurfaceFlingerLatency(root = true)
-        if (latencyFps > 0f) return latencyFps
-        for (path in listOf(
-            "/sys/kernel/ged/hal/curr_fps",
-            "/sys/kernel/ged/hal/fps",
-            "/proc/mtk_mali/fps",
-            "/sys/class/drm/card0/fps"
-        )) {
-            val fps = readSysfsFpsRoot(path)
-            if (fps > 0f) return fps
+    /**
+     * Urutan prioritas:
+     * 1. dumpsys SurfaceFlinger --timestats  (root / shizuku / sh non-root)
+     * 2. /sys/kernel/ged sysfs              (root, MTK)
+     * 3. FrameMetrics                        (non-root last-resort)
+     */
+    private fun readFps(): Float {
+        val tsFps = readFpsTimestats()
+        if (tsFps > 0f) return tsFps
+
+        if (detectedMode == FpsMode.ROOT) {
+            for (path in listOf(
+                "/sys/kernel/ged/hal/curr_fps",
+                "/sys/kernel/ged/hal/fps",
+                "/proc/mtk_mali/fps"
+            )) {
+                val v = readSysfsFps(path)
+                if (v > 0f) return v
+            }
         }
-        return 0f
+
+        return smoothedFps  // dari FrameMetrics listener
     }
 
-    private fun readSurfaceFlingerServiceCall(): Float {
+    // ─── Timestats ───────────────────────────────────────────────────────────
+
+    /**
+     * Baca `dumpsys SurfaceFlinger --timestats -dump`.
+     * Hitung fps = delta(totalFrames) / delta(waktu).
+     *
+     * Berjalan di semua mode: su, shizuku, maupun sh biasa (banyak device
+     * mengizinkan dumpsys SurfaceFlinger tanpa root di Android < 12).
+     * Di Android 12+ non-root output mungkin terpotong tapi tetap ada data.
+     */
+    private fun readFpsTimestats(): Float {
         return try {
-            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "service call SurfaceFlinger 1013"))
-            val out = proc.inputStream.bufferedReader().readText().trim()
-            proc.waitFor(); proc.destroy()
-            if (out.isBlank()) return 0f
-            val match = Regex("\\(([0-9a-fA-F]+)\\)").find(out) ?: return 0f
-            val raw = java.lang.Long.parseLong(match.groupValues[1], 16)
-            if (raw <= 0L) return 0f
-            val fps = 1_000_000_000f / raw
+            val output = runDumpsys("SurfaceFlinger", "--timestats", "-dump")
+                ?: return 0f
+            if (output.isBlank()) return 0f
+
+            val nowMs = System.currentTimeMillis()
+            val elapsedMs = if (lastTimestatsMs > 0) nowMs - lastTimestatsMs else 0L
+            lastTimestatsMs = nowMs
+
+            val frameMap = parseTimestatsFrames(output)
+            if (frameMap.isEmpty()) return 0f
+
+            val bestLayer = pickForegroundLayer(frameMap.keys.toList()) ?: return 0f
+            val currentFrames = frameMap[bestLayer] ?: return 0f
+
+            val prevFrames = layerFrameSnapshot[bestLayer]
+            layerFrameSnapshot[bestLayer] = currentFrames
+
+            if (prevFrames == null || elapsedMs <= 0L) return 0f
+
+            val deltaFrames = currentFrames - prevFrames
+            if (deltaFrames <= 0L) return 0f
+
+            val fps = deltaFrames * 1000f / elapsedMs
+            Log.d(TAG, "timestats layer=$bestLayer fps=%.1f delta=$deltaFrames elapsed=${elapsedMs}ms".format(fps))
+
             if (fps in 1f..400f) fps else 0f
-        } catch (_: Exception) { 0f }
+        } catch (e: Exception) {
+            Log.w(TAG, "readFpsTimestats error: ${e.message}")
+            0f
+        }
     }
 
-    private fun readSurfaceFlingerLatency(root: Boolean): Float {
-        return try {
-            val cmd = "dumpsys SurfaceFlinger --latency SurfaceView"
-            val proc = if (root)
-                Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
-            else
-                Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
-            val lines = proc.inputStream.bufferedReader().readLines()
-            proc.waitFor(); proc.destroy()
+    private fun parseTimestatsFrames(output: String): Map<String, Long> {
+        val result = mutableMapOf<String, Long>()
+        var currentLayer: String? = null
 
-            val timestamps = mutableListOf<Long>()
-            for (line in lines) {
-                val parts = line.trim().split("\\s+".toRegex())
-                if (parts.size < 3) continue
-                val ts = parts[1].toLongOrNull() ?: continue
-                if (ts > 0L && ts != Long.MAX_VALUE) timestamps.add(ts)
+        for (line in output.lines()) {
+            val t = line.trim()
+            when {
+                // Format: "layerName = com.example/..." atau "Layer: ..."
+                t.startsWith("layerName = ") -> {
+                    currentLayer = t.removePrefix("layerName = ").trim()
+                }
+                t.startsWith("Layer: ") -> {
+                    currentLayer = t.removePrefix("Layer: ").trim()
+                }
+                // Format: "totalFrames = 1234"
+                t.startsWith("totalFrames = ") && currentLayer != null -> {
+                    val frames = t.removePrefix("totalFrames = ").trim().toLongOrNull()
+                    if (frames != null && frames > 0L) result[currentLayer!!] = frames
+                    currentLayer = null
+                }
             }
-            if (timestamps.size < 5) return 0f
-            val sorted = timestamps.sorted()
-            val deltas = (1 until sorted.size).mapNotNull { i ->
-                val d = (sorted[i] - sorted[i - 1]).toDouble()
-                if (d in 2_000_000.0..50_000_000.0) d else null
-            }
-            if (deltas.isEmpty()) return 0f
-            val fps = (1_000_000_000.0 / deltas.average()).toFloat()
-            if (fps in 1f..400f) fps else 0f
-        } catch (_: Exception) { 0f }
+        }
+        return result
     }
 
-    private fun readSysfsFpsRoot(path: String): Float {
-        return try {
-            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
-            val line = proc.inputStream.bufferedReader().readLine()?.trim()
-            proc.waitFor(); proc.destroy()
-            if (line.isNullOrEmpty()) return 0f
-            val raw = if (line.contains(":")) line.substringAfter(":").trim() else line
-            val v = raw.split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull() ?: return 0f
-            if (v in 1f..400f) v else 0f
-        } catch (_: Exception) { 0f }
+    /**
+     * Pilih layer foreground terbaik.
+     * Prioritas: SurfaceView (game) > package name > apapun selain system UI.
+     */
+    private fun pickForegroundLayer(layers: List<String>): String? {
+        if (layers.isEmpty()) return null
+
+        val filtered = layers.filter { layer ->
+            LAYER_SKIP.none { skip -> layer.contains(skip, ignoreCase = true) }
+        }
+        if (filtered.isEmpty()) return null
+
+        // Game/video pakai SurfaceView
+        filtered.firstOrNull { it.contains("SurfaceView", ignoreCase = true) }
+            ?.let { return it }
+
+        // Layer dengan package name (ada titik, bukan android system)
+        filtered.firstOrNull {
+            it.contains(".") &&
+            !it.contains("android", ignoreCase = true) &&
+            !it.contains("miui", ignoreCase = true)
+        }?.let { return it }
+
+        return filtered.first()
     }
 
-    private fun readFpsShizuku(): Float {
-        return try {
-            val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
-            val process = shizukuClass.getMethod(
-                "newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java
-            ).invoke(null,
-                arrayOf("dumpsys", "SurfaceFlinger", "--latency", "SurfaceView"),
-                null, null
-            ) as? Process ?: return 0f
-            val lines = process.inputStream.bufferedReader().readLines()
-            process.waitFor(); process.destroy()
+    // ─── Shell runner ────────────────────────────────────────────────────────
 
-            val timestamps = mutableListOf<Long>()
-            for (line in lines) {
-                val parts = line.trim().split("\\s+".toRegex())
-                if (parts.size < 3) continue
-                val ts = parts[1].toLongOrNull() ?: continue
-                if (ts > 0L && ts != Long.MAX_VALUE) timestamps.add(ts)
-            }
-            if (timestamps.size < 5) return 0f
-            val sorted = timestamps.sorted()
-            val deltas = (1 until sorted.size).mapNotNull { i ->
-                val d = (sorted[i] - sorted[i - 1]).toDouble()
-                if (d in 2_000_000.0..50_000_000.0) d else null
-            }
-            if (deltas.isEmpty()) return 0f
-            val fps = (1_000_000_000.0 / deltas.average()).toFloat()
-            if (fps in 1f..400f) fps else 0f
-        } catch (_: Exception) { 0f }
+    private fun runDumpsys(vararg args: String): String? {
+        return when (detectedMode) {
+            FpsMode.ROOT             -> runWithSu("dumpsys ${args.joinToString(" ")}")
+            FpsMode.SHIZUKU          -> runWithShizuku(args.toList())
+            FpsMode.STANDARD_NON_ROOT -> runWithSh("dumpsys ${args.joinToString(" ")}")
+        }
     }
+
+    private fun runWithSu(cmd: String): String? = try {
+        val p = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
+        val out = p.inputStream.bufferedReader().readText()
+        p.waitFor(); p.destroy()
+        out.takeIf { it.isNotBlank() }
+    } catch (_: Exception) { null }
+
+    private fun runWithSh(cmd: String): String? = try {
+        val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
+        val out = p.inputStream.bufferedReader().readText()
+        p.waitFor(); p.destroy()
+        out.takeIf { it.isNotBlank() }
+    } catch (_: Exception) { null }
+
+    private fun runWithShizuku(args: List<String>): String? = try {
+        val cls = Class.forName("rikka.shizuku.Shizuku")
+        val p = cls.getMethod(
+            "newProcess",
+            Array<String>::class.java,
+            Array<String>::class.java,
+            String::class.java
+        ).invoke(null, args.toTypedArray(), null, null) as? Process ?: return null
+        val out = p.inputStream.bufferedReader().readText()
+        p.waitFor(); p.destroy()
+        out.takeIf { it.isNotBlank() }
+    } catch (_: Exception) { null }
+
+    // ─── Sysfs FPS (MTK root) ────────────────────────────────────────────────
+
+    private fun readSysfsFps(path: String): Float = try {
+        val line = runWithSu("cat $path")?.trim() ?: return 0f
+        val raw  = if (line.contains(":")) line.substringAfter(":").trim() else line
+        val v    = raw.split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull() ?: return 0f
+        if (v in 1f..400f) v else 0f
+    } catch (_: Exception) { 0f }
+
+    // ─── FrameMetrics (non-root last resort) ────────────────────────────────
 
     private fun attachFrameMetrics() {
         if (frameMetricsAttached) return
@@ -312,55 +367,45 @@ class FpsService : Service() {
             return
         }
 
-        val listener = Window.OnFrameMetricsAvailableListener { _, frameMetrics, _ ->
-            val totalNs = frameMetrics.getMetric(FrameMetrics.TOTAL_DURATION)
-            if (totalNs <= 0L) return@OnFrameMetricsAvailableListener
-            val instantFps = 1_000_000_000f / totalNs
-            if (instantFps in 1f..400f) addToSma(instantFps)
+        val listener = Window.OnFrameMetricsAvailableListener { _, fm, _ ->
+            val ns = fm.getMetric(FrameMetrics.TOTAL_DURATION)
+            if (ns <= 0L) return@OnFrameMetricsAvailableListener
+            val f = 1_000_000_000f / ns
+            if (f in 1f..400f) addToSma(f)
         }
         frameMetricsListener = listener
 
         try {
-            val viewRootImpl = overlayView.javaClass.getMethod("getViewRootImpl").invoke(overlayView)
-            if (viewRootImpl != null) {
-                val attachInfoField = viewRootImpl.javaClass.getDeclaredField("mAttachInfo")
-                    .also { it.isAccessible = true }
-                val attachInfo = attachInfoField.get(viewRootImpl)
-                if (attachInfo != null) {
-                    val window = attachInfo.javaClass.getDeclaredField("mWindow")
-                        .also { it.isAccessible = true }
-                        .get(attachInfo) as? Window
-                    if (window != null) {
-                        window.addOnFrameMetricsAvailableListener(listener, bgHandler)
-                        frameMetricsAttached = true
-                        mainHandler.post(forcedInvalidateRunnable)
-                        Log.i(TAG, "FrameMetrics attached, forced invalidate started")
-                        return
-                    }
-                }
-            }
+            val vri = overlayView.javaClass.getMethod("getViewRootImpl").invoke(overlayView) ?: return
+            val ai  = vri.javaClass.getDeclaredField("mAttachInfo")
+                .also { it.isAccessible = true }.get(vri) ?: return
+            val win = ai.javaClass.getDeclaredField("mWindow")
+                .also { it.isAccessible = true }.get(ai) as? Window ?: return
+            win.addOnFrameMetricsAvailableListener(listener, bgHandler)
+            frameMetricsAttached = true
+            mainHandler.post(forcedInvalidateRunnable)
+            Log.i(TAG, "FrameMetrics attached")
         } catch (e: Exception) {
             Log.w(TAG, "FrameMetrics attach failed: ${e.message}")
         }
-        Log.w(TAG, "FrameMetrics unavailable on this device")
     }
 
     private fun detachFrameMetrics() {
         mainHandler.removeCallbacks(forcedInvalidateRunnable)
         val listener = frameMetricsListener ?: return
         try {
-            val viewRootImpl = overlayView.javaClass.getMethod("getViewRootImpl").invoke(overlayView) ?: return
-            val attachInfoField = viewRootImpl.javaClass.getDeclaredField("mAttachInfo")
-                .also { it.isAccessible = true }
-            val attachInfo = attachInfoField.get(viewRootImpl) ?: return
-            val window = attachInfo.javaClass.getDeclaredField("mWindow")
-                .also { it.isAccessible = true }
-                .get(attachInfo) as? Window
-            window?.removeOnFrameMetricsAvailableListener(listener)
+            val vri = overlayView.javaClass.getMethod("getViewRootImpl").invoke(overlayView) ?: return
+            val ai  = vri.javaClass.getDeclaredField("mAttachInfo")
+                .also { it.isAccessible = true }.get(vri) ?: return
+            val win = ai.javaClass.getDeclaredField("mWindow")
+                .also { it.isAccessible = true }.get(ai) as? Window ?: return
+            win.removeOnFrameMetricsAvailableListener(listener)
         } catch (_: Exception) {}
         frameMetricsAttached = false
         frameMetricsListener = null
     }
+
+    // ─── SMA ────────────────────────────────────────────────────────────────
 
     private fun addToSma(fps: Float) {
         synchronized(smaWindow) {
@@ -370,211 +415,27 @@ class FpsService : Service() {
         }
     }
 
+    // ─── System stats (delegate ke SystemInfoReader) ─────────────────────────
+
     private suspend fun pollSystemStats() {
-        readCpuFromProcStat()
+        // Warm-up 2x agar delta CPU valid
+        SystemInfoReader.read(this@FpsService)
         delay(500)
-        readCpuFromProcStat()
+        SystemInfoReader.read(this@FpsService)
         delay(500)
+
         while (currentCoroutineContext().isActive && isRunning) {
-            val fps = smoothedFps
-            val cpu = readCpuLoad()
-            val gpu = readGpuLoadAuto()
-            val bat = readBatteryTemp()
-            mainHandler.post { updateOverlay(fps, cpu, gpu, bat) }
+            val fps      = smoothedFps
+            val snapshot = SystemInfoReader.read(this@FpsService)
+            val cpu      = snapshot.cpuUsagePct.toInt()
+            val gpu      = snapshot.gpuUsagePct.toInt()
+            val batTemp  = snapshot.batteryTempC
+            mainHandler.post { updateOverlay(fps, cpu, gpu, batTemp) }
             delay(POLL_MS)
         }
     }
 
-    private fun readCpuLoad(): Int {
-        val fromProc = readCpuFromProcStat()
-        if (fromProc >= 0) return fromProc
-        return readCpuFromLoadAvg()
-    }
-
-    private fun readCpuFromProcStat(): Int {
-        return try {
-            val line = try {
-                File("/proc/stat").readLines().firstOrNull { it.startsWith("cpu ") }
-            } catch (_: Exception) {
-                Runtime.getRuntime().exec(arrayOf("sh", "-c", "cat /proc/stat"))
-                    .let { p -> p.inputStream.bufferedReader().readText().also { p.waitFor(); p.destroy() } }
-                    .lines().firstOrNull { it.startsWith("cpu ") }
-            } ?: return -1
-
-            val p = line.trim().split("\\s+".toRegex()).filter { it.isNotEmpty() }
-            if (p.size < 8) return -1
-            val user    = p[1].toLongOrNull() ?: return -1
-            val nice    = p[2].toLongOrNull() ?: return -1
-            val system  = p[3].toLongOrNull() ?: return -1
-            val idle    = p[4].toLongOrNull() ?: return -1
-            val iowait  = p[5].toLongOrNull() ?: 0L
-            val irq     = p[6].toLongOrNull() ?: 0L
-            val softirq = p[7].toLongOrNull() ?: 0L
-            val steal   = p.getOrNull(8)?.toLongOrNull() ?: 0L
-            val totalIdle = idle + iowait
-            val total = user + nice + system + totalIdle + irq + softirq + steal
-
-            synchronized(cpuLock) {
-                val prevT = prevCpuTotal
-                val prevI = prevCpuIdle
-                prevCpuTotal = total
-                prevCpuIdle = totalIdle
-                if (prevT < 0) return@synchronized -1
-                val dTotal = total - prevT
-                val dIdle = totalIdle - prevI
-                if (dTotal <= 0) return@synchronized -1
-                ((100f * (dTotal - dIdle) / dTotal).coerceIn(0f, 100f)).toInt()
-            }
-        } catch (_: Exception) { -1 }
-    }
-
-    private fun readCpuFromLoadAvg(): Int {
-        return try {
-            val line = BufferedReader(FileReader("/proc/loadavg")).use { it.readLine() } ?: return -1
-            val load = line.trim().split("\\s+".toRegex()).firstOrNull()?.toFloatOrNull() ?: return -1
-            val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
-            ((load / cores) * 100f).coerceIn(0f, 100f).toInt()
-        } catch (_: Exception) { -1 }
-    }
-
-    private fun readGpuLoadAuto(): Int {
-        if (hasRoot()) return readGpuViaShell()
-        val path = getGpuUsagePath()
-        if (path != null) return tryReadGpuUsage(path)
-        return -1
-    }
-
-    private fun readGpuViaShell(): Int {
-        val candidates = listOf(
-            "/sys/kernel/ged/hal/gpu_utilization",
-            "/proc/mtk_mali/utilization",
-            "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage",
-            "/sys/class/kgsl/kgsl-3d0/gpubusy",
-            "/sys/kernel/gpu/gpu_busy",
-            "/sys/class/misc/mali0/device/utilization",
-            "/sys/class/misc/mali0/device/utilization_pp",
-            "/sys/devices/platform/gpu/gpubusy"
-        )
-        val cached = if (gpuPathDetected) cachedGpuUsagePath else null
-        if (cached != null) {
-            val v = readGpuPathShell(cached)
-            if (v >= 0) return v
-            gpuPathDetected = false
-            cachedGpuUsagePath = null
-        }
-        for (path in candidates) {
-            val v = readGpuPathShell(path)
-            if (v >= 0) {
-                cachedGpuUsagePath = path
-                gpuPathDetected = true
-                return v
-            }
-        }
-        return readGpuDevfreqShell()
-    }
-
-    private fun readGpuPathShell(path: String): Int {
-        return try {
-            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
-            val line = proc.inputStream.bufferedReader().readLine()?.trim()
-            proc.waitFor(); proc.destroy()
-            if (line.isNullOrEmpty()) -1 else parseGpuLine(path, line)
-        } catch (_: Exception) { -1 }
-    }
-
-    private fun readGpuDevfreqShell(): Int {
-        return try {
-            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c",
-                "for d in /sys/class/devfreq/*; do n=\$(basename \$d | tr '[:upper:]' '[:lower:]'); " +
-                "case \$n in *gpu*|*kgsl*|*mali*|*mfg*) " +
-                "if [ -f \$d/gpu_busy_percentage ]; then cat \$d/gpu_busy_percentage && exit; fi; " +
-                "esac; done; echo -1"))
-            val line = proc.inputStream.bufferedReader().readLine()?.trim()
-            proc.waitFor(); proc.destroy()
-            line?.toIntOrNull()?.coerceIn(-1, 100) ?: -1
-        } catch (_: Exception) { -1 }
-    }
-
-    private fun getGpuUsagePath(): String? {
-        if (gpuPathDetected) return cachedGpuUsagePath
-        val candidates = listOf(
-            "/sys/kernel/ged/hal/gpu_utilization",
-            "/proc/mtk_mali/utilization",
-            "/sys/class/kgsl/kgsl-3d0/gpu_busy_percentage",
-            "/sys/class/kgsl/kgsl-3d0/gpubusy",
-            "/sys/kernel/gpu/gpu_busy",
-            "/sys/class/misc/mali0/device/utilization",
-            "/sys/class/misc/mali0/device/utilization_pp",
-            "/sys/devices/platform/gpu/gpubusy"
-        )
-        for (path in candidates) {
-            if (tryReadGpuUsage(path) >= 0) {
-                cachedGpuUsagePath = path
-                gpuPathDetected = true
-                return path
-            }
-        }
-        File("/sys/class/devfreq").takeIf { it.exists() }?.listFiles()?.forEach { dir ->
-            val n = dir.name.lowercase()
-            if (n.contains("gpu") || n.contains("kgsl") || n.contains("mali")) {
-                val f = File(dir, "trans_stat")
-                if (f.exists() && f.canRead()) {
-                    cachedGpuUsagePath = f.absolutePath
-                    gpuPathDetected = true
-                    return f.absolutePath
-                }
-            }
-        }
-        gpuPathDetected = true
-        cachedGpuUsagePath = null
-        return null
-    }
-
-    private fun tryReadGpuUsage(path: String): Int {
-        val line = readLine(path)?.trim() ?: return -1
-        if (line.isEmpty()) return -1
-        return parseGpuLine(path, line)
-    }
-
-    private fun parseGpuLine(path: String, line: String): Int {
-        return when {
-            path.contains("ged/hal/gpu_utilization") -> {
-                for (part in line.split("\\s+".toRegex())) {
-                    val v = part.replace("%", "").toIntOrNull() ?: continue
-                    if (v in 0..100) return v
-                }
-                -1
-            }
-            path.contains("mtk_mali/utilization") -> {
-                val after = if (line.contains(":")) line.substringAfter(":").trim() else line
-                val v = after.replace("%", "").split("\\s+".toRegex()).firstOrNull()?.toIntOrNull() ?: return -1
-                if (v in 0..100) v else -1
-            }
-            path.contains("kgsl") && path.contains("gpubusy") && !path.contains("percentage") -> {
-                val parts = line.split("\\s+".toRegex())
-                if (parts.size >= 2) {
-                    val num = parts[0].toLongOrNull() ?: return -1
-                    val den = parts[1].toLongOrNull() ?: return -1
-                    if (den > 0) ((num.toFloat() / den.toFloat()) * 100f).toInt().coerceIn(0, 100) else -1
-                } else -1
-            }
-            else -> {
-                val v = line.replace("%", "").split("\\s+".toRegex()).firstOrNull()?.toIntOrNull() ?: return -1
-                if (v in 0..100) v else -1
-            }
-        }
-    }
-
-    private fun readBatteryTemp(): Float {
-        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return 0f
-        return intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f
-    }
-
-    private fun readLine(path: String): String? {
-        return try { BufferedReader(FileReader(path)).use { it.readLine() } }
-        catch (_: IOException) { null }
-        catch (_: Exception) { null }
-    }
+    // ─── Overlay UI ──────────────────────────────────────────────────────────
 
     private fun updateOverlay(fps: Float, cpu: Int, gpu: Int, batTemp: Float) {
         val fpsInt = if (fps in 1f..400f) fps.toInt() else 0
@@ -610,7 +471,7 @@ class FpsService : Service() {
         fun dp(v: Float) = (v * d).toInt()
 
         val bg = GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
+            shape        = GradientDrawable.RECTANGLE
             cornerRadius = dp(16f).toFloat()
             setColor(Color.parseColor("#E0050810"))
             setStroke(dp(0.8f), Color.parseColor("#33FFFFFF"))
@@ -645,8 +506,7 @@ class FpsService : Service() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).also { it.setMargins(0, 0, 0, dp(6f)) }
-            addView(tvFps)
-            addView(fpsLabel)
+            addView(tvFps); addView(fpsLabel)
         }
 
         val divider = View(this).apply {
@@ -745,18 +605,19 @@ class FpsService : Service() {
         }
     }
 
+    // ─── Notification ─────────────────────────────────────────────────────────
+
     private fun createNotificationChannel() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "FPS Overlay", NotificationManager.IMPORTANCE_LOW).apply {
-                setShowBadge(false)
-                setSound(null, null)
+                setShowBadge(false); setSound(null, null)
             }
         )
     }
 
-    private fun buildNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun buildNotification(): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_battery_notif)
             .setContentTitle("FPS Monitor")
             .setContentText("Overlay aktif")
@@ -764,5 +625,4 @@ class FpsService : Service() {
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
-    }
 }

@@ -825,5 +825,8 @@
     <string name="screen_record_display_hz_badge">%1$dHz Screen</string>
     <string name="screen_record_fps_warn_exceed">Ang iyong screen ay %1$dHz — ang %2$sfps ay lumagpas sa kakayahan ng display. Ang mga na-record na frame ay magiging duplicate, hindi bagong data.</string>
     <string name="screen_record_fps_warn_equal">Ang iyong screen ay %1$dHz — ang %2$sfps ang pinakamataas para sa device na ito</string>
+    <string name="premium_google_account">Google Account</string>
+<string name="premium_email_copied">Nakopya ang email</string>
+<string name="premium_not_signed_in">Hindi naka-sign in sa Google</string>
 
 </resources>

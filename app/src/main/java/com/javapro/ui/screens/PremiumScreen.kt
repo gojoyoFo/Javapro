@@ -363,8 +363,9 @@ fun PremiumScreen(navController: NavController, lang: String) {
                         accentColor = accentWeekly,
                         buttonLabel = context.getString(R.string.action_buy),
                         onClick     = {
+                            val id  = googleUser?.email ?: ""
                             val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_weekly_msg, deviceId)
+                                context.getString(R.string.premium_buy_weekly_msg, id)
                             )
                             openTelegram(context, msg)
                         }
@@ -378,8 +379,9 @@ fun PremiumScreen(navController: NavController, lang: String) {
                         accentColor = accentMonthly,
                         buttonLabel = context.getString(R.string.action_buy),
                         onClick     = {
+                            val id  = googleUser?.email ?: ""
                             val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_monthly_msg, deviceId)
+                                context.getString(R.string.premium_buy_monthly_msg, id)
                             )
                             openTelegram(context, msg)
                         }
@@ -396,8 +398,9 @@ fun PremiumScreen(navController: NavController, lang: String) {
                         accentColor = Color(0xFFFF8F00),
                         buttonLabel = context.getString(R.string.action_buy),
                         onClick     = {
+                            val id  = googleUser?.email ?: ""
                             val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_yearly_msg, deviceId)
+                                context.getString(R.string.premium_buy_yearly_msg, id)
                             )
                             openTelegram(context, msg)
                         }
@@ -411,8 +414,9 @@ fun PremiumScreen(navController: NavController, lang: String) {
                         accentColor = accentPermanent,
                         buttonLabel = context.getString(R.string.action_buy),
                         onClick     = {
+                            val id  = googleUser?.email ?: ""
                             val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_permanent_msg, deviceId)
+                                context.getString(R.string.premium_buy_permanent_msg, id)
                             )
                             openTelegram(context, msg)
                         }
@@ -436,8 +440,9 @@ fun PremiumScreen(navController: NavController, lang: String) {
                         )
                         Button(
                             onClick  = {
+                                val id  = googleUser?.email ?: ""
                                 val msg = Uri.encode(
-                                    context.getString(R.string.premium_help_msg, deviceId)
+                                    context.getString(R.string.premium_help_msg, id)
                                 )
                                 openTelegram(context, msg)
                             },

@@ -825,5 +825,9 @@
     <string name="screen_record_display_hz_badge">%1$dHz स्क्रीन</string>
     <string name="screen_record_fps_warn_exceed">आपकी स्क्रीन %1$dHz है — %2$sfps आपकी डिस्प्ले की क्षमता से अधिक है। रिकॉर्ड किए गए फ्रेम डुप्लिकेट होंगे, नया डेटा नहीं।</string>
     <string name="screen_record_fps_warn_equal">आपकी स्क्रीन %1$dHz है — %2$sfps इस डिवाइस के लिए अधिकतम है। </string>
+    <string name="premium_google_account">Google खाता</string>
+<string name="premium_email_copied">ईमेल कॉपी हो गया</string>
+<string name="premium_not_signed_in">Google में साइन इन नहीं है</string>
+
 
 </resources>

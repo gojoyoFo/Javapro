@@ -822,5 +822,7 @@
 <string name="freeze_btn_check">检查</string>
 <string name="freeze_btn_freeze">冻结</string>
 <string name="freeze_btn_unfreeze">解冻</string>
-
+<string name="premium_google_account">谷歌账号</string>
+<string name="premium_email_copied">邮箱已复制</string>
+<string name="premium_not_signed_in">未登录谷歌账号</string>
 </resources>

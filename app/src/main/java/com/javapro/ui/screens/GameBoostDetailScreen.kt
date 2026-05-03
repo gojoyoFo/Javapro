@@ -187,14 +187,6 @@ fun GameBoostDetailScreen(
         if (!ok) Toast.makeText(context, context.getString(R.string.gameboost_game_not_found), Toast.LENGTH_SHORT).show()
     }
 
-    suspend fun applyBoost() {
-        GameBoostExecutor.applyBoost(
-            pkg      = packageName,
-            cfg      = buildConfig(),
-            isRooted = isRooted
-        )
-    }
-
     fun buildConfig() = GameBoostExecutor.BoostConfig(
         killBg        = killBgEnabled,
         prioritize    = prioritizeEnabled,
@@ -225,7 +217,13 @@ fun GameBoostDetailScreen(
         driver        = selectedDriver
     )
 
-
+    suspend fun applyBoost() {
+        GameBoostExecutor.applyBoost(
+            pkg      = packageName,
+            cfg      = buildConfig(),
+            isRooted = isRooted
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -265,7 +263,7 @@ fun GameBoostDetailScreen(
                         showAdSafe {
                             scope.launch {
                                 isBoosting = true
-                                withContext(Dispatchers.IO) { if (isBoostActive) stopBoost() else applyBoost() }
+                                withContext(Dispatchers.IO) { if (isBoostActive) GameBoostExecutor.stopBoost(packageName, isRooted) else applyBoost() }
                                 isBoostActive = !isBoostActive
                                 saveBoostState(context, packageName, isBoostActive)
                                 isBoosting = false

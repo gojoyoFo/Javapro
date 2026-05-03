@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "101180421336",
+    "project_id": "java-1ccdb",
+    "storage_bucket": "java-1ccdb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:101180421336:android:fd443c9049539cf0f553ad",
+        "android_client_info": {
+          "package_name": "com.javapro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5O0PjvhcP5pjEPOtn95de0y9AZ9c7zv8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

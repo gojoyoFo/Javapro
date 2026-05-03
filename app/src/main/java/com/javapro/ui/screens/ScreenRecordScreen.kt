@@ -458,7 +458,7 @@ fun ScreenRecordScreen(navController: NavController, lang: String) {
             try {
                 recorder.start()
             } catch (e: Exception) {
-                try { vDisplay.release() } catch (_: Exception) {}
+                try { vDisplay?.release() } catch (_: Exception) {}
                 try { recorder.release() } catch (_: Exception) {}
                 try { projection.stop() } catch (_: Exception) {}
                 withContext(Dispatchers.Main) {

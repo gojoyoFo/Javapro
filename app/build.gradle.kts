@@ -108,7 +108,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     implementation("com.google.firebase:firebase-analytics")

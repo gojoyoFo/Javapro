@@ -51,13 +51,12 @@ jobs:
       - name: Debug - Find fps_core binary
         if: always()
         run: |
-          echo "=== Searching for fps_core binary ==="
-          find app/build -name "fps_core" 2>/dev/null || echo "Not found in build/"
-          find app/.cxx  -name "fps_core" 2>/dev/null || echo "Not found in .cxx/"
-          echo "=== CMake output dirs ==="
-          find app/build/intermediates/cmake -type f 2>/dev/null | head -20 || echo "No cmake intermediates"
-          echo "=== Assets dir ==="
-          ls app/src/main/assets/ 2>/dev/null || echo "Assets dir empty or missing"
+          echo "=== .cxx directory structure ==="
+          find app/.cxx -type f 2>/dev/null | sort | head -50 || echo "No .cxx dir"
+          echo "=== build/intermediates/cmake ==="
+          find app/build/intermediates/cmake -type f 2>/dev/null | sort | head -30 || echo "No cmake intermediates"
+          echo "=== assets dir ==="
+          ls -la app/src/main/assets/ 2>/dev/null || echo "Assets empty"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

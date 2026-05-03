@@ -115,8 +115,8 @@ afterEvaluate {
     val assetsDir = file("src/main/assets")
 
     android.applicationVariants.forEach { variant ->
-        val variantName  = variant.name                                      // "release" / "debug"
-        val variantCap   = variantName.replaceFirstChar { it.uppercase() }   // "Release" / "Debug"
+        val variantName = variant.name
+        val variantCap  = variantName.replaceFirstChar { it.uppercase() }
 
         val copyTask = tasks.register("copyFpsCoreBinaries$variantCap") {
             group       = "javapro"
@@ -125,46 +125,58 @@ afterEvaluate {
             doLast {
                 assetsDir.mkdirs()
                 var anyFound = false
+
                 abis.forEach { abi ->
-                    // CMake output path yang benar di GitHub Actions & Android Studio
-                    val candidates = listOf(
-                        file("build/intermediates/cmake/$variantName/obj/$abi/fps_core"),
-                        file(".cxx/cmake/$variantName/$abi/fps_core"),
-                        file(".cxx/RelWithDebInfo/$abi/fps_core"),
-                        file(".cxx/Release/$abi/fps_core")
+                    // Cari binary secara rekursif di semua kemungkinan direktori CMake
+                    val searchRoots = listOf(
+                        file("build/intermediates/cmake"),
+                        file(".cxx")
                     )
-                    val src = candidates.firstOrNull { it.exists() }
+                    var src: File? = null
+                    for (root in searchRoots) {
+                        if (!root.exists()) continue
+                        src = root.walkTopDown()
+                            .filter { f ->
+                                f.name == "fps_core" &&
+                                f.isFile &&
+                                f.parentFile?.name == abi
+                            }
+                            .firstOrNull()
+                        if (src != null) break
+                    }
+
                     if (src != null) {
                         val dest = file("$assetsDir/fps_core_$abi")
                         src.copyTo(dest, overwrite = true)
-                        println("✓ Copied fps_core [$abi] → ${dest.name} (${src.length()} bytes)")
+                        println("✓ fps_core [$abi] → ${dest.name} (${src.length()} bytes) from ${src.path}")
                         anyFound = true
                     } else {
-                        println("⚠ fps_core not found for $abi, searched: ${candidates.map { it.path }}")
+                        println("⚠ fps_core not found for $abi")
+                        // Print semua file di .cxx untuk debug
+                        file(".cxx").walkTopDown()
+                            .filter { it.isFile }
+                            .take(30)
+                            .forEach { println("  found: ${it.path}") }
                     }
                 }
+
                 if (!anyFound) {
                     throw GradleException(
-                        "fps_core binary not found for any ABI. " +
-                        "Pastikan NDK terinstall dan CMakeLists.txt ada di src/main/cpp/"
+                        "fps_core binary not found. NDK terinstall? CMakeLists.txt ada di src/main/cpp/?"
                     )
                 }
             }
         }
 
-        // Dependensi: copyTask harus jalan SETELAH semua buildCMake tasks selesai
+        // Dependensi: jalan setelah semua CMake build tasks
         tasks.matching { t ->
-            t.name.lowercase().let { n ->
-                (n.startsWith("buildcmake") || n.startsWith("configurecmake") || n.startsWith("linkexternal")) &&
-                n.contains(variantName.lowercase())
-            }
+            val n = t.name.lowercase()
+            (n.startsWith("buildcmake") || n.startsWith("linkexternal")) &&
+            n.contains(variantName.lowercase())
         }.configureEach { finalizedBy(copyTask) }
 
-        // mergeAssets harus SETELAH copy selesai
         tasks.matching { it.name == "merge${variantCap}Assets" }
             .configureEach { dependsOn(copyTask) }
-
-        // generateAssets juga perlu tahu
         tasks.matching { it.name == "generate${variantCap}Assets" }
             .configureEach { dependsOn(copyTask) }
     }

@@ -828,4 +828,34 @@
     <string name="premium_google_account">Google Account</string>
 <string name="premium_email_copied">Email copied</string>
 <string name="premium_not_signed_in">Not signed in to Google</string>
+<string name="premium_login_required_to_buy">Please sign in with Google before purchasing</string>
+<string name="premium_payment_info_title">How to Pay</string>
+<string name="premium_payment_info_desc">You will be redirected to Sociabuzz. Make sure the message field is already filled. Premium will be activated automatically after successful payment.</string>
+<string name="payment_pending_title">Payment Status</string>
+<string name="payment_pending_checking">Checking payment…</string>
+<string name="payment_pending_waiting">Waiting for confirmation</string>
+<string name="payment_pending_desc">Your payment is being processed by the system. This usually takes a few seconds to a few minutes.</string>
+<string name="payment_pending_progress">Check %1$d of %2$d</string>
+<string name="payment_pending_package">Package</string>
+<string name="payment_pending_email">Email</string>
+
+<string name="payment_success_title">Premium Active! 🎉</string>
+<string name="payment_success_desc">Thank you! Your %1$s package is now active. Enjoy all JavaPro Pro features!</string>
+<string name="payment_success_btn">Start Using JavaPro Pro!</string>
+
+<string name="payment_notfound_title">Payment not detected yet</string>
+<string name="payment_notfound_desc">Don\'t panic! If you already paid, your payment will still be processed. Try checking again in a few minutes.</string>
+<string name="payment_retry_btn">Check Again Now</string>
+<string name="payment_back_btn">Back to Premium Page</string>
+
+<string name="payment_offhours_title">⚠️ Outside operational hours</string>
+<string name="payment_offhours_desc">Payments received outside 07:00–15:00 WIB (Mon–Fri) will be processed on the next working day from 07:00 WIB.\n\nSaturday &amp; Sunday processing can be faster.\n\nYour premium will still be activated, don\'t worry!</string>
+
+<string name="payment_steps_title">How the system works</string>
+<string name="payment_step1">You transfer on Saweria/Sociabuzz with the pre-filled message</string>
+<string name="payment_step2">The system automatically receives payment notification from Saweria/Sociabuzz</string>
+<string name="payment_step3">Email %1$s is instantly granted %2$s premium package</string>
+<string name="payment_step4">Reopen the Premium page in JavaPro to load the latest status</string>
+<string name="payment_steps_note">💡 Make sure you don\'t change the donation message so your email is automatically detected by the system.</string>
+
 </resources>

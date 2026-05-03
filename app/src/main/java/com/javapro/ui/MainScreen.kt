@@ -320,6 +320,16 @@ private fun NavContent(
         composable("settings")      { SettingScreen(prefManager, navController, lang) }
         composable("credits")       { CreditsScreen(navController) }
         composable("premium")       { PremiumScreen(navController = navController, lang = lang) }
+        composable("payment_pending/{packageType}/{email}") { backStackEntry ->
+            val packageType = backStackEntry.arguments?.getString("packageType") ?: ""
+            val email       = android.net.Uri.decode(backStackEntry.arguments?.getString("email") ?: "")
+            PaymentPendingScreen(
+                navController = navController,
+                packageType   = packageType,
+                email         = email,
+                lang          = lang
+            )
+        }
         composable("exclusive_features") { ExclusiveFeaturesScreen(navController = navController, prefManager = prefManager, lang = lang) }
         composable("debug_tools")   { DebugToolsScreen(navController = navController, prefManager = prefManager, lang = lang) }
         composable("screen_record") { ScreenRecordScreen(navController = navController, lang = lang) }

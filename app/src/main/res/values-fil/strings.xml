@@ -828,5 +828,34 @@
     <string name="premium_google_account">Google Account</string>
 <string name="premium_email_copied">Nakopya ang email</string>
 <string name="premium_not_signed_in">Hindi naka-sign in sa Google</string>
+<string name="premium_login_required_to_buy">Mag-sign in muna gamit ang Google bago bumili</string>
+<string name="premium_payment_info_title">Paraan ng Pagbabayad</string>
+<string name="premium_payment_info_desc">Ire-redirect ka sa Sociabuzz. Siguraduhing napuno na ang mensahe. Awtomatikong ma-a-activate ang premium pagkatapos ng matagumpay na pagbabayad.</string>
+<string name="payment_pending_title">Status ng Bayad</string>
+<string name="payment_pending_checking">Sinusuri ang bayad…</string>
+<string name="payment_pending_waiting">Naghihintay ng kumpirmasyon</string>
+<string name="payment_pending_desc">Ang iyong bayad ay pinoproseso ng sistema. Karaniwang tumatagal ito ng ilang segundo hanggang ilang minuto.</string>
+<string name="payment_pending_progress">Pagsusuri %1$d ng %2$d</string>
+<string name="payment_pending_package">Package</string>
+<string name="payment_pending_email">Email</string>
+
+<string name="payment_success_title">Premium Aktibo Na! 🎉</string>
+<string name="payment_success_desc">Salamat! Ang iyong %1$s package ay aktibo na. I-enjoy ang lahat ng features ng JavaPro Pro!</string>
+<string name="payment_success_btn">Simulan ang JavaPro Pro!</string>
+
+<string name="payment_notfound_title">Hindi pa natutukoy ang bayad</string>
+<string name="payment_notfound_desc">Huwag mag-alala! Kung nagbayad ka na, maisasagawa pa rin ang iyong bayad. Subukang suriin muli pagkatapos ng ilang minuto.</string>
+<string name="payment_retry_btn">Suriin Muli Ngayon</string>
+<string name="payment_back_btn">Bumalik sa Premium Page</string>
+
+<string name="payment_offhours_title">⚠️ Labas ng oras ng operasyon</string>
+<string name="payment_offhours_desc">Ang mga bayad na natanggap sa labas ng 07:00–15:00 WIB (Lun–Biy) ay ipoproseso sa susunod na araw ng trabaho mula 07:00 WIB.\n\nAng Sabado at Linggo ay maaaring mas mabilis.\n\nAng iyong premium ay maa-activate pa rin, huwag mag-alala!</string>
+
+<string name="payment_steps_title">Paano gumagana ang sistema</string>
+<string name="payment_step1">Mag-transfer sa Saweria/Sociabuzz gamit ang paunang nakalagay na mensahe</string>
+<string name="payment_step2">Awtomatikong tinatanggap ng sistema ang notification mula sa Saweria/Sociabuzz</string>
+<string name="payment_step3">Ang email na %1$s ay agad bibigyan ng %2$s premium package</string>
+<string name="payment_step4">Buksan muli ang Premium page sa JavaPro para ma-load ang pinakabagong status</string>
+<string name="payment_steps_note">💡 Siguraduhing hindi mo binabago ang mensahe ng donasyon para awtomatikong matukoy ng sistema ang iyong email.</string>
 
 </resources>

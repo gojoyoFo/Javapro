@@ -828,6 +828,35 @@
     <string name="premium_google_account">Google खाता</string>
 <string name="premium_email_copied">ईमेल कॉपी हो गया</string>
 <string name="premium_not_signed_in">Google में साइन इन नहीं है</string>
+<string name="premium_login_required_to_buy">खरीदने से पहले Google से साइन इन करें</string>
+<string name="premium_payment_info_title">भुगतान का तरीका</string>
+<string name="premium_payment_info_desc">आपको Sociabuzz पर भेजा जाएगा। सुनिश्चित करें कि संदेश फ़ील्ड भरा हुआ है। सफल भुगतान के बाद प्रीमियम स्वचालित रूप से सक्रिय हो जाएगा।</string>
+<string name="payment_pending_title">भुगतान स्थिति</string>
+<string name="payment_pending_checking">भुगतान जांचा जा रहा है…</string>
+<string name="payment_pending_waiting">पुष्टि का इंतजार है</string>
+<string name="payment_pending_desc">आपका भुगतान सिस्टम द्वारा प्रोसेस किया जा रहा है। इसमें आमतौर पर कुछ सेकंड से कुछ मिनट लगते हैं।</string>
+<string name="payment_pending_progress">जांच %1$d / %2$d</string>
+<string name="payment_pending_package">पैकेज</string>
+<string name="payment_pending_email">ईमेल</string>
+
+<string name="payment_success_title">प्रीमियम सक्रिय! 🎉</string>
+<string name="payment_success_desc">धन्यवाद! आपका %1$s पैकेज अब सक्रिय है। JavaPro Pro की सभी सुविधाओं का आनंद लें!</string>
+<string name="payment_success_btn">JavaPro Pro शुरू करें!</string>
+
+<string name="payment_notfound_title">भुगतान अभी तक नहीं मिला</string>
+<string name="payment_notfound_desc">घबराएं नहीं! अगर आपने भुगतान कर दिया है, तो इसे अभी भी प्रोसेस किया जाएगा। कुछ मिनट बाद फिर से जांचें।</string>
+<string name="payment_retry_btn">अभी फिर से जांचें</string>
+<string name="payment_back_btn">प्रीमियम पेज पर वापस जाएं</string>
+
+<string name="payment_offhours_title">⚠️ कार्य समय के बाहर</string>
+<string name="payment_offhours_desc">07:00–15:00 WIB (सोम–शुक्र) के बाहर प्राप्त भुगतान अगले कार्य दिवस पर 07:00 WIB से प्रोसेस किए जाएंगे।\n\nशनिवार और रविवार को प्रोसेसिंग तेज़ हो सकती है।\n\nआपका प्रीमियम अभी भी सक्रिय होगा, चिंता न करें!</string>
+
+<string name="payment_steps_title">सिस्टम कैसे काम करता है</string>
+<string name="payment_step1">पहले से भरे संदेश के साथ Saweria/Sociabuzz पर ट्रांसफर करें</string>
+<string name="payment_step2">सिस्टम Saweria/Sociabuzz से स्वचालित रूप से भुगतान अधिसूचना प्राप्त करता है</string>
+<string name="payment_step3">ईमेल %1$s को तुरंत %2$s प्रीमियम पैकेज दिया जाता है</string>
+<string name="payment_step4">नवीनतम स्थिति लोड करने के लिए JavaPro में प्रीमियम पेज दोबारा खोलें</string>
+<string name="payment_steps_note">💡 दान संदेश न बदलें ताकि सिस्टम स्वचालित रूप से आपका ईमेल पहचान सके।</string>
 
 
 </resources>

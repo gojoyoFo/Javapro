@@ -353,37 +353,57 @@ fun PremiumScreen(navController: NavController, lang: String) {
 
                 Text(stringResource(R.string.premium_choose_package), fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
+                val email = googleUser?.email ?: ""
+
+                if (email.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors   = CardDefaults.cardColors(containerColor = Color(0xFFEF5350).copy(alpha = 0.1f)),
+                        border   = BorderStroke(1.dp, Color(0xFFEF5350).copy(alpha = 0.5f)),
+                        shape    = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier              = Modifier.padding(14.dp),
+                            verticalAlignment     = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, null, tint = Color(0xFFEF5350), modifier = Modifier.size(20.dp))
+                            Text(
+                                stringResource(R.string.premium_login_required_to_buy),
+                                fontSize = 13.sp,
+                                color    = Color(0xFFEF5350)
+                            )
+                        }
+                    }
+                }
+
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     PremiumPackageCard(
                         modifier    = Modifier.weight(1f),
                         title       = "Plus",
-                        price = context.getString(R.string.premium_price_weekly),
-                        duration = context.getString(R.string.premium_7days),
+                        price       = context.getString(R.string.premium_price_weekly),
+                        duration    = context.getString(R.string.premium_7days),
                         icon        = Icons.Default.EventAvailable,
                         accentColor = accentWeekly,
                         buttonLabel = context.getString(R.string.action_buy),
+                        enabled     = email.isNotEmpty(),
                         onClick     = {
-                            val id  = googleUser?.email ?: ""
-                            val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_weekly_msg, id)
-                            )
-                            openTelegram(context, msg)
+                            openPayment(context, email, "weekly")
+                            navController.navigate("payment_pending/weekly/${Uri.encode(email)}")
                         }
                     )
                     PremiumPackageCard(
                         modifier    = Modifier.weight(1f),
                         title       = "Plus+",
-                        price = context.getString(R.string.premium_price_monthly),
-                        duration = context.getString(R.string.premium_30days),
+                        price       = context.getString(R.string.premium_price_monthly),
+                        duration    = context.getString(R.string.premium_30days),
                         icon        = Icons.Default.CalendarToday,
                         accentColor = accentMonthly,
                         buttonLabel = context.getString(R.string.action_buy),
+                        enabled     = email.isNotEmpty(),
                         onClick     = {
-                            val id  = googleUser?.email ?: ""
-                            val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_monthly_msg, id)
-                            )
-                            openTelegram(context, msg)
+                            openPayment(context, email, "monthly")
+                            navController.navigate("payment_pending/monthly/${Uri.encode(email)}")
                         }
                     )
                 }
@@ -392,67 +412,49 @@ fun PremiumScreen(navController: NavController, lang: String) {
                     PremiumPackageCard(
                         modifier    = Modifier.weight(1f),
                         title       = "Plus\u2605",
-                        price = context.getString(R.string.premium_price_yearly),
-                        duration = context.getString(R.string.premium_365days),
+                        price       = context.getString(R.string.premium_price_yearly),
+                        duration    = context.getString(R.string.premium_365days),
                         icon        = Icons.Default.AutoAwesome,
                         accentColor = Color(0xFFFF8F00),
                         buttonLabel = context.getString(R.string.action_buy),
+                        enabled     = email.isNotEmpty(),
                         onClick     = {
-                            val id  = googleUser?.email ?: ""
-                            val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_yearly_msg, id)
-                            )
-                            openTelegram(context, msg)
+                            openPayment(context, email, "yearly")
+                            navController.navigate("payment_pending/yearly/${Uri.encode(email)}")
                         }
                     )
                     PremiumPackageCard(
                         modifier    = Modifier.weight(1f),
                         title       = "King",
-                        price = context.getString(R.string.premium_price_permanent),
+                        price       = context.getString(R.string.premium_price_permanent),
                         duration    = "∞",
                         icon        = Icons.Default.AllInclusive,
                         accentColor = accentPermanent,
                         buttonLabel = context.getString(R.string.action_buy),
+                        enabled     = email.isNotEmpty(),
                         onClick     = {
-                            val id  = googleUser?.email ?: ""
-                            val msg = Uri.encode(
-                                context.getString(R.string.premium_buy_permanent_msg, id)
-                            )
-                            openTelegram(context, msg)
+                            openPayment(context, email, "permanent")
+                            navController.navigate("payment_pending/permanent/${Uri.encode(email)}")
                         }
                     )
                 }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                Text(stringResource(R.string.premium_key_activation_title), fontWeight = FontWeight.Bold, fontSize = 16.sp)
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     shape    = RoundedCornerShape(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            stringResource(R.string.premium_activation_info),
-                            fontSize = 13.sp,
-                            color    = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Button(
-                            onClick  = {
-                                val id  = googleUser?.email ?: ""
-                                val msg = Uri.encode(
-                                    context.getString(R.string.premium_help_msg, id)
-                                )
-                                openTelegram(context, msg)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape    = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Default.Send, null, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.action_request_activation))
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            Text(stringResource(R.string.premium_payment_info_title), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
+                        Text(
+                            stringResource(R.string.premium_payment_info_desc),
+                            fontSize   = 12.sp,
+                            color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
                     }
                 }
             }
@@ -496,6 +498,7 @@ private fun PremiumPackageCard(
     icon        : ImageVector,
     accentColor : Color,
     buttonLabel : String,
+    enabled     : Boolean = true,
     onClick     : () -> Unit
 ) {
     val context = LocalContext.current
@@ -546,7 +549,7 @@ private fun PremiumPackageCard(
                     )
                 )
             )
-            .clickable { onClick() }
+            .clickable(enabled = enabled) { onClick() }
     ) {
         Box(
             Modifier
@@ -611,14 +614,14 @@ private fun PremiumPackageCard(
 
             Surface(
                 shape  = RoundedCornerShape(10.dp),
-                color  = accentColor,
+                color  = if (enabled) accentColor else MaterialTheme.colorScheme.surfaceContainerHigh,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     buttonLabel,
                     modifier   = Modifier.padding(vertical = 8.dp),
                     fontSize   = 13.sp,
-                    color      = Color.White,
+                    color      = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                     textAlign  = TextAlign.Center
                 )
@@ -642,11 +645,37 @@ private fun PremiumPackageCard(
     }
 }
 
-private fun openTelegram(context: Context, encodedMessage: String) {
-    val url = "https://t.me/Java_nih_deks?text=$encodedMessage"
+private fun openPayment(context: Context, email: String, packageType: String) {
+    // Harga dalam IDR sesuai PACKAGES di payment-webhook.js
+    val amountIdr = when (packageType) {
+        "weekly"    -> 15000
+        "monthly"   -> 30000
+        "yearly"    -> 75000
+        "permanent" -> 150000
+        else        -> 0
+    }
+    // Pesan otomatis berisi email — server baca dari sini untuk grant premium
+    val message = Uri.encode("$packageType|$email")
+
+    // Deteksi apakah user Indonesia atau luar
+    // Sederhana: cek locale device. Bisa dikembangkan lebih lanjut.
+    val isIndonesia = java.util.Locale.getDefault().country == "ID"
+
+    val url = if (isIndonesia) {
+        "https://saweria.co/Javakids?amount=$amountIdr&message=$message"
+    } else {
+        // Sociabuzz amount dalam USD — konversi kasar, Sociabuzz handle sisanya
+        val amountUsd = when (packageType) {
+            "weekly"    -> 1
+            "monthly"   -> 2
+            "yearly"    -> 5
+            "permanent" -> 10
+            else        -> 1
+        }
+        "https://sociabuzz.com/javakids/tribe?amount=$amountUsd&message=$message"
+    }
+
     runCatching {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-    }.onFailure {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Java_nih_deks")))
     }
 }

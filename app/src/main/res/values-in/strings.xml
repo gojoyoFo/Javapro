@@ -828,4 +828,34 @@
     <string name="premium_google_account">Akun Google</string>
 <string name="premium_email_copied">Email disalin</string>
 <string name="premium_not_signed_in">Belum login akun Google</string>
+<string name="premium_login_required_to_buy">Login dengan Google dulu untuk membeli paket premium</string>
+<string name="premium_payment_info_title">Cara Pembayaran</string>
+<string name="premium_payment_info_desc">Kamu akan diarahkan ke Saweria (Indonesia) atau Sociabuzz (luar negeri). Masukkan nominalnya dan pastikan pesan sudah terisi. Premium aktif otomatis setelah pembayaran berhasil.</string>
+<string name="payment_pending_title">Status Pembayaran</string>
+<string name="payment_pending_checking">Memeriksa pembayaran…</string>
+<string name="payment_pending_waiting">Menunggu konfirmasi</string>
+<string name="payment_pending_desc">Pembayaran kamu sedang diproses oleh sistem. Ini biasanya memakan waktu beberapa detik hingga beberapa menit.</string>
+<string name="payment_pending_progress">Pengecekan ke-%1$d dari %2$d</string>
+<string name="payment_pending_package">Paket</string>
+<string name="payment_pending_email">Email</string>
+
+<string name="payment_success_title">Premium Aktif! 🎉</string>
+<string name="payment_success_desc">Terima kasih! Paket %1$s kamu sudah aktif. Selamat menikmati semua fitur JavaPro Pro!</string>
+<string name="payment_success_btn">Mulai Pakai JavaPro Pro!</string>
+
+<string name="payment_notfound_title">Pembayaran belum terdeteksi</string>
+<string name="payment_notfound_desc">Jangan panik! Kalau kamu sudah bayar, pembayaran akan tetap diproses. Coba cek ulang beberapa menit lagi.</string>
+<string name="payment_retry_btn">Cek Ulang Sekarang</string>
+<string name="payment_back_btn">Kembali ke Halaman Premium</string>
+
+<string name="payment_offhours_title">⚠️ Di luar jam operasional</string>
+<string name="payment_offhours_desc">Pembayaran yang masuk di luar jam 07.00–15.00 WIB (Senin–Jumat) akan diproses pada hari kerja berikutnya mulai jam 07.00 WIB.\n\nSabtu &amp; Minggu proses bisa lebih cepat.\n\nPremium kamu tetap akan aktif, tenang saja!</string>
+
+<string name="payment_steps_title">Cara kerja sistem</string>
+<string name="payment_step1">Kamu transfer di Saweria/Sociabuzz dengan pesan yang sudah terisi otomatis</string>
+<string name="payment_step2">Sistem menerima notifikasi pembayaran dari Saweria/Sociabuzz secara otomatis</string>
+<string name="payment_step3">Email %1$s langsung di-grant premium paket %2$s</string>
+<string name="payment_step4">Buka ulang halaman Premium di JavaPro untuk memuat status terbaru</string>
+<string name="payment_steps_note">💡 Pastikan pesan donasi tidak diubah agar email kamu terdeteksi otomatis oleh sistem.</string>
+
 </resources>

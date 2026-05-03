@@ -825,4 +825,34 @@
 <string name="premium_google_account">谷歌账号</string>
 <string name="premium_email_copied">邮箱已复制</string>
 <string name="premium_not_signed_in">未登录谷歌账号</string>
+<string name="premium_login_required_to_buy">购买前请先登录 Google 账号</string>
+<string name="premium_payment_info_title">付款方式</string>
+<string name="premium_payment_info_desc">您将被重定向到 Sociabuzz。请确保消息栏已填写。付款成功后，高级版将自动激活。</string>
+<string name="payment_pending_title">付款状态</string>
+<string name="payment_pending_checking">正在核查付款…</string>
+<string name="payment_pending_waiting">等待确认</string>
+<string name="payment_pending_desc">您的付款正在系统处理中，通常需要几秒到几分钟。</string>
+<string name="payment_pending_progress">第 %1$d 次检查，共 %2$d 次</string>
+<string name="payment_pending_package">套餐</string>
+<string name="payment_pending_email">电子邮件</string>
+
+<string name="payment_success_title">高级版已激活！🎉</string>
+<string name="payment_success_desc">感谢您！您的 %1$s 套餐已激活。尽情享受 JavaPro Pro 的所有功能！</string>
+<string name="payment_success_btn">开始使用 JavaPro Pro！</string>
+
+<string name="payment_notfound_title">尚未检测到付款</string>
+<string name="payment_notfound_desc">请勿担心！如果您已付款，付款仍将被处理。请几分钟后再次检查。</string>
+<string name="payment_retry_btn">立即重新检查</string>
+<string name="payment_back_btn">返回高级版页面</string>
+
+<string name="payment_offhours_title">⚠️ 超出营业时间</string>
+<string name="payment_offhours_desc">在 07:00–15:00 WIB（周一至周五）以外收到的付款将在下一个工作日 07:00 WIB 起处理。\n\n周六和周日处理可能更快。\n\n您的高级版仍将激活，请放心！</string>
+
+<string name="payment_steps_title">系统工作原理</string>
+<string name="payment_step1">通过 Saweria/Sociabuzz 转账，消息已自动填写</string>
+<string name="payment_step2">系统自动接收来自 Saweria/Sociabuzz 的付款通知</string>
+<string name="payment_step3">电子邮件 %1$s 立即获得 %2$s 高级套餐</string>
+<string name="payment_step4">重新打开 JavaPro 中的高级版页面以加载最新状态</string>
+<string name="payment_steps_note">💡 请确保不要更改捐款消息，以便系统自动识别您的电子邮件。</string>
+
 </resources>

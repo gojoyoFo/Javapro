@@ -309,7 +309,11 @@ private fun NavContent(
         composable("gameboost_detail/{packageName}/{lang}") { backStackEntry ->
             val pkg        = backStackEntry.arguments?.getString("packageName") ?: ""
             val detailLang = backStackEntry.arguments?.getString("lang") ?: "en"
-            GameBoostDetailScreen(navController, pkg, detailLang, onShowAd = { onGranted -> onShowAd(AdManager.SLOT_APPPROFILE, onGranted) })
+            GameBoostDetailScreen(navController, pkg, detailLang, prefManager, onShowAd = { onGranted -> onShowAd(AdManager.SLOT_APPPROFILE, onGranted) })
+        }
+        composable("cloud_configs/{packageName}") { backStackEntry ->
+            val pkg = backStackEntry.arguments?.getString("packageName") ?: ""
+            CloudConfigsScreen(navController, pkg, prefManager)
         }
         composable("tweaks")        { TweakScreen(lang, navController, onShowAd = { onGranted -> onShowAd(AdManager.SLOT_ADVANCED, onGranted) }) }
         composable("memory_screen") { MemoryScreen(navController, lang, onShowAd = { onGranted -> onShowAd(AdManager.SLOT_GENERAL, onGranted) }) }

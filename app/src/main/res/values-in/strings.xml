@@ -769,4 +769,24 @@
     <string name="home_fps_off">MATI</string>
     <string name="home_fps_monitor_off">Monitor FPS MATI</string>
     <string name="fps_usage_stats_required">Izin Akses Penggunaan diperlukan untuk mode FPS Non-Root. Silakan aktifkan di layar berikutnya.</string>
+    <string name="cloud_title">Cloud Config</string>
+    <string name="cloud_subtitle">Tweak Komunitas</string>
+    <string name="upload_config">Upload Config Saya</string>
+    <string name="cloud_empty">Belum ada config tersedia</string>
+    <string name="cloud_apply_btn">Unduh &amp; Terapkan</string>
+    <string name="cloud_limit_reached">Batas harian tercapai</string>
+    <string name="cloud_limit_info">Anda dapat mengunduh maksimal %d config per hari untuk menjaga stabilitas server.</string>
+    <string name="cloud_premium_title">Fitur Premium</string>
+    <string name="cloud_premium_desc">Cloud Config adalah fitur eksklusif untuk pengguna Pro. Upgrade sekarang untuk mengakses ratusan tweak performa dari komunitas.</string>
+    <string name="cloud_perk_1">Akses semua config komunitas</string>
+    <string name="cloud_perk_2">Upload config milik Anda sendiri</string>
+    <string name="cloud_perk_3">Unduh hingga 5 config per hari</string>
+    <string name="cloud_upgrade_btn">Upgrade ke Pro</string>
+    <string name="cloud_maybe_later">Nanti saja</string>
+    <string name="cloud_config_name">Nama Config</string>
+    <string name="cloud_author_name">Nama Anda</string>
+    <string name="cloud_device_name">Nama Perangkat</string>
+    <string name="cloud_upload_btn">Upload Config</string>
+    <string name="cloud_upload_success">Config berhasil diupload!</string>
+    <string name="cloud_apply_success">Config berhasil diterapkan!</string>
 </resources>

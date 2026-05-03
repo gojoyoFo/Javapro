@@ -769,4 +769,24 @@
     <string name="home_fps_off">बंद</string>
     <string name="home_fps_monitor_off">FPS मॉनिटर बंद</string>
     <string name="fps_usage_stats_required">नॉन-रूट FPS मोड के लिए उपयोग पहुँच अनुमति आवश्यक है। कृपया अगली स्क्रीन पर इसे सक्षम करें।</string>
+     <string name="cloud_title">क्लाउड कॉन्फ़िग</string>
+    <string name="cloud_subtitle">कम्युनिटी ट्वीक्स</string>
+    <string name="upload_config">मेरा कॉन्फ़िग अपलोड करें</string>
+    <string name="cloud_empty">अभी कोई कॉन्फ़िग उपलब्ध नहीं है</string>
+    <string name="cloud_apply_btn">डाउनलोड और लागू करें</string>
+    <string name="cloud_limit_reached">दैनिक सीमा पूरी हो गई</string>
+    <string name="cloud_limit_info">सर्वर की स्थिरता बनाए रखने के लिए आप प्रतिदिन अधिकतम %d कॉन्फ़िग डाउनलोड कर सकते हैं।</string>
+    <string name="cloud_premium_title">प्रीमियम फ़ीचर</string>
+    <string name="cloud_premium_desc">क्लाउड कॉन्फ़िग Pro उपयोगकर्ताओं के लिए एक विशेष फ़ीचर है। अभी अपग्रेड करें और कम्युनिटी के सैकड़ों परफ़ॉर्मेंस ट्वीक एक्सेस करें।</string>
+    <string name="cloud_perk_1">सभी कम्युनिटी कॉन्फ़िग एक्सेस करें</string>
+    <string name="cloud_perk_2">अपना खुद का कॉन्फ़िग अपलोड करें</string>
+    <string name="cloud_perk_3">प्रतिदिन 5 कॉन्फ़िग तक डाउनलोड करें</string>
+    <string name="cloud_upgrade_btn">Pro में अपग्रेड करें</string>
+    <string name="cloud_maybe_later">बाद में</string>
+    <string name="cloud_config_name">कॉन्फ़िग का नाम</string>
+    <string name="cloud_author_name">आपका नाम</string>
+    <string name="cloud_device_name">डिवाइस का नाम</string>
+    <string name="cloud_upload_btn">कॉन्फ़िग अपलोड करें</string>
+    <string name="cloud_upload_success">कॉन्फ़िग सफलतापूर्वक अपलोड हो गया!</string>
+    <string name="cloud_apply_success">कॉन्फ़िग सफलतापूर्वक लागू हो गया!</string>
 </resources>

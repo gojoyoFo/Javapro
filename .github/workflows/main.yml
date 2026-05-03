@@ -42,9 +42,6 @@ jobs:
           keyPassword=javapro123
           EOF
 
-      - name: Clean Gradle cache
-        run: ./gradlew clean
-
       - name: Build CMake (compile fps_core binary)
         run: ./gradlew buildCMakeRelWithDebInfo --no-build-cache --rerun-tasks
 

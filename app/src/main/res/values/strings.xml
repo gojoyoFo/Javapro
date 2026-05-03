@@ -769,5 +769,24 @@
     <string name="home_fps_off">OFF</string>
     <string name="home_fps_monitor_off">FPS Monitor OFF</string>
 <string name="fps_usage_stats_required">Usage Access permission is required for Non-Root FPS mode. Please grant it in the next screen.</string>
-
+<string name="cloud_title">Cloud Configs</string>
+    <string name="cloud_subtitle">Community Tweaks</string>
+    <string name="upload_config">Upload My Config</string>
+    <string name="cloud_empty">No configs available yet</string>
+    <string name="cloud_apply_btn">Download &amp; Apply</string>
+    <string name="cloud_limit_reached">Daily limit reached</string>
+    <string name="cloud_limit_info">You can download up to %d configs per day to maintain server stability.</string>
+    <string name="cloud_premium_title">Premium Feature</string>
+    <string name="cloud_premium_desc">Cloud Configs is an exclusive feature for Pro users. Upgrade now to access hundreds of community-shared performance tweaks.</string>
+    <string name="cloud_perk_1">Access all community configs</string>
+    <string name="cloud_perk_2">Upload your own configs</string>
+    <string name="cloud_perk_3">Download up to 5 configs per day</string>
+    <string name="cloud_upgrade_btn">Upgrade to Pro</string>
+    <string name="cloud_maybe_later">Maybe later</string>
+    <string name="cloud_config_name">Config Name</string>
+    <string name="cloud_author_name">Your Name</string>
+    <string name="cloud_device_name">Device Name</string>
+    <string name="cloud_upload_btn">Upload Config</string>
+    <string name="cloud_upload_success">Config uploaded successfully!</string>
+    <string name="cloud_apply_success">Config applied successfully!</string>
 </resources>

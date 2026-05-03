@@ -769,4 +769,24 @@
     <string name="home_fps_off">NAKA-OFF</string>
     <string name="home_fps_monitor_off">FPS Monitor NAKA-OFF</string>
     <string name="fps_usage_stats_required">Kailangan ang pahintulot sa Pag-access ng Paggamit para sa Non-Root na mode ng FPS. Pakiaktibo ito sa susunod na screen.</string>
+    <string name="cloud_title">Cloud Configs</string>
+    <string name="cloud_subtitle">Mga Tweak ng Komunidad</string>
+    <string name="upload_config">I-upload ang Aking Config</string>
+    <string name="cloud_empty">Wala pang available na config</string>
+    <string name="cloud_apply_btn">I-download at I-apply</string>
+    <string name="cloud_limit_reached">Naabot na ang araw-araw na limitasyon</string>
+    <string name="cloud_limit_info">Maaari kang mag-download ng hanggang %d config bawat araw para mapanatili ang katatagan ng server.</string>
+    <string name="cloud_premium_title">Premium na Feature</string>
+    <string name="cloud_premium_desc">Ang Cloud Configs ay isang eksklusibong feature para sa mga Pro user. Mag-upgrade na ngayon para ma-access ang daan-daang tweak mula sa komunidad.</string>
+    <string name="cloud_perk_1">I-access ang lahat ng config ng komunidad</string>
+    <string name="cloud_perk_2">Mag-upload ng iyong sariling config</string>
+    <string name="cloud_perk_3">Mag-download ng hanggang 5 config bawat araw</string>
+    <string name="cloud_upgrade_btn">Mag-upgrade sa Pro</string>
+    <string name="cloud_maybe_later">Mamaya na lang</string>
+    <string name="cloud_config_name">Pangalan ng Config</string>
+    <string name="cloud_author_name">Iyong Pangalan</string>
+    <string name="cloud_device_name">Pangalan ng Device</string>
+    <string name="cloud_upload_btn">I-upload ang Config</string>
+    <string name="cloud_upload_success">Matagumpay na na-upload ang config!</string>
+    <string name="cloud_apply_success">Matagumpay na na-apply ang config!</string>
 </resources>

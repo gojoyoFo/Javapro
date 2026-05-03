@@ -37,8 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.navigation.NavController
-import com.javapro.utils.ShizukuManager
-import com.javapro.utils.TweakExecutor
+import com.javapro.utils.PremiumManager
+import com.javapro.utils.PreferenceManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,6 +73,7 @@ fun GameBoostDetailScreen(
     navController: NavController,
     packageName: String,
     lang: String,
+    prefManager: PreferenceManager,
     onShowAd: (onGranted: () -> Unit) -> Unit = { it() }
 ) {
     val context = LocalContext.current
@@ -297,6 +298,17 @@ fun GameBoostDetailScreen(
             TopAppBar(
                 title = { Text(gameInfo?.name ?: packageName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Default.ArrowBack, null) } },
+                actions = {
+                    IconButton(onClick = {
+                        navController.navigate("cloud_configs/$packageName")
+                    }) {
+                        Icon(
+                            Icons.Default.Cloud,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, titleContentColor = MaterialTheme.colorScheme.onSurface)
             )
         }

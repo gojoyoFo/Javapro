@@ -769,4 +769,24 @@
     <string name="home_fps_off">关闭</string>
     <string name="home_fps_monitor_off">FPS 监控已关闭</string>
     <string name="fps_usage_stats_required">非Root FPS模式需要使用情况访问权限，请在下一个界面中开启。</string>
+    <string name="cloud_title">云配置</string>
+    <string name="cloud_subtitle">社区调优</string>
+    <string name="upload_config">上传我的配置</string>
+    <string name="cloud_empty">暂无可用配置</string>
+    <string name="cloud_apply_btn">下载并应用</string>
+    <string name="cloud_limit_reached">已达每日下载上限</string>
+    <string name="cloud_limit_info">为保障服务器稳定，每天最多可下载 %d 个配置。</string>
+    <string name="cloud_premium_title">高级功能</string>
+    <string name="cloud_premium_desc">云配置是 Pro 用户的专属功能。立即升级，访问来自社区的数百种性能调优配置。</string>
+    <string name="cloud_perk_1">访问所有社区配置</string>
+    <string name="cloud_perk_2">上传你自己的配置</string>
+    <string name="cloud_perk_3">每天最多下载 5 个配置</string>
+    <string name="cloud_upgrade_btn">升级到 Pro</string>
+    <string name="cloud_maybe_later">稍后再说</string>
+    <string name="cloud_config_name">配置名称</string>
+    <string name="cloud_author_name">你的名字</string>
+    <string name="cloud_device_name">设备名称</string>
+    <string name="cloud_upload_btn">上传配置</string>
+    <string name="cloud_upload_success">配置上传成功！</string>
+    <string name="cloud_apply_success">配置应用成功！</string>
 </resources>

@@ -101,6 +101,19 @@ class PreferenceManager(context: Context) {
         _satVal.value = sat
     }
 
+    fun getCloudDownloadCount(): Int {
+        val today = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(java.util.Date())
+        val savedDay = prefs.getString("cloud_dl_day", "")
+        return if (savedDay == today) prefs.getInt("cloud_dl_count", 0) else 0
+    }
+
+    fun incrementCloudDownload() {
+        val today = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(java.util.Date())
+        val savedDay = prefs.getString("cloud_dl_day", "")
+        val current = if (savedDay == today) prefs.getInt("cloud_dl_count", 0) else 0
+        prefs.edit().putString("cloud_dl_day", today).putInt("cloud_dl_count", current + 1).apply()
+    }
+
     fun resetAll() {
         prefs.edit()
             .putFloat("red_val", 1000f)

@@ -1,7 +1,6 @@
 package com.javapro.fps
 
 import android.util.Log
-import java.io.File
 import java.util.LinkedList
 import kotlinx.coroutines.*
 
@@ -245,38 +244,41 @@ class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
      * Jika tidak ada yang cocok, lakukan broad scan.
      */
     private fun discoverSysfsPath() {
+        // Semua akses sysfs wajib lewat shell.execute (PersistentSuShell)
+        // karena SELinux block File.readText() dari untrusted_app context
+
         // Coba 4 jalur prioritas dahulu
         for ((path, type) in PRIORITY_PATHS) {
-            val f = File(path)
-            if (!f.exists() || !f.canRead()) continue
+            val text = shell.execute("cat $path", timeoutMs = 500L)
+            if (text.isBlank()) continue
             val valid = when (type) {
-                SysfsType.DIRECT_FPS   -> f.readText().trim().toFloatOrNull()?.let { it > 0f } == true
-                SysfsType.FPSGO_STATUS -> parseFpsgoStatus(f.readText()) > 0f
+                SysfsType.DIRECT_FPS   -> text.trim().toFloatOrNull()?.let { it > 0f } == true
+                SysfsType.FPSGO_STATUS -> parseFpsgoStatus(text) > 0f
             }
             if (valid) {
                 activeSysfsPath = path
                 activeSysfsType = type
-                Log.i(TAG, "Sysfs node (priority): $path [$type]")
+                Log.i(TAG, "Root Discovery Success — Sysfs node (priority): $path [$type]")
                 return
             }
         }
 
-        // Broad scan sebagai fallback jika 4 jalur di atas tidak ada
+        // Broad scan via shell find — tidak pakai walkTopDown() karena itu akses langsung
         val patterns = listOf(
             "/sys/class/drm"                to "measured_fps",
             "/sys/class/graphics"           to "measured_fps",
             "/sys/devices/platform/display" to "fps"
         )
         for ((dir, filename) in patterns) {
-            File(dir).takeIf { it.exists() }?.walkTopDown()?.maxDepth(5)?.forEach { f ->
-                if (f.name == filename && f.canRead()) {
-                    val v = f.readText().trim().toFloatOrNull()
-                    if (v != null && v > 0f) {
-                        activeSysfsPath = f.absolutePath
-                        activeSysfsType = SysfsType.DIRECT_FPS
-                        Log.i(TAG, "Sysfs node (broad scan): ${f.absolutePath}")
-                        return
-                    }
+            val found = shell.execute("find $dir -name '$filename' -maxdepth 5 2>/dev/null | head -3", timeoutMs = 1000L)
+            for (path in found.lines().map { it.trim() }.filter { it.isNotEmpty() }) {
+                val text = shell.execute("cat $path", timeoutMs = 500L)
+                val v = text.trim().toFloatOrNull()
+                if (v != null && v > 0f) {
+                    activeSysfsPath = path
+                    activeSysfsType = SysfsType.DIRECT_FPS
+                    Log.i(TAG, "Root Discovery Success — Sysfs node (broad scan): $path")
+                    return
                 }
             }
         }
@@ -285,17 +287,17 @@ class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
 
     private fun readSysfsFps(): Float {
         val path = activeSysfsPath ?: return 0f
-        return try {
-            val text = File(path).readText()
-            when (activeSysfsType) {
-                SysfsType.DIRECT_FPS   ->
-                    text.trim().toFloatOrNull()?.coerceIn(1f, maxRefreshRate * 1.05f) ?: 0f
-                SysfsType.FPSGO_STATUS ->
-                    parseFpsgoStatus(text)
-            }
-        } catch (_: Exception) {
-            activeSysfsPath = null   // invalidasi → re-discover saat init berikutnya
-            0f
+        // Wajib lewat shell.execute — File.readText() kena SELinux block dari untrusted_app
+        val text = shell.execute("cat $path", timeoutMs = 500L)
+        if (text.isBlank()) {
+            activeSysfsPath = null
+            return 0f
+        }
+        return when (activeSysfsType) {
+            SysfsType.DIRECT_FPS   ->
+                text.trim().toFloatOrNull()?.coerceIn(1f, maxRefreshRate * 1.05f) ?: 0f
+            SysfsType.FPSGO_STATUS ->
+                parseFpsgoStatus(text)
         }
     }
 

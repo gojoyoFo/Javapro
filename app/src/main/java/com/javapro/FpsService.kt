@@ -165,17 +165,23 @@ class FpsService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val cb = taskFpsCallbackObj ?: return false
         return try {
-            val method = windowManager.javaClass.getMethod(
-                "registerTaskFpsCallback", Int::class.java,
+            // Cari di WindowManager interface, bukan di class implementasi (WindowManagerImpl)
+            val method = WindowManager::class.java.getMethod(
+                "registerTaskFpsCallback",
+                Int::class.java,
                 java.util.concurrent.Executor::class.java,
                 android.window.TaskFpsCallback::class.java
             )
             method.invoke(windowManager, taskId, java.util.concurrent.Executor { it.run() }, cb)
-            callbackRegistered = true; currentTaskId = taskId
+            callbackRegistered = true
+            currentTaskId      = taskId
             lastFpsUpdateTime  = System.currentTimeMillis()
             Log.i(TAG, "TaskFpsCallback registered taskId=$taskId")
             true
-        } catch (e: Exception) { Log.w(TAG, "registerCallback: ${e.message}"); false }
+        } catch (e: Exception) {
+            Log.e(TAG, "registerCallback FAILED: ${e.javaClass.simpleName}: ${e.message}")
+            false
+        }
     }
 
     private fun unregisterCallback() {
@@ -183,11 +189,14 @@ class FpsService : Service() {
         val cb = taskFpsCallbackObj ?: run { callbackRegistered = false; return }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                windowManager.javaClass.getMethod(
-                    "unregisterTaskFpsCallback", android.window.TaskFpsCallback::class.java
+                WindowManager::class.java.getMethod(
+                    "unregisterTaskFpsCallback",
+                    android.window.TaskFpsCallback::class.java
                 ).invoke(windowManager, cb)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "unregisterCallback: ${e.message}")
+        }
         callbackRegistered = false
     }
 
@@ -220,13 +229,13 @@ class FpsService : Service() {
     }
 
     private fun getFocusedTaskId(): Int {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return -1
+        // ActivityTaskManager.getService() blocked di TargetSdk 36 — pakai shell su
         return try {
-            val atm  = Class.forName("android.app.ActivityTaskManager")
-            val svc  = atm.getDeclaredMethod("getService").invoke(null)
-            val info = svc.javaClass.getMethod("getFocusedRootTaskInfo").invoke(svc) ?: return -1
-            try { info.javaClass.getField("taskId").getInt(info) }
-            catch (_: NoSuchFieldException) { info.javaClass.getField("mTaskId").getInt(info) }
+            // "am stack list" output: "taskId=123 ..."  baris focused task
+            val output = runSuCommand("dumpsys activity activities | grep -E 'mFocused|isFocused=true' | grep -oE 'taskId=[0-9]+' | head -1")
+            val taskId = Regex("""taskId=(\d+)""").find(output)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
+            if (taskId > 0) Log.d(TAG, "getFocusedTaskId via su: $taskId")
+            taskId
         } catch (_: Exception) { -1 }
     }
 
@@ -477,4 +486,14 @@ class FpsService : Service() {
             }
         }
     }
+    private fun runSuCommand(cmd: String): String {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
+            val out  = proc.inputStream.bufferedReader().readText()
+            proc.waitFor()
+            proc.destroy()
+            out.trim()
+        } catch (_: Exception) { "" }
+    }
+
 }

@@ -792,4 +792,6 @@
     <string name="cloud_watch_ad_warning">Tonton iklan sampai selesai untuk download config.</string>
 <string name="cloud_free_limit_info">Tonton 2 iklan per download · Maks %1$d download/hari. Upgrade Premium untuk akses penuh.</string>
 <string name="cloud_watch_ads_download">Tonton 2 Iklan &amp; Download</string>
+<string name="gbdetail_cloud_config_title">Config Komunitas</string>
+<string name="gbdetail_cloud_config_desc">Download &amp; terapkan config dari pengguna lain</string>
 </resources>

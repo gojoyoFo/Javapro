@@ -792,4 +792,6 @@
     <string name="cloud_watch_ad_warning">कॉन्फ़िग डाउनलोड करने के लिए पूरा विज्ञापन देखें।</string>
 <string name="cloud_free_limit_info">प्रति डाउनलोड 2 विज्ञापन देखें · अधिकतम %1$d डाउनलोड/दिन। असीमित एक्सेस के लिए Premium अपग्रेड करें।</string>
 <string name="cloud_watch_ads_download">2 विज्ञापन देखें &amp; डाउनलोड करें</string>
+<string name="gbdetail_cloud_config_title">कम्युनिटी कॉन्फ़िग</string>
+<string name="gbdetail_cloud_config_desc">दूसरे यूज़र के कॉन्फ़िग डाउनलोड करें और अप्लाई करें</string>
 </resources>

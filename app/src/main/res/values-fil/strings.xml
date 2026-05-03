@@ -792,4 +792,6 @@
     <string name="cloud_watch_ad_warning">Panoorin ang ad hanggang sa katapusan para ma-download ang config.</string>
 <string name="cloud_free_limit_info">Manood ng 2 ad bawat download · Max %1$d download/araw. Mag-upgrade sa Premium para sa walang limitasyon.</string>
 <string name="cloud_watch_ads_download">Manood ng 2 Ad &amp; I-download</string>
+<string name="gbdetail_cloud_config_title">Mga Config ng Komunidad</string>
+<string name="gbdetail_cloud_config_desc">I-download at ilapat ang mga config mula sa ibang user</string>
 </resources>

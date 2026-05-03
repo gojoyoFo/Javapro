@@ -792,4 +792,6 @@
     <string name="cloud_watch_ad_warning">请观看完整广告以下载此配置。</string>
 <string name="cloud_free_limit_info">每次下载需观看 2 个广告 · 每日最多 %1$d 次下载。升级 Premium 以获取无限访问。</string>
 <string name="cloud_watch_ads_download">观看 2 个广告并下载</string>
+<string name="gbdetail_cloud_config_title">社区配置</string>
+<string name="gbdetail_cloud_config_desc">下载并应用其他用户分享的配置</string>
 </resources>

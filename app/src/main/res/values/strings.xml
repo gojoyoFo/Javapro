@@ -792,4 +792,6 @@
     <string name="cloud_watch_ad_warning">Watch the ad until the end to download this config.</string>
 <string name="cloud_free_limit_info">Watch 2 ads per download · Max %1$d downloads/day. Upgrade to Premium for unlimited access.</string>
 <string name="cloud_watch_ads_download">Watch 2 Ads &amp; Download</string>
+<string name="gbdetail_cloud_config_title">Community Configs</string>
+<string name="gbdetail_cloud_config_desc">Download &amp; apply configs shared by other users</string>
 </resources>

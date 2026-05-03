@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -43,20 +44,47 @@ object PremiumManager {
     internal fun getServerHmacSecret(): String = HMAC_SECRET
 
     private fun prefs(context: Context): SharedPreferences {
-        return try {
-            val masterKey = MasterKey.Builder(context.applicationContext)
+        val appContext = context.applicationContext
+
+        // Lapis 1: coba normal seperti sebelumnya
+        try {
+            val masterKey = MasterKey.Builder(appContext)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
-            EncryptedSharedPreferences.create(
-                context.applicationContext,
+            return EncryptedSharedPreferences.create(
+                appContext,
                 PREFS_NAME,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
-        } catch (_: Exception) {
-            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        } catch (e: Exception) {
+            try {
+                deletePrefsFile(appContext)
+                val freshMasterKey = MasterKey.Builder(appContext)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                return EncryptedSharedPreferences.create(
+                    appContext,
+                    PREFS_NAME,
+                    freshMasterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (_: Exception) {
+                return appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            }
         }
+    }
+
+    // Hapus file SharedPreferences yang corrupt agar bisa dibuat ulang
+    private fun deletePrefsFile(context: Context) {
+        try {
+            // File XML disimpan di: /data/data/<package>/shared_prefs/<name>.xml
+            val prefsDir  = File(context.applicationInfo.dataDir, "shared_prefs")
+            val prefsFile = File(prefsDir, "$PREFS_NAME.xml")
+            if (prefsFile.exists()) prefsFile.delete()
+        } catch (_: Exception) {}
     }
 
     private fun hmacSha256(secret: String, data: String): String {

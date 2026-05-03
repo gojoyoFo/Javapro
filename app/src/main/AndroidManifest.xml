@@ -88,16 +88,21 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
-        
+
         <service
             android:name=".services.GameBoosterService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- FIX: Tambah android:enabled="true" — tanpa ini service bisa dianggap
+             disabled oleh sistem di Android 13, menyebabkan toast
+             "Media projections require a foreground service" -->
         <service
             android:name=".service.ScreenRecordService"
-            android:foregroundServiceType="mediaProjection"
-            android:exported="false" />
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
         <activity
             android:name="com.startapp.android.publish.adsCommon.activities.OverlayActivity"

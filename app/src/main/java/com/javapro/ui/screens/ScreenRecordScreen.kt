@@ -59,6 +59,7 @@ import com.javapro.service.ScreenRecordService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -304,173 +305,187 @@ fun ScreenRecordScreen(navController: NavController, lang: String) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // FIX: startRecording — perbaikan utama untuk Android 13 force close:
+    // FIX ANDROID 16 (API 36): startRecording sepenuhnya di coroutine IO
     //
-    // 1. startForegroundService() dipanggil SEBELUM getMediaProjection()
-    //    → Android 13 strict: token MediaProjection hanya valid jika
-    //      foreground service SUDAH running dengan tipe MEDIA_PROJECTION
+    // BREAKING CHANGE Android 16:
+    // - Thread.sleep() di main thread → IllegalStateException / ANR
+    // - startForegroundService + getMediaProjection harus ada jeda nyata
+    //   agar service token terkonfirmasi sebelum MediaProjection dibuat
     //
-    // 2. Thread.sleep(300) beri waktu service benar-benar start
-    //    sebelum getMediaProjection() dipanggil
+    // Solusi:
+    // 1. Seluruh setup dipindah ke Dispatchers.IO (non-blocking terhadap UI)
+    // 2. Thread.sleep(300) diganti delay(300) di coroutine — aman di semua API
+    // 3. Update Compose state (isRecording, mediaProjection, dst) dilakukan
+    //    kembali di Dispatchers.Main via withContext
+    // 4. registerCallback tetap sama — sudah benar
+    // 5. FPS 90/120 real + flag display tidak diubah
     //
-    // 3. FPS 90/120 real: setVideoFrameRate + setCaptureFps (API 26+)
-    //    → setCaptureFps memberi tahu encoder berapa fps input dari surface,
-    //      sehingga encoder benar-benar encode di fps tersebut, bukan 30
-    //
-    // 4. VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR | VIRTUAL_DISPLAY_FLAG_PUBLIC
-    //    untuk display capture yang lebih stabil di Android 13+
+    // Fungsi lain (stopRecording, saveToGallery, doLaunch, dll) TIDAK disentuh.
     // ─────────────────────────────────────────────────────────────────────────
     fun startRecording(resultCode: Int, data: android.content.Intent) {
         val act = activity ?: return
-        val projManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE)
-                as MediaProjectionManager
 
-        // FIX #1: Start foreground service DULU, tunggu sebentar, baru getMediaProjection
-        context.startForegroundService(ScreenRecordService.startIntent(context))
+        // Snapshot nilai UI state di main thread sebelum pindah ke IO
+        // (Compose state tidak boleh dibaca dari thread lain)
+        val snapFps      = selectedFps.value
+        val snapRes      = selectedRes
+        val snapBitrate  = selectedBitrate
+        val snapAudio    = recordAudio && audioPermGranted
+        val snapPortrait = isPortrait
+        val snapTimer    = selectedTimer
+        val density      = act.resources.displayMetrics.densityDpi
 
-        // FIX #2: Beri waktu service benar-benar masuk foreground
-        // (diperlukan terutama di beberapa vendor Android 13 yang lambat bind service)
-        try { Thread.sleep(300) } catch (_: InterruptedException) {}
+        scope.launch(Dispatchers.IO) {
+            // ── FIX #1: startForegroundService di IO thread ─────────────────
+            // Android 16 melarang blocking call setelah startForegroundService
+            // di main thread. Dengan pindah ke IO, kita bebas pakai delay().
+            context.startForegroundService(ScreenRecordService.startIntent(context))
 
-        val projection = try {
-            projManager.getMediaProjection(resultCode, data)
-        } catch (e: Exception) {
-            Toast.makeText(context, "Gagal mendapatkan izin rekam: ${e.message}", Toast.LENGTH_LONG).show()
-            context.startService(ScreenRecordService.stopIntent(context))
-            return
-        } ?: run {
-            Toast.makeText(context, "MediaProjection null, coba lagi.", Toast.LENGTH_SHORT).show()
-            context.startService(ScreenRecordService.stopIntent(context))
-            return
-        }
-        mediaProjection = projection
+            // ── FIX #2: delay() menggantikan Thread.sleep() ─────────────────
+            // Thread.sleep() di main thread = IllegalStateException di Android 16.
+            // delay() di coroutine IO = suspend (non-blocking), aman di semua API.
+            delay(300L)
 
-        // FIX #3: registerCallback SEBELUM createVirtualDisplay (wajib Android 14+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            projection.registerCallback(object : MediaProjection.Callback() {
-                override fun onStop() {
-                    // Dipanggil dari handler thread — posting ke main thread
-                    Handler(Looper.getMainLooper()).post {
-                        if (isRecording) stopRecording()
-                    }
+            // ── Dapatkan MediaProjection ────────────────────────────────────
+            val projManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE)
+                    as MediaProjectionManager
+
+            val projection = try {
+                projManager.getMediaProjection(resultCode, data)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Gagal mendapatkan izin rekam: ${e.message}", Toast.LENGTH_LONG).show()
+                    context.startService(ScreenRecordService.stopIntent(context))
                 }
-            }, Handler(Looper.getMainLooper()))
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13: registerCallback juga diperlukan untuk stabilitas
-            projection.registerCallback(object : MediaProjection.Callback() {
-                override fun onStop() {
-                    Handler(Looper.getMainLooper()).post {
-                        if (isRecording) stopRecording()
-                    }
+                return@launch
+            } ?: run {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "MediaProjection null, coba lagi.", Toast.LENGTH_SHORT).show()
+                    context.startService(ScreenRecordService.stopIntent(context))
                 }
-            }, Handler(Looper.getMainLooper()))
-        }
+                return@launch
+            }
 
-        val metrics = act.resources.displayMetrics
-        val density = metrics.densityDpi
-        val fps     = selectedFps.value
+            // ── FIX #3: registerCallback SEBELUM createVirtualDisplay ───────
+            // Wajib Android 14+; tetap didaftarkan di Android 13 untuk stabilitas.
+            // Callback mem-posting ke Main thread — tidak berubah dari sebelumnya.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                projection.registerCallback(object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        Handler(Looper.getMainLooper()).post {
+                            if (isRecording) stopRecording()
+                        }
+                    }
+                }, Handler(Looper.getMainLooper()))
+            }
 
-        val resW = if (isPortrait) minOf(selectedRes.width, selectedRes.height)
-                   else maxOf(selectedRes.width, selectedRes.height)
-        val resH = if (isPortrait) maxOf(selectedRes.width, selectedRes.height)
-                   else minOf(selectedRes.width, selectedRes.height)
+            // ── Siapkan resolusi ────────────────────────────────────────────
+            val resW = if (snapPortrait) minOf(snapRes.width, snapRes.height)
+                       else maxOf(snapRes.width, snapRes.height)
+            val resH = if (snapPortrait) maxOf(snapRes.width, snapRes.height)
+                       else minOf(snapRes.width, snapRes.height)
 
-        val fileName  = "ScreenRecord_${SR_TIMESTAMP_FMT.format(Date())}.mp4"
-        val cacheFile = File(context.cacheDir, fileName)
-        outputFile    = cacheFile
+            val fileName  = "ScreenRecord_${SR_TIMESTAMP_FMT.format(Date())}.mp4"
+            val cacheFile = File(context.cacheDir, fileName)
 
-        val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-            MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()
+            // ── Setup MediaRecorder ─────────────────────────────────────────
+            val recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()
 
-        // FIX #4: setAudioSource SEBELUM setVideoSource (urutan wajib MediaRecorder)
-        var audioEnabled = recordAudio && audioPermGranted
-        if (audioEnabled) {
+            // FIX #4: setAudioSource SEBELUM setVideoSource (urutan wajib MediaRecorder)
+            var audioEnabled = snapAudio
+            if (audioEnabled) {
+                try {
+                    recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+                } catch (e: RuntimeException) {
+                    audioEnabled = false
+                }
+            }
+
+            // FIX #5: Real high-fps — setCaptureFps untuk 90/120fps
             try {
-                recorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            } catch (e: RuntimeException) {
-                audioEnabled = false
-            }
-        }
-
-        // FIX #5: Real high-fps recording — setCaptureFps untuk 90/120fps
-        try {
-            recorder.apply {
-                setVideoSource(MediaRecorder.VideoSource.SURFACE)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                if (audioEnabled) {
-                    setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                    setAudioEncodingBitRate(192_000)
-                    setAudioSamplingRate(44100)
+                recorder.apply {
+                    setVideoSource(MediaRecorder.VideoSource.SURFACE)
+                    setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                    if (audioEnabled) {
+                        setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                        setAudioEncodingBitRate(192_000)
+                        setAudioSamplingRate(44100)
+                    }
+                    setVideoEncoder(MediaRecorder.VideoEncoder.H264)
+                    setOutputFile(cacheFile.absolutePath)
+                    setVideoSize(resW, resH)
+                    setVideoEncodingBitRate(effectiveBitrate(SR_BITRATE_BPS[snapBitrate], snapFps))
+                    setVideoFrameRate(snapFps)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && snapFps > 60) {
+                        setCaptureRate(snapFps.toDouble())
+                    }
+                    prepare()
                 }
-                setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-                setOutputFile(cacheFile.absolutePath)
-                setVideoSize(resW, resH)
-                // Bitrate otomatis dinaikkan untuk fps tinggi
-                setVideoEncodingBitRate(effectiveBitrate(SR_BITRATE_BPS[selectedBitrate], fps))
-                // setVideoFrameRate: target fps output di file
-                setVideoFrameRate(fps)
-                // FIX: setCaptureFps — memberi tahu encoder fps input surface yang sesungguhnya
-                // Tanpa ini, encoder asumsi 30fps sehingga 90/120fps tidak real
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && fps > 60) {
-                    setCaptureRate(fps.toDouble())
+            } catch (e: Exception) {
+                try { recorder.release() } catch (_: Exception) {}
+                try { projection.stop() } catch (_: Exception) {}
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Gagal siapkan recorder: ${e.message}", Toast.LENGTH_LONG).show()
+                    context.startService(ScreenRecordService.stopIntent(context))
                 }
-                prepare()
+                return@launch
             }
-        } catch (e: Exception) {
-            Toast.makeText(context, "Gagal siapkan recorder: ${e.message}", Toast.LENGTH_LONG).show()
-            try { recorder.release() } catch (_: Exception) {}
-            try { projection.stop() } catch (_: Exception) {}
-            mediaProjection = null
-            context.startService(ScreenRecordService.stopIntent(context))
-            return
-        }
 
-        mediaRecorder = recorder
+            // ── Buat VirtualDisplay ─────────────────────────────────────────
+            // FIX #6: Flag display stabil untuk Android 13+
+            val displayFlags = DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR or
+                               DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC
 
-        // FIX #6: Flag display lebih lengkap untuk stabilitas di Android 13+
-        val displayFlags = DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR or
-                           DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC
+            val vDisplay = try {
+                projection.createVirtualDisplay(
+                    "ScreenRecord", resW, resH, density,
+                    displayFlags,
+                    recorder.surface, null, null
+                )
+            } catch (e: Exception) {
+                try { recorder.stop() } catch (_: Exception) {}
+                try { recorder.release() } catch (_: Exception) {}
+                try { projection.stop() } catch (_: Exception) {}
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Gagal buat virtual display: ${e.message}", Toast.LENGTH_LONG).show()
+                    context.startService(ScreenRecordService.stopIntent(context))
+                }
+                return@launch
+            }
 
-        virtualDisplay = try {
-            projection.createVirtualDisplay(
-                "ScreenRecord", resW, resH, density,
-                displayFlags,
-                recorder.surface, null, null
-            )
-        } catch (e: Exception) {
-            Toast.makeText(context, "Gagal buat virtual display: ${e.message}", Toast.LENGTH_LONG).show()
-            try { recorder.stop() } catch (_: Exception) {}
-            try { recorder.release() } catch (_: Exception) {}
-            try { projection.stop() } catch (_: Exception) {}
-            mediaRecorder   = null
-            mediaProjection = null
-            context.startService(ScreenRecordService.stopIntent(context))
-            return
-        }
+            // ── Start recorder ──────────────────────────────────────────────
+            try {
+                recorder.start()
+            } catch (e: Exception) {
+                try { vDisplay.release() } catch (_: Exception) {}
+                try { recorder.release() } catch (_: Exception) {}
+                try { projection.stop() } catch (_: Exception) {}
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Gagal mulai recording: ${e.message}", Toast.LENGTH_LONG).show()
+                    context.startService(ScreenRecordService.stopIntent(context))
+                }
+                return@launch
+            }
 
-        try {
-            recorder.start()
-        } catch (e: Exception) {
-            Toast.makeText(context, "Gagal mulai recording: ${e.message}", Toast.LENGTH_LONG).show()
-            try { virtualDisplay?.release() } catch (_: Exception) {}
-            try { recorder.release() } catch (_: Exception) {}
-            try { projection.stop() } catch (_: Exception) {}
-            virtualDisplay  = null
-            mediaRecorder   = null
-            mediaProjection = null
-            context.startService(ScreenRecordService.stopIntent(context))
-            return
-        }
+            // ── Semua berhasil: update Compose state di Main thread ─────────
+            withContext(Dispatchers.Main) {
+                mediaProjection  = projection
+                mediaRecorder    = recorder
+                virtualDisplay   = vDisplay
+                outputFile       = cacheFile
+                isRecording      = true
 
-        isRecording = true
-        timerJob = scope.launch {
-            val limitSec = selectedTimer.seconds
-            while (true) {
-                delay(1000L)
-                recordingSeconds++
-                if (limitSec != null && recordingSeconds >= limitSec) {
-                    stopRecording()
-                    break
+                timerJob = scope.launch {
+                    val limitSec = snapTimer.seconds
+                    while (true) {
+                        delay(1000L)
+                        recordingSeconds++
+                        if (limitSec != null && recordingSeconds >= limitSec) {
+                            stopRecording()
+                            break
+                        }
+                    }
                 }
             }
         }

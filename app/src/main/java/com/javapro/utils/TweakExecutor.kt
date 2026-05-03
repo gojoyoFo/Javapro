@@ -65,6 +65,29 @@ object TweakExecutor {
         }
     }
 
+    /**
+     * Versi blocking (non-suspend) dari executeWithOutput.
+     * Dipakai dari fungsi non-coroutine seperti readFreq() di HomeScreen.
+     * Harus dipanggil dari thread IO (Dispatchers.IO), bukan main thread.
+     */
+    fun executeWithOutputSync(command: String): String {
+        return try {
+            if (checkRoot()) {
+                val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+                val output = process.inputStream.bufferedReader().use { it.readText() }
+                process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
+                process.destroyForcibly()
+                output.trim()
+            } else if (ShizukuManager.isAvailable()) {
+                ShizukuManager.runCommand(command)
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
     fun getDeviceInfo(context: Context): Map<String, String> {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val memInfo = ActivityManager.MemoryInfo()

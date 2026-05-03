@@ -84,13 +84,17 @@ private fun readFreqDirect(path: String): Long {
 }
 
 /**
- * readFreq: HANYA baca via File I/O langsung.
- * readFreqShell dan readFreqShellRoot DIHAPUS — keduanya membuka proses
- * baru per-core per-tick yang menyebabkan blocking dan deadlock pada loop cluster.
- * Di Android modern semua path /sys/devices/system/cpu/cpuX/cpufreq/ bisa
- * dibaca tanpa root via File.readText(). Jika gagal (offline core), return 0.
+ * readFreq: coba direct File I/O dulu.
+ * Kalau 0 (permission denied / core offline), fallback via shell — Root atau Shizuku.
+ * scaling_cur_freq sering permission 400 (root-only) di banyak SoC, jadi fallback wajib ada.
  */
-private fun readFreq(path: String): Long = readFreqDirect(path)
+private fun readFreq(path: String): Long {
+    val direct = readFreqDirect(path)
+    if (direct > 0L) return direct
+    return try {
+        TweakExecutor.executeWithOutputSync("cat $path")?.trim()?.toLongOrNull() ?: 0L
+    } catch (_: Exception) { 0L }
+}
 
 // Baca cluster dari cpufreq/policy* — cara BENAR karena policy folder
 // mencerminkan cluster fisik yang sesungguhnya di SoC.
@@ -301,6 +305,10 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
+        // Pastikan Shizuku service sudah bind sebelum cluster loop mulai
+        if (ShizukuManager.isAvailable()) ShizukuManager.ensureBound()
+        // Tunggu sebentar agar bind sempat selesai
+        delay(1500)
         // Loop cluster: terpisah, interval 2 detik — hanya baca File sysfs, tidak ada shell
         // Dipisahkan agar delay baca freq tidak menghambat update % CPU
         while (true) {

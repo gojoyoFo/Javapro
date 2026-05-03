@@ -35,6 +35,9 @@ object ShizukuManager {
         }
     }
 
+    /** Apakah service AIDL sudah siap dipakai */
+    fun isServiceReady(): Boolean = service != null
+
     fun bindService() {
         if (!isAvailable() || isBinding || service != null) return
         isBinding = true
@@ -42,6 +45,16 @@ object ShizukuManager {
             Shizuku.bindUserService(userServiceArgs, connection)
         } catch (e: Exception) {
             isBinding = false
+        }
+    }
+
+    /**
+     * Pastikan service sudah bind. Panggil ini sekali di awal app (MainActivity/HomeScreen).
+     * Non-blocking — tidak menunggu bind selesai.
+     */
+    fun ensureBound() {
+        if (isAvailable() && service == null && !isBinding) {
+            bindService()
         }
     }
 
@@ -53,18 +66,23 @@ object ShizukuManager {
 
     fun runCommand(command: String): String {
         if (!isAvailable()) return ""
+
+        // Jika service belum ready, coba bind dulu dan tunggu maksimal 3 detik
         if (service == null) {
-            bindService()
+            if (!isBinding) bindService()
             var waited = 0
-            while (service == null && waited < 5000) {
+            while (service == null && waited < 3000) {
                 Thread.sleep(100)
                 waited += 100
             }
         }
+
         return try {
             service?.runCommand(command) ?: ""
         } catch (e: Exception) {
+            service = null // reset agar bind ulang di call berikutnya
             ""
         }
     }
 }
+

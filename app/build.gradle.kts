@@ -113,9 +113,12 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     implementation("com.google.firebase:firebase-analytics")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }
 
-// ── Auto-copy fps_core binary ke assets setelah CMake build ──────────────────
 afterEvaluate {
     val abis      = listOf("arm64-v8a", "armeabi-v7a")
     val assetsDir = file("src/main/assets")

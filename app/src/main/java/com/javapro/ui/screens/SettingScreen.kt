@@ -43,7 +43,10 @@ import androidx.navigation.NavController
 import com.javapro.BuildConfig
 import com.javapro.R
 import com.javapro.FpsService
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
 import com.javapro.utils.DailyRewardManager
+import com.javapro.utils.GoogleAuthManager
 import com.javapro.utils.LocaleHelper
 import com.javapro.utils.PreferenceManager
 import com.javapro.utils.PremiumManager
@@ -62,6 +65,9 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
     val isPremium   = remember { PremiumManager.isPremium(context) }
     val premiumType = remember { PremiumManager.getPremiumType(context) }
     val expiryMs    = remember { PremiumManager.getExpiryMs(context) }
+
+    var googleUser  by remember { mutableStateOf(GoogleAuthManager.getUser(context)) }
+    var isSigningIn by remember { mutableStateOf(false) }
 
     val currentLang  by pref.languageFlow.collectAsState(initial = "en")
     val isBootActive by pref.bootApplyFlow.collectAsState()
@@ -304,7 +310,34 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
+
+            // ── Google Account Card ────────────────────────────────────────────
+            GoogleAccountCard(
+                user       = googleUser,
+                isLoading  = isSigningIn,
+                onSignIn   = {
+                    scope.launch {
+                        isSigningIn = true
+                        val result = GoogleAuthManager.signIn(context)
+                        result.onSuccess { user -> googleUser = user }
+                        result.onFailure {
+                            android.widget.Toast.makeText(
+                                context, "Login gagal: ${it.localizedMessage}", android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        isSigningIn = false
+                    }
+                },
+                onSignOut  = {
+                    scope.launch {
+                        GoogleAuthManager.signOut(context)
+                        googleUser = null
+                    }
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
 
             // ── Language picker ────────────────────────────────────────────────
             LanguagePickerCard(
@@ -805,6 +838,204 @@ fun DailyRewardSettingItem(
             containerColor = MaterialTheme.colorScheme.surface
         )
     )
+}
+
+@Composable
+private fun GoogleAccountCard(
+    user      : com.javapro.utils.GoogleUser?,
+    isLoading : Boolean,
+    onSignIn  : () -> Unit,
+    onSignOut : () -> Unit,
+) {
+    var showSignOutDialog by remember { mutableStateOf(false) }
+
+    if (showSignOutDialog) {
+        AlertDialog(
+            onDismissRequest = { showSignOutDialog = false },
+            shape            = RoundedCornerShape(24.dp),
+            containerColor   = MaterialTheme.colorScheme.surface,
+            icon = {
+                Box(
+                    modifier         = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector        = Icons.Default.Logout,
+                        contentDescription = null,
+                        tint               = MaterialTheme.colorScheme.error,
+                        modifier           = Modifier.size(24.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text       = "Keluar dari Akun?",
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 18.sp,
+                )
+            },
+            text = {
+                Text(
+                    text       = "Status premium kamu akan dicek ulang saat login berikutnya.",
+                    fontSize   = 14.sp,
+                    color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSignOutDialog = false
+                        onSignOut()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor   = MaterialTheme.colorScheme.onError
+                    ),
+                    shape = RoundedCornerShape(50.dp)
+                ) {
+                    Text("Keluar", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showSignOutDialog = false },
+                    shape   = RoundedCornerShape(50.dp)
+                ) {
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        )
+    }
+
+    val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(20.dp),
+        colors    = CardDefaults.cardColors(containerColor = cardColor),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        if (user != null) {
+            // ── Sudah login ───────────────────────────────────────────────────
+            Row(
+                modifier              = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Avatar
+                Box(
+                    modifier         = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (user.photoUrl != null) {
+                        AsyncImage(
+                            model             = user.photoUrl,
+                            contentDescription = "Foto profil",
+                            modifier          = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Icon(
+                            imageVector        = Icons.Default.Person,
+                            contentDescription = null,
+                            tint               = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier           = Modifier.size(26.dp)
+                        )
+                    }
+                }
+
+                // Info akun
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text       = user.displayName,
+                        fontSize   = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        maxLines   = 1,
+                        overflow   = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text     = user.email,
+                        fontSize = 12.sp,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Tombol sign-out
+                IconButton(onClick = { showSignOutDialog = true }) {
+                    Icon(
+                        imageVector        = Icons.Default.Logout,
+                        contentDescription = "Sign out",
+                        tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier           = Modifier.size(20.dp)
+                    )
+                }
+            }
+        } else {
+            // ── Belum login ───────────────────────────────────────────────────
+            Row(
+                modifier              = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isLoading, onClick = onSignIn)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier         = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier  = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color     = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Icon(
+                            imageVector        = Icons.Default.AccountCircle,
+                            contentDescription = null,
+                            tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier           = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text       = "Login dengan Google",
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text     = "Untuk verifikasi status premium",
+                        fontSize = 12.sp,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 @Composable

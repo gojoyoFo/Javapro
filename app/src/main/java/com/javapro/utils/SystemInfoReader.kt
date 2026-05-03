@@ -1,8 +1,13 @@
 package com.javapro.utils
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.BatteryManager
+import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class SystemSnapshot(
     val cpuUsagePct   : Float,
@@ -24,10 +29,6 @@ data class ClusterSnapshot(
     val curFreqMhz : Int,
     val maxFreqMhz : Int
 )
-import android.os.BatteryManager
-import android.util.Log
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 // ── JNI bridge ────────────────────────────────────────────────────────────────
 

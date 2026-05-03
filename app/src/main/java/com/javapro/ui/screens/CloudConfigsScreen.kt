@@ -89,8 +89,21 @@ fun CloudConfigsScreen(
 ) {
     val context       = LocalContext.current
     val scope         = rememberCoroutineScope()
-    val isPremium     = remember { PremiumManager.isPremium(context) }
+
+    // FIX: isPremium jangan di-cache statis — re-check setiap kali context berubah
+    // sehingga upgrade premium langsung terefleksi tanpa restart
+    val isPremium     = remember(context) { PremiumManager.isPremium(context) }
     val dailyLimit    = if (isPremium) DAILY_DOWNLOAD_LIMIT_PREMIUM else DAILY_DOWNLOAD_LIMIT_FREE
+
+    // FIX: Ambil Activity dengan proper unwrap dari ContextWrapper chain
+    // Context di Compose bisa berupa ContextWrapper berlapis — cast langsung bisa null
+    val activity = remember(context) {
+        var ctx: android.content.Context = context
+        while (ctx is android.content.ContextWrapper && ctx !is android.app.Activity) {
+            ctx = ctx.baseContext
+        }
+        ctx as? android.app.Activity
+    }
 
     var configs           by remember { mutableStateOf<List<CloudConfig>>(emptyList()) }
     var isLoading         by remember { mutableStateOf(true) }
@@ -155,31 +168,17 @@ fun CloudConfigsScreen(
         }
     }
 
-    // Helper: trigger download dengan double-ad gate untuk free user
+    // Helper: trigger download dengan ad gate untuk free user
     fun onDownloadClick(config: CloudConfig, activity: android.app.Activity) {
         if (isPremium) {
-            // Premium: langsung download tanpa iklan
-            scope.launch {
-                applyingId = config.id
-                withContext(Dispatchers.IO) {
-                    applyCloudConfig(config, packageName, context, prefManager)
-                    incrementDownloadCount(context)
-                    try {
-                        FirebaseFirestore.getInstance()
-                            .document("$FIRESTORE_PATH/${config.id}")
-                            .update("downloads", config.downloads + 1)
-                            .await()
-                    } catch (_: Exception) {}
-                }
-                todayCount = getTodayDownloadCount(context)
-                applyingId = null
-                Toast.makeText(context, context.getString(R.string.cloud_apply_success), Toast.LENGTH_SHORT).show()
-            }
+            // FIX: Premium — langsung apply, tidak perlu duplikasi kode.
+            // doApply() sudah handle semua (IO thread, increment count, toast, dll)
+            doApply(config)
             return
         }
 
-        // Free user: wajib nonton 2 iklan
-        pendingConfig = config
+        // Free user: wajib nonton 2 iklan sebelum download
+        pendingConfig  = config
         adWatchedCount = 0
 
         fun showSecondAd() {
@@ -379,16 +378,22 @@ fun CloudConfigsScreen(
                             }
                         }
                         items(configs, key = { it.id }) { config ->
-                            val activity = context as? android.app.Activity
                             CloudConfigCard(
                                 config      = config,
                                 isApplying  = applyingId == config.id,
                                 canDownload = todayCount < dailyLimit,
                                 isPremium   = isPremium,
                                 onApply     = {
+                                    // FIX: activity sudah di-resolve di level screen dengan unwrap proper.
+                                    // Jika benar-benar null (edge case emulator), fallback ke doApply langsung
+                                    // agar premium user tetap bisa download tanpa crash.
                                     if (activity != null) {
                                         onDownloadClick(config, activity)
+                                    } else if (isPremium) {
+                                        // Fallback untuk premium: jalankan apply langsung tanpa iklan
+                                        doApply(config)
                                     }
+                                    // Non-premium tanpa activity = tidak bisa tampilkan iklan, tidak diizinkan
                                 }
                             )
                         }

@@ -50,6 +50,7 @@ import com.javapro.utils.PreferenceManager
 import com.javapro.utils.PremiumManager
 import com.javapro.utils.TweakExecutor
 import com.javapro.utils.TweakProfile
+import com.javapro.utils.ShizukuManager
 import com.javapro.ui.components.getNavBarStyle
 import com.javapro.ui.components.setNavBarStyle
 import kotlinx.coroutines.Dispatchers
@@ -103,6 +104,8 @@ fun ExclusiveFeaturesScreen(navController: NavController, prefManager: Preferenc
     val isId      = lang == "id"
     val isPremium = remember { PremiumManager.isPremium(context) }
     val isRooted  = remember { TweakExecutor.checkRoot() }
+    val isShizuku = remember { ShizukuManager.isAvailable() }
+    val hasAccess = isRooted || isShizuku
     val mainPrefs  = remember { context.getSharedPreferences(PREFS_MAIN,       Context.MODE_PRIVATE) }
     val boostPrefs = remember { context.getSharedPreferences(PREFS_BOOST,      Context.MODE_PRIVATE) }
     val appPrefs   = remember { context.getSharedPreferences(PREFS_APPPROFILE, Context.MODE_PRIVATE) }
@@ -166,6 +169,13 @@ fun ExclusiveFeaturesScreen(navController: NavController, prefManager: Preferenc
     var profileExpanded by remember { mutableStateOf(false) }
     var presetExpanded  by remember { mutableStateOf(false) }
     var netExpanded     by remember { mutableStateOf(false) }
+    var freezeExpanded  by remember { mutableStateOf(false) }
+    var freezePkgInput  by remember { mutableStateOf("") }
+    var freezeResult    by remember { mutableStateOf<Boolean?>(null) }
+    var freezeIsApplying by remember { mutableStateOf(false) }
+    var freezeIsFrozen  by remember { mutableStateOf(false) }
+    var freezePkgChecked by remember { mutableStateOf("") }
+    var freezeNotFound  by remember { mutableStateOf(false) }
     var customBannerUri by remember { mutableStateOf(mainPrefs.getString(ExclusiveExecutor.KEY_BANNER_URI, null)) }
 
     val redVal   by prefManager.redValFlow.collectAsState()
@@ -600,6 +610,139 @@ fun ExclusiveFeaturesScreen(navController: NavController, prefManager: Preferenc
                                 mainPrefs.edit().remove(ExclusiveExecutor.KEY_BANNER_URI).apply()
                                 customBannerUri = null
                                 Toast.makeText(context, context.getString(R.string.excl_banner_reset), Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                }
+            }
+
+            ExLabel(Icons.Default.AcUnit, stringResource(R.string.freeze_section_label), MaterialTheme.colorScheme.secondary)
+            ExCard {
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { freezeExpanded = !freezeExpanded }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                stringResource(R.string.freeze_title),
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                stringResource(R.string.freeze_desc),
+                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (isRooted) ExBadge("ROOT", Color(0xFF4CAF50))
+                            if (!isRooted && isShizuku) ExBadge("SHIZUKU", MaterialTheme.colorScheme.primary)
+                            if (!hasAccess) ExBadge(stringResource(R.string.freeze_no_access), Color(0xFFEF5350))
+                            val arrowRotation by animateFloatAsState(if (freezeExpanded) 180f else 0f, label = "freezeArrow")
+                            Icon(Icons.Default.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).then(Modifier.graphicsLayer { rotationZ = arrowRotation }))
+                        }
+                    }
+                    AnimatedVisibility(visible = freezeExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 12.dp)) {
+                            if (!hasAccess) {
+                                ExFeedback(Icons.Default.Warning, stringResource(R.string.freeze_requires_access), Color(0xFFEF5350))
+                            } else {
+                                ExTextField(
+                                    value = freezePkgInput,
+                                    label = stringResource(R.string.freeze_pkg_hint),
+                                    onValueChange = {
+                                        freezePkgInput = it
+                                        freezeResult = null
+                                        freezeNotFound = false
+                                        if (it.isNotBlank() && it == freezePkgChecked) Unit
+                                    }
+                                )
+                                if (freezePkgChecked.isNotBlank() && freezePkgChecked == freezePkgInput.trim()) {
+                                    ExFeedback(
+                                        if (freezeIsFrozen) Icons.Default.AcUnit else Icons.Default.CheckCircle,
+                                        stringResource(if (freezeIsFrozen) R.string.freeze_status_frozen else R.string.freeze_status_active),
+                                        if (freezeIsFrozen) MaterialTheme.colorScheme.primary else Color(0xFF66BB6A)
+                                    )
+                                }
+                                if (freezeNotFound) {
+                                    ExFeedback(Icons.Default.Warning, stringResource(R.string.freeze_pkg_not_found), Color(0xFFEF5350))
+                                }
+                                if (freezeResult == true) {
+                                    ExFeedback(
+                                        Icons.Default.CheckCircle,
+                                        stringResource(if (freezeIsFrozen) R.string.freeze_success_frozen else R.string.freeze_success_unfrozen),
+                                        Color(0xFF66BB6A)
+                                    )
+                                }
+                                if (freezeResult == false) {
+                                    ExFeedback(Icons.Default.Warning, stringResource(R.string.freeze_failed), Color(0xFFEF5350))
+                                }
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val pkg = freezePkgInput.trim()
+                                            if (pkg.isBlank()) return@OutlinedButton
+                                            freezeResult = null
+                                            freezeNotFound = false
+                                            val installed = ExclusiveExecutor.isPackageInstalled(context, pkg)
+                                            if (!installed) {
+                                                freezeNotFound = true
+                                                return@OutlinedButton
+                                            }
+                                            freezePkgChecked = pkg
+                                            freezeIsFrozen = ExclusiveExecutor.isAppFrozen(context, pkg)
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(0.4f))
+                                    ) {
+                                        Icon(Icons.Default.Search, null, modifier = Modifier.size(15.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(stringResource(R.string.freeze_btn_check), fontSize = 13.sp)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            val pkg = freezePkgInput.trim()
+                                            if (pkg.isBlank()) return@Button
+                                            if (!ExclusiveExecutor.isPackageInstalled(context, pkg)) {
+                                                freezeNotFound = true
+                                                return@Button
+                                            }
+                                            scope.launch {
+                                                freezeIsApplying = true
+                                                freezeResult = null
+                                                val ok = if (freezeIsFrozen) {
+                                                    ExclusiveExecutor.unfreezeApp(pkg)
+                                                } else {
+                                                    ExclusiveExecutor.freezeApp(pkg)
+                                                }
+                                                if (ok) {
+                                                    freezeIsFrozen = !freezeIsFrozen
+                                                    freezePkgChecked = pkg
+                                                }
+                                                freezeResult = ok
+                                                freezeIsApplying = false
+                                            }
+                                        },
+                                        enabled = freezePkgInput.isNotBlank() && !freezeIsApplying,
+                                        modifier = Modifier.weight(2f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (freezeIsFrozen) Color(0xFF66BB6A) else MaterialTheme.colorScheme.secondary
+                                        )
+                                    ) {
+                                        if (freezeIsApplying) {
+                                            CircularProgressIndicator(modifier = Modifier.size(15.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSecondary)
+                                        } else {
+                                            Icon(if (freezeIsFrozen) Icons.Default.PlayArrow else Icons.Default.AcUnit, null, modifier = Modifier.size(15.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                stringResource(if (freezeIsFrozen) R.string.freeze_btn_unfreeze else R.string.freeze_btn_freeze),
+                                                fontSize = 13.sp, fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

@@ -807,5 +807,19 @@
 <string name="premium_perk_boost">Advanced performance boost</string>
 <string name="premium_perk_tools">Exclusive automation tools</string>
 <string name="premium_sheet_cta">Upgrade to Premium</string>
-
+<string name="freeze_section_label">FREEZE APP</string>
+<string name="freeze_title">Freeze / Unfreeze App</string>
+<string name="freeze_desc">Disable apps without uninstalling</string>
+<string name="freeze_no_access">NO ACCESS</string>
+<string name="freeze_requires_access">This feature requires Root or Shizuku</string>
+<string name="freeze_pkg_hint">Package name (e.g. com.example.app)</string>
+<string name="freeze_status_frozen">App is currently frozen</string>
+<string name="freeze_status_active">App is active</string>
+<string name="freeze_pkg_not_found">Package not found on device</string>
+<string name="freeze_success_frozen">App frozen successfully</string>
+<string name="freeze_success_unfrozen">App unfrozen successfully</string>
+<string name="freeze_failed">Failed, please retry</string>
+<string name="freeze_btn_check">Check</string>
+<string name="freeze_btn_freeze">Freeze</string>
+<string name="freeze_btn_unfreeze">Unfreeze</string>
 </resources>

@@ -807,5 +807,19 @@
 <string name="premium_perk_boost">Peningkatan performa lanjutan</string>
 <string name="premium_perk_tools">Alat otomasi eksklusif</string>
 <string name="premium_sheet_cta">Upgrade ke Premium</string>
-
+<string name="freeze_section_label">BEKUKAN APLIKASI</string>
+<string name="freeze_title">Bekukan / Aktifkan Aplikasi</string>
+<string name="freeze_desc">Nonaktifkan aplikasi tanpa menguninstall</string>
+<string name="freeze_no_access">TIDAK ADA AKSES</string>
+<string name="freeze_requires_access">Fitur ini membutuhkan Root atau Shizuku</string>
+<string name="freeze_pkg_hint">Nama package (contoh: com.example.app)</string>
+<string name="freeze_status_frozen">Aplikasi sedang dibekukan</string>
+<string name="freeze_status_active">Aplikasi aktif</string>
+<string name="freeze_pkg_not_found">Package tidak ditemukan di perangkat</string>
+<string name="freeze_success_frozen">Aplikasi berhasil dibekukan</string>
+<string name="freeze_success_unfrozen">Aplikasi berhasil diaktifkan</string>
+<string name="freeze_failed">Gagal, coba ulang</string>
+<string name="freeze_btn_check">Cek</string>
+<string name="freeze_btn_freeze">Bekukan</string>
+<string name="freeze_btn_unfreeze">Aktifkan</string>
 </resources>

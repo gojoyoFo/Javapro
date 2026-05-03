@@ -42,6 +42,7 @@ import com.javapro.utils.PreferenceManager
 import com.javapro.utils.TweakExecutor
 import com.javapro.utils.GameBoostExecutor
 import com.javapro.utils.ShizukuManager
+import com.javapro.workers.AutoRamWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -138,7 +139,11 @@ fun GameBoostDetailScreen(
     var selectedDriver by remember { mutableStateOf("default") }
     var isApplyingDriver by remember { mutableStateOf(false) }
 
-
+    var autoRamEnabled by remember { mutableStateOf(false) }
+    var autoRamInterval by remember { mutableStateOf(15) }
+    var isAutoRamScheduled by remember { mutableStateOf(false) }
+    val isPremium = remember { PremiumManager.isRealPremium(context) }
+    var showPremiumSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(packageName) {
         resetPrefsIfNeeded(context)
@@ -179,6 +184,9 @@ fun GameBoostDetailScreen(
         lockFpsEnabled = getPref(context, "lockfps_$packageName", false)
         selectedDsMethod = getStr(context, "dsmethod_$packageName", "new")
         selectedDriver = getStr(context, "driver_$packageName", "default")
+        autoRamEnabled = getPref(context, "autoram_$packageName", false)
+        autoRamInterval = context.getSharedPreferences(PREF_BOOST, Context.MODE_PRIVATE).getInt("autoram_interval_$packageName", 15)
+        isAutoRamScheduled = AutoRamWorker.isScheduled(context)
         isLoading = false
     }
 
@@ -608,7 +616,150 @@ fun GameBoostDetailScreen(
                     }
                 }
             )
+            GBSectionLabel(stringResource(R.string.auto_tools_label), MaterialTheme.colorScheme.primary)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                border = if (!isPremium) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.35f)) else null
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(stringResource(R.string.auto_clear_title), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(0.5f))
+                                ) {
+                                    Text(
+                                        stringResource(R.string.premium_badge),
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(stringResource(R.string.auto_clear_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = autoRamEnabled && isPremium,
+                            onCheckedChange = { checked ->
+                                if (!isPremium) {
+                                    showPremiumSheet = true
+                                } else {
+                                    autoRamEnabled = checked
+                                    savePref(context, "autoram_$packageName", checked)
+                                    if (checked) {
+                                        AutoRamWorker.schedule(context, autoRamInterval)
+                                    } else {
+                                        AutoRamWorker.cancel(context)
+                                    }
+                                    isAutoRamScheduled = AutoRamWorker.isScheduled(context)
+                                }
+                            },
+                            enabled = isPremium || !autoRamEnabled
+                        )
+                    }
+                    if (autoRamEnabled && isPremium) {
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(stringResource(R.string.auto_clear_interval_label), fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                listOf(15 to R.string.interval_15, 30 to R.string.interval_30).forEach { (value, labelRes) ->
+                                    val isSel = autoRamInterval == value
+                                    Surface(
+                                        modifier = Modifier.weight(1f).clickable {
+                                            autoRamInterval = value
+                                            context.getSharedPreferences(PREF_BOOST, Context.MODE_PRIVATE)
+                                                .edit().putInt("autoram_interval_$packageName", value).apply()
+                                            AutoRamWorker.schedule(context, value)
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        border = BorderStroke(if (isSel) 2.dp else 1.dp, if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(0.2f))
+                                    ) {
+                                        Row(
+                                            Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            if (isSel) {
+                                                Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(Modifier.width(6.dp))
+                                            }
+                                            Text(
+                                                stringResource(labelRes),
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSel) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (!isPremium) {
+                        OutlinedButton(
+                            onClick = { showPremiumSheet = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Lock, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.premium_only_feature), fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(32.dp))
+        }
+    }
+
+    if (showPremiumSheet) {
+        ModalBottomSheet(onDismissRequest = { showPremiumSheet = false }) {
+            Column(
+                Modifier.padding(horizontal = 24.dp).padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(
+                        Modifier.size(48.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Star, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                    }
+                    Column {
+                        Text(stringResource(R.string.premium_only_feature), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                        Text(stringResource(R.string.premium_sheet_desc), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 15.sp)
+                    }
+                }
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                listOf(
+                    Icons.Default.Memory to R.string.premium_perk_ram,
+                    Icons.Default.Bolt to R.string.premium_perk_boost,
+                    Icons.Default.Build to R.string.premium_perk_tools
+                ).forEach { (icon, textRes) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Text(stringResource(textRes), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+                Button(
+                    onClick = { showPremiumSheet = false; navController.navigate("premium") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Star, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.premium_sheet_cta), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
         }
     }
 }

@@ -428,4 +428,32 @@ object ExclusiveExecutor {
             true
         } catch (e: Exception) { false }
     }
+
+    suspend fun freezeApp(pkg: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            TweakExecutor.execute("pm disable-user --user 0 $pkg")
+            true
+        } catch (e: Exception) { false }
+    }
+
+    suspend fun unfreezeApp(pkg: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            TweakExecutor.execute("pm enable $pkg")
+            true
+        } catch (e: Exception) { false }
+    }
+
+    fun isAppFrozen(context: Context, pkg: String): Boolean {
+        return try {
+            val info = context.packageManager.getApplicationInfo(pkg, 0)
+            !info.enabled
+        } catch (e: Exception) { false }
+    }
+
+    fun isPackageInstalled(context: Context, pkg: String): Boolean {
+        return try {
+            context.packageManager.getApplicationInfo(pkg, 0)
+            true
+        } catch (e: Exception) { false }
+    }
 }

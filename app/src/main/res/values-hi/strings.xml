@@ -807,5 +807,20 @@
 <string name="premium_perk_boost">बेहतर परफ़ॉर्मेंस बूस्ट</string>
 <string name="premium_perk_tools">एक्सक्लूसिव ऑटोमेशन टूल</string>
 <string name="premium_sheet_cta">प्रीमियम में अपग्रेड करें</string>
+<string name="freeze_section_label">ऐप फ्रीज़ करें</string>
+<string name="freeze_title">ऐप फ्रीज़ / अनफ्रीज़ करें</string>
+<string name="freeze_desc">अनइंस्टॉल किए बिना ऐप्स को बंद करें</string>
+<string name="freeze_no_access">कोई एक्सेस नहीं</string>
+<string name="freeze_requires_access">इस फीचर के लिए Root या Shizuku आवश्यक है</string>
+<string name="freeze_pkg_hint">पैकेज का नाम (जैसे: com.example.app)</string>
+<string name="freeze_status_frozen">ऐप अभी फ्रीज़ है</string>
+<string name="freeze_status_active">ऐप सक्रिय है</string>
+<string name="freeze_pkg_not_found">डिवाइस पर पैकेज नहीं मिला</string>
+<string name="freeze_success_frozen">ऐप सफलतापूर्वक फ्रीज़ हो गया</string>
+<string name="freeze_success_unfrozen">ऐप सफलतापूर्वक अनफ्रीज़ हो गया</string>
+<string name="freeze_failed">विफल, कृपया पुनः प्रयास करें</string>
+<string name="freeze_btn_check">जाँचें</string>
+<string name="freeze_btn_freeze">फ्रीज़ करें</string>
+<string name="freeze_btn_unfreeze">अनफ्रीज़ करें</string>
 
 </resources>

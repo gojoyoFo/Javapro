@@ -807,5 +807,20 @@
 <string name="premium_perk_boost">进阶性能提升</string>
 <string name="premium_perk_tools">专属自动化工具</string>
 <string name="premium_sheet_cta">升级至高级版</string>
+<string name="freeze_section_label">冻结应用</string>
+<string name="freeze_title">冻结 / 解冻应用</string>
+<string name="freeze_desc">无需卸载即可停用应用</string>
+<string name="freeze_no_access">无权限</string>
+<string name="freeze_requires_access">此功能需要 Root 或 Shizuku</string>
+<string name="freeze_pkg_hint">包名（例如：com.example.app）</string>
+<string name="freeze_status_frozen">应用当前已冻结</string>
+<string name="freeze_status_active">应用正在运行</string>
+<string name="freeze_pkg_not_found">在设备上未找到该包</string>
+<string name="freeze_success_frozen">应用冻结成功</string>
+<string name="freeze_success_unfrozen">应用解冻成功</string>
+<string name="freeze_failed">操作失败，请重试</string>
+<string name="freeze_btn_check">检查</string>
+<string name="freeze_btn_freeze">冻结</string>
+<string name="freeze_btn_unfreeze">解冻</string>
 
 </resources>

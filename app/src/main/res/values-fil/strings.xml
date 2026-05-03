@@ -807,5 +807,20 @@
 <string name="premium_perk_boost">Advanced na pagpapabuti ng performance</string>
 <string name="premium_perk_tools">Mga eksklusibong automation tool</string>
 <string name="premium_sheet_cta">Mag-upgrade sa Premium</string>
+<string name="freeze_section_label">I-FREEZE ANG APP</string>
+<string name="freeze_title">I-Freeze / I-Unfreeze ang App</string>
+<string name="freeze_desc">I-disable ang mga app nang hindi nag-u-uninstall</string>
+<string name="freeze_no_access">WALANG ACCESS</string>
+<string name="freeze_requires_access">Ang feature na ito ay nangangailangan ng Root o Shizuku</string>
+<string name="freeze_pkg_hint">Pangalan ng package (hal. com.example.app)</string>
+<string name="freeze_status_frozen">Naka-freeze ang app</string>
+<string name="freeze_status_active">Aktibo ang app</string>
+<string name="freeze_pkg_not_found">Hindi nahanap ang package sa device</string>
+<string name="freeze_success_frozen">Matagumpay na na-freeze ang app</string>
+<string name="freeze_success_unfrozen">Matagumpay na na-unfreeze ang app</string>
+<string name="freeze_failed">Nabigo, subukan muli</string>
+<string name="freeze_btn_check">Suriin</string>
+<string name="freeze_btn_freeze">I-Freeze</string>
+<string name="freeze_btn_unfreeze">I-Unfreeze</string>
 
 </resources>

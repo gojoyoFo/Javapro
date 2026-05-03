@@ -45,7 +45,8 @@ import java.util.*
 
 private const val FIRESTORE_APP_ID = "javapro"
 private const val FIRESTORE_PATH = "artifacts/$FIRESTORE_APP_ID/public/data/cloud_configs"
-private const val DAILY_DOWNLOAD_LIMIT = 5
+private const val DAILY_DOWNLOAD_LIMIT_FREE    = 2
+private const val DAILY_DOWNLOAD_LIMIT_PREMIUM = 5
 private const val PREF_CLOUD = "cloud_config_prefs"
 
 data class CloudConfig(
@@ -89,51 +90,122 @@ fun CloudConfigsScreen(
     val context       = LocalContext.current
     val scope         = rememberCoroutineScope()
     val isPremium     = remember { PremiumManager.isPremium(context) }
+    val dailyLimit    = if (isPremium) DAILY_DOWNLOAD_LIMIT_PREMIUM else DAILY_DOWNLOAD_LIMIT_FREE
 
     var configs           by remember { mutableStateOf<List<CloudConfig>>(emptyList()) }
     var isLoading         by remember { mutableStateOf(true) }
-    var showPremiumGate   by remember { mutableStateOf(!isPremium) }
     var showUploadSheet   by remember { mutableStateOf(false) }
     var applyingId        by remember { mutableStateOf<String?>(null) }
     var todayCount        by remember { mutableStateOf(getTodayDownloadCount(context)) }
     var listenerReg       by remember { mutableStateOf<ListenerRegistration?>(null) }
     val hasLocal          = remember { hasLocalTweaks(context) }
 
+    // State untuk double-ad gate (free user)
+    var pendingConfig     by remember { mutableStateOf<CloudConfig?>(null) }
+    var adWatchedCount    by remember { mutableStateOf(0) }
+
     DisposableEffect(Unit) {
-        if (isPremium) {
-            val reg = FirebaseFirestore.getInstance()
-                .collection(FIRESTORE_PATH)
-                .addSnapshotListener { snap, _ ->
-                    snap ?: return@addSnapshotListener
-                    configs = snap.documents.mapNotNull { doc ->
-                        try {
-                            CloudConfig(
-                                id        = doc.id,
-                                name      = doc.getString("name") ?: return@mapNotNull null,
-                                game      = doc.getString("game") ?: "",
-                                device    = doc.getString("device") ?: "",
-                                author    = doc.getString("author") ?: "Anonymous",
-                                downloads = doc.getLong("downloads") ?: 0L,
-                                tweaks    = (doc.get("tweaks") as? Map<String, Any>) ?: emptyMap(),
-                                uploadedAt = doc.getLong("uploadedAt") ?: 0L
-                            )
-                        } catch (_: Exception) { null }
-                    }.sortedByDescending { it.downloads }
-                    isLoading = false
-                }
-            listenerReg = reg
-        } else {
-            isLoading = false
-        }
+        val reg = FirebaseFirestore.getInstance()
+            .collection(FIRESTORE_PATH)
+            .addSnapshotListener { snap, _ ->
+                snap ?: return@addSnapshotListener
+                configs = snap.documents.mapNotNull { doc ->
+                    try {
+                        CloudConfig(
+                            id        = doc.id,
+                            name      = doc.getString("name") ?: return@mapNotNull null,
+                            game      = doc.getString("game") ?: "",
+                            device    = doc.getString("device") ?: "",
+                            author    = doc.getString("author") ?: "Anonymous",
+                            downloads = doc.getLong("downloads") ?: 0L,
+                            tweaks    = (doc.get("tweaks") as? Map<String, Any>) ?: emptyMap(),
+                            uploadedAt = doc.getLong("uploadedAt") ?: 0L
+                        )
+                    } catch (_: Exception) { null }
+                }.sortedByDescending { it.downloads }
+                isLoading = false
+            }
+        listenerReg = reg
         onDispose { listenerReg?.remove() }
     }
 
-    if (showPremiumGate) {
-        PremiumGateSheet(
-            onDismiss = { navController.popBackStack() },
-            onUpgrade = { navController.popBackStack() }
+    // Helper: jalankan download setelah iklan selesai
+    fun doApply(config: CloudConfig) {
+        scope.launch {
+            applyingId = config.id
+            withContext(Dispatchers.IO) {
+                applyCloudConfig(config, packageName, context, prefManager)
+                incrementDownloadCount(context)
+                try {
+                    FirebaseFirestore.getInstance()
+                        .document("$FIRESTORE_PATH/${config.id}")
+                        .update("downloads", config.downloads + 1)
+                        .await()
+                } catch (_: Exception) {}
+            }
+            todayCount = getTodayDownloadCount(context)
+            applyingId = null
+            pendingConfig = null
+            adWatchedCount = 0
+            Toast.makeText(
+                context,
+                context.getString(R.string.cloud_apply_success),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    // Helper: trigger download dengan double-ad gate untuk free user
+    fun onDownloadClick(config: CloudConfig, activity: android.app.Activity) {
+        if (isPremium) {
+            // Premium: langsung download tanpa iklan
+            scope.launch {
+                applyingId = config.id
+                withContext(Dispatchers.IO) {
+                    applyCloudConfig(config, packageName, context, prefManager)
+                    incrementDownloadCount(context)
+                    try {
+                        FirebaseFirestore.getInstance()
+                            .document("$FIRESTORE_PATH/${config.id}")
+                            .update("downloads", config.downloads + 1)
+                            .await()
+                    } catch (_: Exception) {}
+                }
+                todayCount = getTodayDownloadCount(context)
+                applyingId = null
+                Toast.makeText(context, context.getString(R.string.cloud_apply_success), Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
+        // Free user: wajib nonton 2 iklan
+        pendingConfig = config
+        adWatchedCount = 0
+
+        fun showSecondAd() {
+            com.javapro.ads.AdManager.showRewardedForCloudConfig(
+                activity    = activity,
+                onCompleted = { doApply(config) },
+                onSkipped   = {
+                    pendingConfig = null
+                    adWatchedCount = 0
+                    Toast.makeText(context, context.getString(R.string.cloud_watch_ad_warning), Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+
+        com.javapro.ads.AdManager.showRewardedForCloudConfig(
+            activity    = activity,
+            onCompleted = {
+                adWatchedCount = 1
+                showSecondAd()
+            },
+            onSkipped   = {
+                pendingConfig = null
+                adWatchedCount = 0
+                Toast.makeText(context, context.getString(R.string.cloud_watch_ad_warning), Toast.LENGTH_SHORT).show()
+            }
         )
-        return
     }
 
     if (showUploadSheet) {
@@ -188,7 +260,7 @@ fun CloudConfigsScreen(
                                 modifier = Modifier.size(13.dp)
                             )
                             Text(
-                                "$todayCount/$DAILY_DOWNLOAD_LIMIT",
+                                "$todayCount/$dailyLimit",
                                 fontSize   = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color      = MaterialTheme.colorScheme.onSecondaryContainer
@@ -274,10 +346,14 @@ fun CloudConfigsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {
+                            // Banner info — beda teks untuk free vs premium
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape    = RoundedCornerShape(16.dp),
-                                color    = MaterialTheme.colorScheme.primaryContainer.copy(0.5f)
+                                color    = if (!isPremium)
+                                    MaterialTheme.colorScheme.errorContainer.copy(0.35f)
+                                else
+                                    MaterialTheme.colorScheme.primaryContainer.copy(0.5f)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(12.dp),
@@ -285,45 +361,33 @@ fun CloudConfigsScreen(
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.Info,
+                                        if (!isPremium) Icons.Default.Videocam else Icons.Default.Info,
                                         null,
-                                        tint     = MaterialTheme.colorScheme.primary,
+                                        tint     = if (!isPremium) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        stringResource(R.string.cloud_limit_info, DAILY_DOWNLOAD_LIMIT),
+                                        if (!isPremium)
+                                            stringResource(R.string.cloud_free_limit_info, DAILY_DOWNLOAD_LIMIT_FREE)
+                                        else
+                                            stringResource(R.string.cloud_limit_info, DAILY_DOWNLOAD_LIMIT_PREMIUM),
                                         fontSize   = 11.sp,
-                                        color      = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        color      = if (!isPremium) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
                                         lineHeight = 16.sp
                                     )
                                 }
                             }
                         }
                         items(configs, key = { it.id }) { config ->
+                            val activity = context as? android.app.Activity
                             CloudConfigCard(
                                 config      = config,
                                 isApplying  = applyingId == config.id,
-                                canDownload = todayCount < DAILY_DOWNLOAD_LIMIT,
+                                canDownload = todayCount < dailyLimit,
+                                isPremium   = isPremium,
                                 onApply     = {
-                                    scope.launch {
-                                        applyingId = config.id
-                                        withContext(Dispatchers.IO) {
-                                            applyCloudConfig(config, packageName, context, prefManager)
-                                            incrementDownloadCount(context)
-                                            try {
-                                                FirebaseFirestore.getInstance()
-                                                    .document("$FIRESTORE_PATH/${config.id}")
-                                                    .update("downloads", config.downloads + 1)
-                                                    .await()
-                                            } catch (_: Exception) {}
-                                        }
-                                        todayCount = getTodayDownloadCount(context)
-                                        applyingId = null
-                                        Toast.makeText(
-                                            context,
-                                            context.getString(R.string.cloud_apply_success),
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                    if (activity != null) {
+                                        onDownloadClick(config, activity)
                                     }
                                 }
                             )
@@ -341,6 +405,7 @@ private fun CloudConfigCard(
     config      : CloudConfig,
     isApplying  : Boolean,
     canDownload : Boolean,
+    isPremium   : Boolean,
     onApply     : () -> Unit
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
@@ -431,7 +496,8 @@ private fun CloudConfigCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape    = RoundedCornerShape(12.dp),
                 colors   = ButtonDefaults.buttonColors(
-                    containerColor         = MaterialTheme.colorScheme.primary,
+                    containerColor         = if (!isPremium && canDownload) MaterialTheme.colorScheme.secondary
+                                            else MaterialTheme.colorScheme.primary,
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 )
             ) {
@@ -442,14 +508,23 @@ private fun CloudConfigCard(
                         color      = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Icon(Icons.Default.FileDownload, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        if (canDownload) stringResource(R.string.cloud_apply_btn)
-                        else stringResource(R.string.cloud_limit_reached),
-                        fontSize   = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    when {
+                        !canDownload -> {
+                            Icon(Icons.Default.Block, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.cloud_limit_reached), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        !isPremium -> {
+                            Icon(Icons.Default.Videocam, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.cloud_watch_ads_download), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        else -> {
+                            Icon(Icons.Default.FileDownload, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.cloud_apply_btn), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }

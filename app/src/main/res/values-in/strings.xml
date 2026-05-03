@@ -789,4 +789,7 @@
     <string name="cloud_upload_btn">Upload Config</string>
     <string name="cloud_upload_success">Config berhasil diupload!</string>
     <string name="cloud_apply_success">Config berhasil diterapkan!</string>
+    <string name="cloud_watch_ad_warning">Tonton iklan sampai selesai untuk download config.</string>
+<string name="cloud_free_limit_info">Tonton 2 iklan per download · Maks %1$d download/hari. Upgrade Premium untuk akses penuh.</string>
+<string name="cloud_watch_ads_download">Tonton 2 Iklan &amp; Download</string>
 </resources>

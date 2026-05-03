@@ -789,4 +789,7 @@
     <string name="cloud_upload_btn">上传配置</string>
     <string name="cloud_upload_success">配置上传成功！</string>
     <string name="cloud_apply_success">配置应用成功！</string>
+    <string name="cloud_watch_ad_warning">请观看完整广告以下载此配置。</string>
+<string name="cloud_free_limit_info">每次下载需观看 2 个广告 · 每日最多 %1$d 次下载。升级 Premium 以获取无限访问。</string>
+<string name="cloud_watch_ads_download">观看 2 个广告并下载</string>
 </resources>

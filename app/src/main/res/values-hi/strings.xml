@@ -789,4 +789,7 @@
     <string name="cloud_upload_btn">कॉन्फ़िग अपलोड करें</string>
     <string name="cloud_upload_success">कॉन्फ़िग सफलतापूर्वक अपलोड हो गया!</string>
     <string name="cloud_apply_success">कॉन्फ़िग सफलतापूर्वक लागू हो गया!</string>
+    <string name="cloud_watch_ad_warning">कॉन्फ़िग डाउनलोड करने के लिए पूरा विज्ञापन देखें।</string>
+<string name="cloud_free_limit_info">प्रति डाउनलोड 2 विज्ञापन देखें · अधिकतम %1$d डाउनलोड/दिन। असीमित एक्सेस के लिए Premium अपग्रेड करें।</string>
+<string name="cloud_watch_ads_download">2 विज्ञापन देखें &amp; डाउनलोड करें</string>
 </resources>

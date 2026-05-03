@@ -789,4 +789,7 @@
     <string name="cloud_upload_btn">Upload Config</string>
     <string name="cloud_upload_success">Config uploaded successfully!</string>
     <string name="cloud_apply_success">Config applied successfully!</string>
+    <string name="cloud_watch_ad_warning">Watch the ad until the end to download this config.</string>
+<string name="cloud_free_limit_info">Watch 2 ads per download · Max %1$d downloads/day. Upgrade to Premium for unlimited access.</string>
+<string name="cloud_watch_ads_download">Watch 2 Ads &amp; Download</string>
 </resources>

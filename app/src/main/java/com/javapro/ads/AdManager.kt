@@ -31,6 +31,7 @@ object AdManager {
     const val SLOT_GENERAL      = "slot_general"
     const val SLOT_EXCLUSIVE    = "slot_exclusive"
     const val SLOT_DAILY_REWARD = "slot_daily_reward"
+    const val SLOT_CLOUD_CONFIG = "slot_cloud_config"
 
     var isShowingAd = false
         private set
@@ -343,6 +344,29 @@ object AdManager {
             onFail = {
                 Log.d(TAG, "[daily_reward] ad unavailable.")
                 onResult(AdWatchResult.UNAVAILABLE)
+            }
+        )
+    }
+
+    fun showRewardedForCloudConfig(
+        activity    : Activity,
+        onCompleted : () -> Unit,
+        onSkipped   : () -> Unit
+    ) {
+        if (isShowingAd) {
+            onSkipped()
+            return
+        }
+        showReadyAd(
+            activity  = activity,
+            slot      = SLOT_CLOUD_CONFIG,
+            onSuccess = {
+                Log.d(TAG, "[cloud_config] rewarded completed.")
+                onCompleted()
+            },
+            onFail = {
+                Log.d(TAG, "[cloud_config] rewarded unavailable/skipped.")
+                onSkipped()
             }
         )
     }

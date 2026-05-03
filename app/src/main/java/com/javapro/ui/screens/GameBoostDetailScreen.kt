@@ -301,15 +301,6 @@ fun GameBoostDetailScreen(
                 title = { Text(gameInfo?.name ?: packageName, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Default.ArrowBack, null) } },
                 actions = {
-                    IconButton(onClick = {
-                        navController.navigate("cloud_configs/$packageName")
-                    }) {
-                        Icon(
-                            Icons.Default.Cloud,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, titleContentColor = MaterialTheme.colorScheme.onSurface)
             )
@@ -383,6 +374,62 @@ fun GameBoostDetailScreen(
                     Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.gbdetail_play_btn), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                }
+            }
+
+            // ── Cloud Config Banner ──────────────────────────────────────────
+            Card(
+                onClick = { navController.navigate("cloud_configs/$packageName") },
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(16.dp),
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(0.18f),
+                                RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.CloudDownload,
+                            contentDescription = null,
+                            tint     = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.gbdetail_cloud_config_title),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize   = 14.sp,
+                            color      = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            stringResource(R.string.gbdetail_cloud_config_desc),
+                            fontSize   = 11.sp,
+                            color      = MaterialTheme.colorScheme.onPrimaryContainer.copy(0.7f),
+                            lineHeight = 15.sp
+                        )
+                    }
+                    Icon(
+                        Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint     = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 

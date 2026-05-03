@@ -789,4 +789,7 @@
     <string name="cloud_upload_btn">I-upload ang Config</string>
     <string name="cloud_upload_success">Matagumpay na na-upload ang config!</string>
     <string name="cloud_apply_success">Matagumpay na na-apply ang config!</string>
+    <string name="cloud_watch_ad_warning">Panoorin ang ad hanggang sa katapusan para ma-download ang config.</string>
+<string name="cloud_free_limit_info">Manood ng 2 ad bawat download · Max %1$d download/araw. Mag-upgrade sa Premium para sa walang limitasyon.</string>
+<string name="cloud_watch_ads_download">Manood ng 2 Ad &amp; I-download</string>
 </resources>

@@ -265,12 +265,6 @@ class FpsService : Service() {
             // ShizukuFpsProvider tetap blocking ringan (sysfs/shell).
             val fps = withContext(Dispatchers.IO) { getCurrentFps() }
 
-            // Log jika root provider beralih ke fallback
-            val provider = fpsProvider
-            if (provider is RootFpsProvider && provider.rootExhausted) {
-                Log.i(TAG, "RootFpsProvider exhausted → running via non-root fallback internally")
-            }
-
             if (fps <= 0f) {
                 consecutiveZeroFps++
                 if (consecutiveZeroFps >= ZERO_FPS_THRESHOLD) {

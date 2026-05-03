@@ -124,8 +124,8 @@ class FpsService : Service() {
         val refreshRate = getDeviceRefreshRate()
         fpsProvider = when {
             hasRoot() -> {
-                Log.i(TAG, "FPS strategy: RootFpsProvider (persistent shell)")
-                RootFpsProvider(refreshRate)
+                Log.i(TAG, "FPS strategy: RootFpsProvider (native binary)")
+                RootFpsProvider(this, refreshRate)
             }
             ShizukuManager.isAvailable() -> {
                 Log.i(TAG, "FPS strategy: ShizukuFpsProvider (shizuku)")
@@ -229,13 +229,14 @@ class FpsService : Service() {
     }
 
     private fun getFocusedTaskId(): Int {
-        // ActivityTaskManager.getService() blocked di TargetSdk 36 — pakai shell su
+        // Gunakan ActivityManager.getRunningTasks() — public API, tidak ada hiddenapi, tidak ada avc:denied
         return try {
-            // "am stack list" output: "taskId=123 ..."  baris focused task
-            val output = runSuCommand("dumpsys activity activities | grep -E 'mFocused|isFocused=true' | grep -oE 'taskId=[0-9]+' | head -1")
-            val taskId = Regex("""taskId=(\d+)""").find(output)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
-            if (taskId > 0) Log.d(TAG, "getFocusedTaskId via su: $taskId")
-            taskId
+            val am = getSystemService(android.app.ActivityManager::class.java) ?: return -1
+            @Suppress("DEPRECATION")
+            val tasks = am.getRunningTasks(1)
+            val id = tasks?.firstOrNull()?.id ?: -1
+            if (id > 0) Log.d(TAG, "getFocusedTaskId: $id")
+            id
         } catch (_: Exception) { -1 }
     }
 

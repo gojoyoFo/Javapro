@@ -46,6 +46,9 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
+    externalNativeBuild {
+    cmake { path = file("src/main/cpp/CMakeLists.txt") }
+        }
 
     signingConfigs {
         create("release") {

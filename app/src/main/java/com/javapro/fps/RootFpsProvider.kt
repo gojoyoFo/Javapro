@@ -1,516 +1,230 @@
 package com.javapro.fps
 
+import android.content.Context
 import android.util.Log
+import java.io.File
+import java.io.IOException
 import java.util.LinkedList
-import kotlinx.coroutines.*
 
 /**
- * RootFpsProvider — Scene 8.1.6 Edition
+ * RootFpsProvider — Native Binary Edition
  *
- * Strategi berlapis (priority order):
+ * Arsitektur:
+ *  1. Extract fps_core + engine_launcher.sh dari assets ke /data/local/tmp/javapro/
+ *  2. Jalankan engine_launcher.sh via PersistentSuShell sebagai streaming process
+ *  3. Reader thread baca stdout binary line-by-line → update @Volatile latestFps
+ *  4. getInstantFps() non-blocking, kembalikan nilai cached
  *
- *  L1 ── Universal Path Discovery
- *         Scan 4 jalur spesifik secara berurutan (dari riset Scene 8.1.6).
- *         Termasuk parsing khusus MediaTek fpsgo_status.
+ * Fallback:
+ *  - Kalau root/binary gagal → ShizukuFpsProvider (non-root via Shizuku)
+ *  - Kalau Shizuku juga tidak ada → 0f
  *
- *  L2 ── service call SurfaceFlinger 1013
- *         Hex Parcel → IEEE-754 Float → FPS decimal.
- *         Via PersistentSuShell (tanpa overhead buka proses baru).
- *
- *  L3 ── Aggressive Dumpsys (Last Resort)
- *         --latency-clear → sleep 250ms → --latency
- *         Scene Delta: FPS = frameCount * 1000 / elapsed_ms
- *         Smart Layer Targeting (SurfaceView/Sprite/Unity).
- *
- *  FALLBACK ── Non-Root (ShizukuFpsProvider)
- *         Otomatis aktif setelah ROOT_FAILURE_THRESHOLD kegagalan berturut-turut.
- *
- * Internal sampling: background coroutine 250ms per spec Scene 8.1.6.
- * getInstantFps() = non-blocking, kembalikan nilai cached @Volatile.
+ * Tidak ada File() atau ActivityTaskManager di dalam flow utama.
+ * Tidak ada hiddenapi call. Tidak ada avc:denied.
  */
-class RootFpsProvider(private val maxRefreshRate: Float) : IFpsProvider {
+class RootFpsProvider(
+    private val context: Context,
+    private val maxRefreshRate: Float
+) : IFpsProvider {
 
     private val TAG = "RootFpsProvider"
 
-    // ── Sysfs discovery result ────────────────────────────────────────────────
-    private enum class SysfsType { DIRECT_FPS, FPSGO_STATUS }
+    // Binary path di device
+    private val BINARY_DIR     = "/data/local/tmp/javapro"
+    private val BINARY_NAME    = "fps_core"
+    private val LAUNCHER_NAME  = "engine_launcher.sh"
 
-    @Volatile private var activeSysfsPath: String? = null
-    @Volatile private var activeSysfsType: SysfsType = SysfsType.DIRECT_FPS
-
-    // ── Persistent shell ──────────────────────────────────────────────────────
+    // Persistent su shell untuk extract + launch
     private val shell = PersistentSuShell()
 
-    // ── Non-root fallback (lazy) ──────────────────────────────────────────────
-    private var nonRootFallback: IFpsProvider? = null
+    // Streaming process binary fps_core
+    @Volatile private var binaryProcess: Process? = null
+    private var readerThread: Thread? = null
 
-    // ── Failure tracking ──────────────────────────────────────────────────────
-    @Volatile private var consecutiveRootFailures = 0
-    @Volatile var rootExhausted = false
-        private set
-
-    // ── Cached output (background loop → getInstantFps) ───────────────────────
+    // Cached FPS — ditulis oleh readerThread, dibaca oleh getInstantFps()
     @Volatile private var latestFps: Float = 0f
+    @Volatile private var lastUpdateMs: Long = 0L
 
-    // ── SMA (8 sampel × 250ms = 2 detik data) ────────────────────────────────
+    // Non-root fallback
+    private var shizukuFallback: IFpsProvider? = null
+    @Volatile private var useShizukuFallback = false
+
+    // SMA 8 sampel
     private val smaBuffer = LinkedList<Float>()
     private val SMA_SIZE  = 8
 
-    // ── Smart layer cache ─────────────────────────────────────────────────────
-    @Volatile private var cachedGameLayer: String? = null
-    private var layerCacheMs  = 0L
-    private val LAYER_CACHE_TTL_MS = 3_000L
-
-    // ── Reconnect debounce ────────────────────────────────────────────────────
-    private var lastReconnectMs = 0L
-    private val RECONNECT_COOLDOWN_MS = 5_000L
-
-    // ── Background sampling coroutine ─────────────────────────────────────────
-    private val samplerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-    // Dollar literal — hindari konflik Kotlin template string vs shell variable
-    private val D = "\$"
-
     companion object {
-        @JvmStatic val SU_LOCK = Any()
-
-        private const val TAG_STATIC        = "RootFpsProvider"
-        private const val ROOT_FAIL_THRESH  = 5
-        private const val SAMPLE_INTERVAL   = 250L   // ms — sesuai spec Scene 8.1.6
-        private const val LAYER_SCAN_TTL    = 3_000L
-
-        /**
-         * 4 jalur prioritas dari riset Scene 8.1.6 (urutan diikuti persis).
-         */
-        private val PRIORITY_PATHS = listOf(
-            "/sys/class/drm/sde-crtc-0/measured_fps"
-                to SysfsType.DIRECT_FPS,
-            "/sys/class/graphics/fb0/measured_fps"
-                to SysfsType.DIRECT_FPS,
-            "/sys/kernel/fpsgo/fstb/fpsgo_status"
-                to SysfsType.FPSGO_STATUS,
-            "/sys/devices/platform/soc/ae00000.qcom,mdss_mdp/drm/card0/card0-sde-crtc-0/measured_fps"
-                to SysfsType.DIRECT_FPS
-        )
-
-        // Daftar layer yang diabaikan saat mencari game layer
-        private val LAYER_SKIP = listOf(
-            "NavigationBar", "StatusBar", "ScreenDecor", "InputMethod",
-            "com.javapro", "WallpaperSurface", "pip-dismiss", "Splash Screen",
-            "ShellDropTarget", "PointerLocation", "mouse pointer"
-        )
+        private const val STALE_MS     = 3000L   // anggap mati kalau tidak ada output > 3 detik
+        private const val BINARY_ASSET = "fps_core"   // nama di assets/ (tanpa ekstensi)
+        private const val LAUNCHER_ASSET = "engine_launcher.sh"
     }
-
-    // ── Init ──────────────────────────────────────────────────────────────────
 
     init {
-        connectShell()
-        discoverSysfsPath()
-        startSamplingLoop()
+        val ok = setupAndLaunch()
+        if (!ok) {
+            Log.w(TAG, "Root binary failed, switching to Shizuku fallback")
+            useShizukuFallback = true
+            shizukuFallback    = ShizukuFpsProvider(maxRefreshRate)
+        }
     }
 
-    // ── Public API (IFpsProvider) ─────────────────────────────────────────────
+    // ── Public API ────────────────────────────────────────────────────────────
 
-    /**
-     * Non-blocking: kembalikan nilai yang sudah di-cache oleh background sampler.
-     * Jika root sudah exhausted, delegate ke non-root fallback.
-     */
     override fun getInstantFps(): Float {
-        if (rootExhausted) {
-            return getNonRootFallback().getInstantFps()
+        if (useShizukuFallback) {
+            return shizukuFallback?.getInstantFps() ?: 0f
         }
+
+        // Cek apakah binary masih hidup
+        val now = System.currentTimeMillis()
+        if (lastUpdateMs > 0L && now - lastUpdateMs > STALE_MS) {
+            Log.w(TAG, "fps_core stream stale, restarting")
+            restartBinary()
+        }
+
         return latestFps
     }
 
     override fun release() {
-        samplerScope.cancel()
-        smaBuffer.clear()
-        cachedGameLayer      = null
-        latestFps            = 0f
-        nonRootFallback?.release()
-        nonRootFallback = null
+        stopBinary()
         shell.close()
+        shizukuFallback?.release()
+        shizukuFallback = null
+        smaBuffer.clear()
+        latestFps = 0f
     }
 
-    // ── Background sampler (250ms interval) ───────────────────────────────────
+    // ── Setup ─────────────────────────────────────────────────────────────────
 
-    /**
-     * Coroutine yang berjalan setiap 250ms.
-     * Urutan prioritas: L1 sysfs → L2 service call → L3 dumpsys latency.
-     * Simpan hasil ke [latestFps] (volatile, aman lintas thread).
-     */
-    private fun startSamplingLoop() {
-        samplerScope.launch {
-            // Beri waktu shell init sebelum mulai sampling
-            delay(600)
-
-            while (isActive) {
-                val tick = System.currentTimeMillis()
-
-                if (rootExhausted) {
-                    // Delegasikan ke fallback, sampler tetap jalan agar bisa recover
-                    latestFps = getNonRootFallback().getInstantFps()
-                    delay(SAMPLE_INTERVAL)
-                    continue
-                }
-
-                ensureShellAlive()
-
-                // ── L1: Sysfs (direct file read, paling cepat) ──────────────
-                val sysfs = readSysfsFps()
-                if (sysfs > 0f) {
-                    latestFps = applySma(sysfs)
-                    onSuccess()
-                    sleepRemaining(tick)
-                    continue
-                }
-
-                // ── L2: service call SurfaceFlinger 1013 ─────────────────────
-                val svcCall = readServiceCallFps()
-                if (svcCall > 0f) {
-                    latestFps = applySma(svcCall)
-                    onSuccess()
-                    sleepRemaining(tick)
-                    continue
-                }
-
-                // ── L3: Aggressive Dumpsys --latency (last resort) ───────────
-                val latency = readAggressiveDumpsys()
-                if (latency > 0f) {
-                    latestFps = latency   // SMA sudah diapply di dalam
-                    onSuccess()
-                    sleepRemaining(tick)
-                    continue
-                }
-
-                // Semua metode gagal untuk tick ini
-                onRootFailure()
-                if (rootExhausted) {
-                    Log.e(TAG, "Root exhausted → switching to non-root fallback")
-                }
-                sleepRemaining(tick)
-            }
+    private fun setupAndLaunch(): Boolean {
+        if (!shell.connect()) {
+            Log.w(TAG, "PersistentSuShell connect failed")
+            return false
         }
+
+        // Buat direktori
+        shell.execute("mkdir -p $BINARY_DIR", timeoutMs = 2000L)
+
+        // Extract binary dari assets
+        if (!extractAsset(BINARY_ASSET, "$BINARY_DIR/$BINARY_NAME")) return false
+        if (!extractAsset(LAUNCHER_ASSET, "$BINARY_DIR/$LAUNCHER_NAME")) return false
+
+        // chmod +x
+        shell.execute("chmod +x $BINARY_DIR/$BINARY_NAME $BINARY_DIR/$LAUNCHER_NAME", timeoutMs = 1000L)
+
+        // Launch binary sebagai streaming process
+        return launchBinaryStream()
     }
 
-    /** Tidur sisa waktu dari interval 250ms agar setiap tick tepat 250ms. */
-    private suspend fun sleepRemaining(tickStart: Long) {
-        val elapsed = System.currentTimeMillis() - tickStart
-        val remaining = SAMPLE_INTERVAL - elapsed
-        if (remaining > 0L) delay(remaining)
-    }
-
-    // ── Shell lifecycle ───────────────────────────────────────────────────────
-
-    private fun connectShell() {
-        try {
-            if (!shell.connect()) Log.w(TAG, "Shell connect failed, will retry")
-        } catch (e: Exception) {
-            Log.e(TAG, "connectShell: ${e.message}")
-        }
-    }
-
-    private fun ensureShellAlive() {
-        if (shell.connected && shell.isAlive()) return
-        val now = System.currentTimeMillis()
-        if (now - lastReconnectMs < RECONNECT_COOLDOWN_MS) return
-        Log.w(TAG, "Shell dead, reconnecting...")
-        lastReconnectMs = now
-        connectShell()
-    }
-
-    // ── Non-root fallback ─────────────────────────────────────────────────────
-
-    private fun getNonRootFallback(): IFpsProvider =
-        nonRootFallback ?: ShizukuFpsProvider(maxRefreshRate).also { nonRootFallback = it }
-
-    // ── Failure tracking ──────────────────────────────────────────────────────
-
-    private fun onSuccess() { consecutiveRootFailures = 0 }
-
-    private fun onRootFailure() {
-        consecutiveRootFailures++
-        Log.w(TAG, "Root sample failed ($consecutiveRootFailures/$ROOT_FAIL_THRESH)")
-        if (consecutiveRootFailures >= ROOT_FAIL_THRESH) {
-            rootExhausted = true
-        }
-    }
-
-    // ── L1: Universal Path Discovery ──────────────────────────────────────────
-
-    /**
-     * Scan 4 jalur prioritas dari Scene 8.1.6 secara berurutan.
-     * Berhenti di jalur pertama yang readable dan valid.
-     * Jika tidak ada yang cocok, lakukan broad scan.
-     */
-    private fun discoverSysfsPath() {
-        // Semua akses sysfs wajib lewat shell.execute (PersistentSuShell)
-        // karena SELinux block File.readText() dari untrusted_app context
-
-        // Coba 4 jalur prioritas dahulu
-        for ((path, type) in PRIORITY_PATHS) {
-            val text = shell.execute("cat $path", timeoutMs = 500L)
-            if (text.isBlank()) continue
-            val valid = when (type) {
-                SysfsType.DIRECT_FPS   -> text.trim().toFloatOrNull()?.let { it > 0f } == true
-                SysfsType.FPSGO_STATUS -> parseFpsgoStatus(text) > 0f
-            }
-            if (valid) {
-                activeSysfsPath = path
-                activeSysfsType = type
-                Log.i(TAG, "Root Discovery Success — Sysfs node (priority): $path [$type]")
-                return
-            }
-        }
-
-        // Broad scan via shell find — tidak pakai walkTopDown() karena itu akses langsung
-        val patterns = listOf(
-            "/sys/class/drm"                to "measured_fps",
-            "/sys/class/graphics"           to "measured_fps",
-            "/sys/devices/platform/display" to "fps"
-        )
-        for ((dir, filename) in patterns) {
-            val found = shell.execute("find $dir -name '$filename' -maxdepth 5 2>/dev/null | head -3", timeoutMs = 1000L)
-            for (path in found.lines().map { it.trim() }.filter { it.isNotEmpty() }) {
-                val text = shell.execute("cat $path", timeoutMs = 500L)
-                val v = text.trim().toFloatOrNull()
-                if (v != null && v > 0f) {
-                    activeSysfsPath = path
-                    activeSysfsType = SysfsType.DIRECT_FPS
-                    Log.i(TAG, "Root Discovery Success — Sysfs node (broad scan): $path")
-                    return
-                }
-            }
-        }
-        Log.d(TAG, "No sysfs fps node found on this device")
-    }
-
-    private fun readSysfsFps(): Float {
-        val path = activeSysfsPath ?: return 0f
-        // Wajib lewat shell.execute — File.readText() kena SELinux block dari untrusted_app
-        val text = shell.execute("cat $path", timeoutMs = 500L)
-        if (text.isBlank()) {
-            activeSysfsPath = null
-            return 0f
-        }
-        return when (activeSysfsType) {
-            SysfsType.DIRECT_FPS   ->
-                text.trim().toFloatOrNull()?.coerceIn(1f, maxRefreshRate * 1.05f) ?: 0f
-            SysfsType.FPSGO_STATUS ->
-                parseFpsgoStatus(text)
-        }
-    }
-
-    /**
-     * Parse MediaTek FpsGo status.
-     *
-     * Format umum fpsgo_status:
-     *   tid   bufid  target_fps  fps  quota  ...
-     *   12345  0      60          58   100   ...
-     *
-     * Ambil nilai fps tertinggi dari semua baris aktif (non-zero tid).
-     * Fallback ke parse angka tunggal jika format tidak ada header.
-     */
-    private fun parseFpsgoStatus(text: String): Float {
-        val lines = text.lines()
-
-        // Cari header row
-        val headerIdx = lines.indexOfFirst { it.trimStart().startsWith("tid") }
-        if (headerIdx < 0) {
-            // Format sederhana: hanya satu angka FPS
-            return text.trim().toFloatOrNull()?.coerceIn(1f, maxRefreshRate * 1.05f) ?: 0f
-        }
-
-        val headers  = lines[headerIdx].trim().split("\\s+".toRegex())
-        val fpsCol   = headers.indexOfFirst { it.equals("fps", ignoreCase = true) }
-        if (fpsCol < 0) return 0f
-
-        var best = 0f
-        for (line in lines.drop(headerIdx + 1)) {
-            if (line.isBlank()) continue
-            val cols = line.trim().split("\\s+".toRegex())
-            val fps  = cols.getOrNull(fpsCol)?.toFloatOrNull() ?: continue
-            if (fps > best && fps <= maxRefreshRate * 1.05f) best = fps
-        }
-        return best
-    }
-
-    // ── L2: service call SurfaceFlinger 1013 ─────────────────────────────────
-
-    /**
-     * `service call SurfaceFlinger 1013` mengembalikan Hex Parcel, contoh:
-     *   Result: Parcel(00000000 42740000 '....tB')
-     *
-     * Konversi setiap grup 8 hex → IEEE-754 32-bit float.
-     * Lewati 00000000 (status code). Return float pertama yang masuk
-     * range FPS valid (1..maxRefreshRate*1.05).
-     */
-    private fun readServiceCallFps(): Float {
-        if (!shell.connected) return 0f
+    private fun extractAsset(assetName: String, destPath: String): Boolean {
         return try {
-            val output = shell.execute("service call SurfaceFlinger 1013", timeoutMs = 1000L)
-            if (output.isBlank()) return 0f
-            parseHexParcel(output)
-        } catch (_: Exception) { 0f }
-    }
+            val destFile = File(destPath)
 
-    private fun parseHexParcel(output: String): Float {
-        val hexRegex = Regex("""([0-9a-fA-F]{8})""")
-        for (hex in hexRegex.findAll(output).map { it.value }) {
-            if (hex.equals("00000000", ignoreCase = true)) continue
-            val bits = hex.toLongOrNull(16)?.toInt() ?: continue
-            val f    = java.lang.Float.intBitsToFloat(bits)
-            if (f.isFinite() && f in 1f..maxRefreshRate * 1.05f) {
-                Log.d(TAG, "SvcCall 1013 → $f Hz (hex=0x$hex)")
-                return f
+            // Cek apakah sudah ada dan ukuran sama (skip extract kalau sudah update)
+            val assetSize = context.assets.open(assetName).use { it.available().toLong() }
+            if (destFile.exists() && destFile.length() == assetSize) {
+                Log.d(TAG, "Asset $assetName already extracted, skipping")
+                return true
             }
-        }
-        return 0f
-    }
 
-    // ── L3: Aggressive Dumpsys — Scene Delta Calculation ─────────────────────
-
-    /**
-     * Algoritma Scene 8.1.6:
-     *
-     *  1. --latency-clear "$LAYER"  → reset ring buffer SurfaceFlinger
-     *  2. usleep 250000             → tunggu 250ms agar frame baru terakumulasi
-     *  3. --latency "$LAYER"        → baca present timestamps kolom 2
-     *
-     * Scene Delta:
-     *   FPS = frameCount * 1000 / elapsed_ms
-     *
-     * Semuanya dikirim dalam SATU execute() agar atomik di dalam persistent shell.
-     * Timeout = 1800ms (250ms sleep + overhead dumpsys + awk).
-     */
-    private fun readAggressiveDumpsys(): Float {
-        if (!shell.connected) return 0f
-
-        val layer    = resolveGameLayer()
-        val layerArg = if (layer.isNotEmpty()) "\"$layer\"" else ""
-
-        val output   = shell.execute(buildSceneScript(layerArg), timeoutMs = 1800L)
-
-        if (output.isBlank()) {
-            // Fallback ke global jika layer spesifik tidak ada data
-            if (layer.isNotEmpty()) {
-                Log.d(TAG, "Smart layer empty → fallback global")
-                cachedGameLayer = ""
-                val globalOut = shell.execute(buildSceneScript(""), timeoutMs = 1800L)
-                if (globalOut.isBlank()) return 0f
-                return parseSceneDelta(globalOut)
-            }
-            return 0f
-        }
-
-        return parseSceneDelta(output)
-    }
-
-    /**
-     * Script satu baris yang atomik di dalam persistent shell:
-     *   clear → usleep 250ms → read latency → filter timestamps
-     *
-     * `usleep 250000` = 250ms (unit microseconds).
-     * Jika usleep tidak tersedia (jarang), fallback ke `sleep 0` (tidak ideal tapi tidak error).
-     */
-    private fun buildSceneScript(layerArg: String): String =
-        "dumpsys SurfaceFlinger --latency-clear $layerArg >/dev/null 2>&1;" +
-        " usleep 250000 2>/dev/null || true;" +
-        " dumpsys SurfaceFlinger --latency $layerArg" +
-        " | tail -127 | awk '{print ${D}2}' | grep -v '^0${D}' | grep -v '^${D}'"
-
-    /**
-     * Parse output dari --latency (timestamps nanosecond kolom 2).
-     *
-     * Metode A — Scene Delta (akurat):
-     *   FPS = frameCount * 1000 / elapsed_ms
-     *   elapsed ≈ 250ms (dari usleep di script)
-     *
-     * Metode B — Inter-frame delta (backup):
-     *   FPS = 1_000_000_000 / avg_delta_ns
-     *
-     * Blend keduanya jika sama-sama valid. Prioritaskan Metode A.
-     */
-    private fun parseSceneDelta(output: String): Float {
-        val timestamps = output.lines()
-            .mapNotNull { it.trim().toLongOrNull() }
-            .filter { it > 0L && it != Long.MAX_VALUE }
-
-        if (timestamps.isEmpty()) return 0f
-
-        // ── Metode A: Scene Delta (frame count ÷ elapsed) ────────────────────
-        // elapsed diambil dari rentang timestamp itu sendiri (lebih akurat dari wall clock)
-        val tMin  = timestamps.first()
-        val tMax  = timestamps.last()
-        val rangeNs = tMax - tMin
-
-        val sceneFps: Float = if (timestamps.size >= 2 && rangeNs in 10_000_000L..2_000_000_000L) {
-            // (n-1) intervals untuk n timestamps
-            val intervalNs = rangeNs.toFloat() / (timestamps.size - 1)
-            (1_000_000_000f / intervalNs).coerceIn(1f, maxRefreshRate * 1.05f)
-        } else 0f
-
-        // ── Metode B: Inter-frame delta (baris terakhir sebagai sanity check) ─
-        var deltaFps = 0f
-        var prevTs   = 0L
-        for (ts in timestamps) {
-            if (prevTs > 0L) {
-                val delta = ts - prevTs
-                // Valid window: 2ms – 50ms = 20fps – 500fps
-                if (delta in 2_000_000L..50_000_000L) {
-                    deltaFps = 1_000_000_000f / delta
+            // Tulis ke tmp dulu lalu mv agar atomic
+            val tmpPath = "$destPath.tmp"
+            context.assets.open(assetName).use { input ->
+                File(tmpPath).outputStream().use { output ->
+                    input.copyTo(output)
                 }
             }
-            prevTs = ts
-        }
-        if (deltaFps !in 1f..maxRefreshRate * 1.05f) deltaFps = 0f
 
-        // ── Blend / pilih terbaik ─────────────────────────────────────────────
-        val result: Float = when {
-            sceneFps > 0f && deltaFps > 0f -> {
-                // Ambil rata-rata berbobot: Scene (70%) + Delta (30%)
-                sceneFps * 0.7f + deltaFps * 0.3f
+            // mv via shell (pastikan permission benar)
+            val mv = shell.execute("mv $tmpPath $destPath && echo ok", timeoutMs = 2000L)
+            val success = mv.contains("ok")
+            if (!success) {
+                Log.e(TAG, "Failed to move $tmpPath → $destPath")
+            } else {
+                Log.i(TAG, "Extracted asset: $assetName → $destPath")
             }
-            sceneFps > 0f -> sceneFps
-            deltaFps > 0f -> deltaFps
-            else          -> return 0f
+            success
+        } catch (e: IOException) {
+            Log.e(TAG, "extractAsset $assetName failed: ${e.message}")
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "extractAsset $assetName error: ${e.message}")
+            false
         }
-
-        Log.d(TAG, "SceneDelta: frames=${timestamps.size}, scene=${"%.1f".format(sceneFps)}, " +
-                   "delta=${"%.1f".format(deltaFps)}, blended=${"%.1f".format(result)}")
-
-        return applySma(result.coerceIn(1f, maxRefreshRate * 1.05f))
     }
 
-    // ── Smart Layer Detection ─────────────────────────────────────────────────
+    // ── Binary Streaming ──────────────────────────────────────────────────────
 
-    /**
-     * Deteksi layer game aktif dari SurfaceFlinger.
-     * Priority: SurfaceView > Sprite > UnityMain > GameActivity > RenderThread
-     * Cache 3 detik agar --list tidak dipanggil setiap tick 250ms.
-     */
-    private fun resolveGameLayer(): String {
-        val now    = System.currentTimeMillis()
-        val cached = cachedGameLayer
-        if (cached != null && (now - layerCacheMs) < LAYER_CACHE_TTL_MS) return cached
+    private fun launchBinaryStream(): Boolean {
+        stopBinary()
+        return try {
+            // Jalankan via su langsung sebagai streaming process
+            // Tidak pakai PersistentSuShell.execute() karena itu blocking dengan sentinel
+            // Pakai Runtime.exec() dengan su agar stream tetap terbuka
+            val proc = Runtime.getRuntime().exec(
+                arrayOf("su", "-c", "sh $BINARY_DIR/$LAUNCHER_NAME")
+            )
+            binaryProcess = proc
 
-        val listOut = shell.execute("dumpsys SurfaceFlinger --list", timeoutMs = 1500L)
-        val target  = listOut.lines()
-            .map { it.trim() }
-            .filter { line -> LAYER_SKIP.none { skip -> line.contains(skip, ignoreCase = true) } }
-            .firstOrNull { line ->
-                line.contains("SurfaceView",  ignoreCase = true) ||
-                line.contains("Sprite",       ignoreCase = true) ||
-                line.contains("UnityMain",    ignoreCase = true) ||
-                line.contains("GameActivity", ignoreCase = true) ||
-                line.contains("RenderThread", ignoreCase = true)
-            } ?: ""
+            // Drain stderr
+            Thread {
+                try {
+                    val buf = ByteArray(1024)
+                    while (proc.errorStream.read(buf) >= 0) {}
+                } catch (_: Exception) {}
+            }.also { it.isDaemon = true; it.name = "fps_core-stderr"; it.start() }
 
-        cachedGameLayer = target
-        layerCacheMs    = now
-        if (target.isNotEmpty()) Log.i(TAG, "Game layer: $target")
-        else Log.d(TAG, "No game layer, using global")
-        return target
+            // Reader thread: baca stdout line-by-line
+            readerThread = Thread {
+                try {
+                    val reader = proc.inputStream.bufferedReader()
+                    while (!Thread.currentThread().isInterrupted) {
+                        val line = reader.readLine() ?: break  // null = proses mati
+                        val fps = line.trim().toFloatOrNull() ?: continue
+                        if (fps > 0f) {
+                            latestFps     = applySma(fps.coerceAtMost(maxRefreshRate))
+                            lastUpdateMs  = System.currentTimeMillis()
+                        } else {
+                            // fps_core output "0" saat tidak ada frame
+                            latestFps = 0f
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "fps_core reader ended: ${e.message}")
+                } finally {
+                    if (!useShizukuFallback) {
+                        Log.w(TAG, "fps_core stream ended, will restart on next stale check")
+                    }
+                }
+            }.also {
+                it.isDaemon = true
+                it.name     = "fps_core-reader"
+                it.start()
+            }
+
+            lastUpdateMs = System.currentTimeMillis()
+            Log.i(TAG, "fps_core streaming started")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "launchBinaryStream failed: ${e.message}")
+            false
+        }
+    }
+
+    private fun stopBinary() {
+        readerThread?.interrupt()
+        readerThread = null
+        binaryProcess?.runCatching { destroyForcibly() }
+        binaryProcess = null
+    }
+
+    private fun restartBinary() {
+        val ok = launchBinaryStream()
+        if (!ok) {
+            Log.e(TAG, "Restart failed, switching to Shizuku")
+            useShizukuFallback = true
+            if (shizukuFallback == null) shizukuFallback = ShizukuFpsProvider(maxRefreshRate)
+        }
     }
 
     // ── SMA ───────────────────────────────────────────────────────────────────

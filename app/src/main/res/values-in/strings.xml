@@ -794,4 +794,18 @@
 <string name="cloud_watch_ads_download">Tonton 2 Iklan &amp; Download</string>
 <string name="gbdetail_cloud_config_title">Config Komunitas</string>
 <string name="gbdetail_cloud_config_desc">Download &amp; terapkan config dari pengguna lain</string>
+<string name="auto_tools_label">ALAT OTOMASI</string>
+<string name="auto_clear_title">Bersihkan RAM Otomatis</string>
+<string name="auto_clear_desc">Otomatis bersihkan RAM latar belakang saat bermain game</string>
+<string name="auto_clear_interval_label">Interval pembersihan</string>
+<string name="interval_15">Setiap 15 menit</string>
+<string name="interval_30">Setiap 30 menit</string>
+<string name="premium_badge">PREMIUM</string>
+<string name="premium_only_feature">Fitur Premium</string>
+<string name="premium_sheet_desc">Buka Bersihkan RAM Otomatis dan semua alat otomasi eksklusif dengan Premium</string>
+<string name="premium_perk_ram">Pembersihan RAM otomatis saat gaming</string>
+<string name="premium_perk_boost">Peningkatan performa lanjutan</string>
+<string name="premium_perk_tools">Alat otomasi eksklusif</string>
+<string name="premium_sheet_cta">Upgrade ke Premium</string>
+
 </resources>

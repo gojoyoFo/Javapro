@@ -794,4 +794,18 @@
 <string name="cloud_watch_ads_download">Watch 2 Ads &amp; Download</string>
 <string name="gbdetail_cloud_config_title">Community Configs</string>
 <string name="gbdetail_cloud_config_desc">Download &amp; apply configs shared by other users</string>
+<string name="auto_tools_label">AUTOMATION TOOLS</string>
+<string name="auto_clear_title">Auto-Clear RAM</string>
+<string name="auto_clear_desc">Automatically clean background RAM while gaming</string>
+<string name="auto_clear_interval_label">Clean interval</string>
+<string name="interval_15">Every 15 min</string>
+<string name="interval_30">Every 30 min</string>
+<string name="premium_badge">PREMIUM</string>
+<string name="premium_only_feature">Premium Feature</string>
+<string name="premium_sheet_desc">Unlock Auto-Clear RAM and all exclusive automation tools with Premium</string>
+<string name="premium_perk_ram">Auto RAM cleanup during gaming</string>
+<string name="premium_perk_boost">Advanced performance boost</string>
+<string name="premium_perk_tools">Exclusive automation tools</string>
+<string name="premium_sheet_cta">Upgrade to Premium</string>
+
 </resources>

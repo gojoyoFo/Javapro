@@ -794,4 +794,18 @@
 <string name="cloud_watch_ads_download">观看 2 个广告并下载</string>
 <string name="gbdetail_cloud_config_title">社区配置</string>
 <string name="gbdetail_cloud_config_desc">下载并应用其他用户分享的配置</string>
+<string name="auto_tools_label">自动化工具</string>
+<string name="auto_clear_title">自动清理内存</string>
+<string name="auto_clear_desc">游戏时自动清理后台内存</string>
+<string name="auto_clear_interval_label">清理间隔</string>
+<string name="interval_15">每 15 分钟</string>
+<string name="interval_30">每 30 分钟</string>
+<string name="premium_badge">高级版</string>
+<string name="premium_only_feature">高级功能</string>
+<string name="premium_sheet_desc">升级至高级版，解锁自动清理内存及所有专属自动化工具</string>
+<string name="premium_perk_ram">游戏期间自动清理内存</string>
+<string name="premium_perk_boost">进阶性能提升</string>
+<string name="premium_perk_tools">专属自动化工具</string>
+<string name="premium_sheet_cta">升级至高级版</string>
+
 </resources>

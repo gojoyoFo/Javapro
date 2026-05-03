@@ -794,4 +794,18 @@
 <string name="cloud_watch_ads_download">Manood ng 2 Ad &amp; I-download</string>
 <string name="gbdetail_cloud_config_title">Mga Config ng Komunidad</string>
 <string name="gbdetail_cloud_config_desc">I-download at ilapat ang mga config mula sa ibang user</string>
+<string name="auto_tools_label">MGA AUTOMATION TOOL</string>
+<string name="auto_clear_title">Awtomatikong Linisin ang RAM</string>
+<string name="auto_clear_desc">Awtomatikong linisin ang background RAM habang naglalaro</string>
+<string name="auto_clear_interval_label">Interval ng paglinis</string>
+<string name="interval_15">Bawat 15 min</string>
+<string name="interval_30">Bawat 30 min</string>
+<string name="premium_badge">PREMIUM</string>
+<string name="premium_only_feature">Premium na Tampok</string>
+<string name="premium_sheet_desc">I-unlock ang Awtomatikong Paglinis ng RAM at lahat ng eksklusibong automation tool gamit ang Premium</string>
+<string name="premium_perk_ram">Awtomatikong paglinis ng RAM habang naglalaro</string>
+<string name="premium_perk_boost">Advanced na pagpapabuti ng performance</string>
+<string name="premium_perk_tools">Mga eksklusibong automation tool</string>
+<string name="premium_sheet_cta">Mag-upgrade sa Premium</string>
+
 </resources>

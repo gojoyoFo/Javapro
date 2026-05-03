@@ -794,4 +794,18 @@
 <string name="cloud_watch_ads_download">2 विज्ञापन देखें &amp; डाउनलोड करें</string>
 <string name="gbdetail_cloud_config_title">कम्युनिटी कॉन्फ़िग</string>
 <string name="gbdetail_cloud_config_desc">दूसरे यूज़र के कॉन्फ़िग डाउनलोड करें और अप्लाई करें</string>
+<string name="auto_tools_label">ऑटोमेशन टूल</string>
+<string name="auto_clear_title">ऑटो-क्लियर रैम</string>
+<string name="auto_clear_desc">गेमिंग के दौरान बैकग्राउंड रैम को अपने आप साफ़ करें</string>
+<string name="auto_clear_interval_label">साफ़ करने का अंतराल</string>
+<string name="interval_15">हर 15 मिनट</string>
+<string name="interval_30">हर 30 मिनट</string>
+<string name="premium_badge">प्रीमियम</string>
+<string name="premium_only_feature">प्रीमियम सुविधा</string>
+<string name="premium_sheet_desc">प्रीमियम के साथ ऑटो-क्लियर रैम और सभी एक्सक्लूसिव ऑटोमेशन टूल अनलॉक करें</string>
+<string name="premium_perk_ram">गेमिंग के दौरान ऑटो रैम क्लीनअप</string>
+<string name="premium_perk_boost">बेहतर परफ़ॉर्मेंस बूस्ट</string>
+<string name="premium_perk_tools">एक्सक्लूसिव ऑटोमेशन टूल</string>
+<string name="premium_sheet_cta">प्रीमियम में अपग्रेड करें</string>
+
 </resources>

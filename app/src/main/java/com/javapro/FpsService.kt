@@ -124,8 +124,8 @@ class FpsService : Service() {
         val refreshRate = getDeviceRefreshRate()
         fpsProvider = when {
             hasRoot() -> {
-                Log.i(TAG, "FPS strategy: RootFpsProvider (native binary)")
-                RootFpsProvider(this, refreshRate)
+                Log.i(TAG, "FPS strategy: RootFpsProvider (persistent shell)")
+                RootFpsProvider(refreshRate)
             }
             ShizukuManager.isAvailable() -> {
                 Log.i(TAG, "FPS strategy: ShizukuFpsProvider (shizuku)")
@@ -229,14 +229,13 @@ class FpsService : Service() {
     }
 
     private fun getFocusedTaskId(): Int {
-        // Gunakan ActivityManager.getRunningTasks() — public API, tidak ada hiddenapi, tidak ada avc:denied
+        // ActivityTaskManager.getService() blocked di TargetSdk 36 — pakai shell su
         return try {
-            val am = getSystemService(android.app.ActivityManager::class.java) ?: return -1
-            @Suppress("DEPRECATION")
-            val tasks = am.getRunningTasks(1)
-            val id = tasks?.firstOrNull()?.id ?: -1
-            if (id > 0) Log.d(TAG, "getFocusedTaskId: $id")
-            id
+            // "am stack list" output: "taskId=123 ..."  baris focused task
+            val output = runSuCommand("dumpsys activity activities | grep -E 'mFocused|isFocused=true' | grep -oE 'taskId=[0-9]+' | head -1")
+            val taskId = Regex("""taskId=(\d+)""").find(output)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: -1
+            if (taskId > 0) Log.d(TAG, "getFocusedTaskId via su: $taskId")
+            taskId
         } catch (_: Exception) { -1 }
     }
 
@@ -265,12 +264,6 @@ class FpsService : Service() {
             // RootFpsProvider mengembalikan nilai cached dari background sampler 250ms.
             // ShizukuFpsProvider tetap blocking ringan (sysfs/shell).
             val fps = withContext(Dispatchers.IO) { getCurrentFps() }
-
-            // Log jika root provider beralih ke fallback
-            val provider = fpsProvider
-            if (provider is RootFpsProvider && provider.rootExhausted) {
-                Log.i(TAG, "RootFpsProvider exhausted → running via non-root fallback internally")
-            }
 
             if (fps <= 0f) {
                 consecutiveZeroFps++

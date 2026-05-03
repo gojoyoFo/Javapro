@@ -110,50 +110,62 @@ dependencies {
 }
 
 // ── Auto-copy fps_core binary ke assets setelah CMake build ──────────────────
-// Binary hasil build CMake otomatis di-copy ke assets/ untuk semua ABI.
-// engine_launcher.sh hanya perlu di-copy manual sekali ke src/main/assets/.
-
 afterEvaluate {
-    val abis = listOf("arm64-v8a", "armeabi-v7a")
+    val abis      = listOf("arm64-v8a", "armeabi-v7a")
     val assetsDir = file("src/main/assets")
 
     android.applicationVariants.forEach { variant ->
-        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val variantName  = variant.name                                      // "release" / "debug"
+        val variantCap   = variantName.replaceFirstChar { it.uppercase() }   // "Release" / "Debug"
 
-        // Task copy binary dari build output CMake → assets
-        val copyTask = tasks.register("copyFpsCoreBinaries$variantName") {
-            group = "javapro"
+        val copyTask = tasks.register("copyFpsCoreBinaries$variantCap") {
+            group       = "javapro"
             description = "Copy fps_core binaries to assets for $variantName"
 
             doLast {
                 assetsDir.mkdirs()
+                var anyFound = false
                 abis.forEach { abi ->
-                    val src = file(
-                        "build/intermediates/cmake/${variant.name}/obj/$abi/fps_core"
+                    // CMake output path yang benar di GitHub Actions & Android Studio
+                    val candidates = listOf(
+                        file("build/intermediates/cmake/$variantName/obj/$abi/fps_core"),
+                        file(".cxx/cmake/$variantName/$abi/fps_core"),
+                        file(".cxx/RelWithDebInfo/$abi/fps_core"),
+                        file(".cxx/Release/$abi/fps_core")
                     )
-                    if (src.exists()) {
+                    val src = candidates.firstOrNull { it.exists() }
+                    if (src != null) {
                         val dest = file("$assetsDir/fps_core_$abi")
                         src.copyTo(dest, overwrite = true)
-                        println("Copied fps_core [$abi] → assets/fps_core_$abi (${src.length()} bytes)")
+                        println("✓ Copied fps_core [$abi] → ${dest.name} (${src.length()} bytes)")
+                        anyFound = true
                     } else {
-                        println("WARNING: fps_core binary not found for $abi at ${src.path}")
+                        println("⚠ fps_core not found for $abi, searched: ${candidates.map { it.path }}")
                     }
+                }
+                if (!anyFound) {
+                    throw GradleException(
+                        "fps_core binary not found for any ABI. " +
+                        "Pastikan NDK terinstall dan CMakeLists.txt ada di src/main/cpp/"
+                    )
                 }
             }
         }
 
-        // Jalankan copy setelah CMake build selesai
-        tasks.matching {
-            it.name.startsWith("buildCMake") && it.name.contains(variantName, ignoreCase = true)
-        }.configureEach {
-            finalizedBy(copyTask)
-        }
+        // Dependensi: copyTask harus jalan SETELAH semua buildCMake tasks selesai
+        tasks.matching { t ->
+            t.name.lowercase().let { n ->
+                (n.startsWith("buildcmake") || n.startsWith("configurecmake") || n.startsWith("linkexternal")) &&
+                n.contains(variantName.lowercase())
+            }
+        }.configureEach { finalizedBy(copyTask) }
 
-        // Pastikan assets tersedia sebelum merge assets task
-        tasks.matching {
-            it.name == "merge${variantName}Assets"
-        }.configureEach {
-            dependsOn(copyTask)
-        }
+        // mergeAssets harus SETELAH copy selesai
+        tasks.matching { it.name == "merge${variantCap}Assets" }
+            .configureEach { dependsOn(copyTask) }
+
+        // generateAssets juga perlu tahu
+        tasks.matching { it.name == "generate${variantCap}Assets" }
+            .configureEach { dependsOn(copyTask) }
     }
 }

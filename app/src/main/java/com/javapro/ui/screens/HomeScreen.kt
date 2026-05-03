@@ -5,7 +5,7 @@ import androidx.compose.material.icons.filled.*
 
 
 
-
+import com.javapro.utils.ShizukuManager
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri

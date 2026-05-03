@@ -849,7 +849,7 @@
 <string name="payment_back_btn">Bumalik sa Premium Page</string>
 
 <string name="payment_offhours_title">⚠️ Labas ng oras ng operasyon</string>
-<string name="payment_offhours_desc">Ang mga bayad na natanggap sa labas ng 07:00–15:00 WIB (Lun–Biy) ay ipoproseso sa susunod na araw ng trabaho mula 07:00 WIB.\n\nAng Sabado at Linggo ay maaaring mas mabilis.\n\nAng iyong premium ay maa-activate pa rin, huwag mag-alala!</string>
+<string name="payment_offhours_desc">Ang mga bayad na natanggap sa labas ng 07:00–15:00 AM (Lun–Biy) ay ipoproseso ngayon din mula 04:00 PM.\n\nAng Sabado at Linggo ay maaaring mas mabilis.\n\nAng iyong premium ay maa-activate pa rin, huwag mag-alala!</string>
 
 <string name="payment_steps_title">Paano gumagana ang sistema</string>
 <string name="payment_step1">Mag-transfer sa Saweria/Sociabuzz gamit ang paunang nakalagay na mensahe</string>
@@ -857,5 +857,24 @@
 <string name="payment_step3">Ang email na %1$s ay agad bibigyan ng %2$s premium package</string>
 <string name="payment_step4">Buksan muli ang Premium page sa JavaPro para ma-load ang pinakabagong status</string>
 <string name="payment_steps_note">💡 Siguraduhing hindi mo binabago ang mensahe ng donasyon para awtomatikong matukoy ng sistema ang iyong email.</string>
-
+<string name="ga_screen_title">Google Account</string>
+    <string name="ga_sign_out">Mag-sign out</string>
+    <string name="ga_sign_out_title">Mag-sign out sa Account?</string>
+    <string name="ga_sign_out_desc">Ang iyong premium status ay muling susuriin sa susunod na pag-login.</string>
+    <string name="ga_cancel">Kanselahin</string>
+    <string name="ga_change_avatar">Palitan ang Avatar</string>
+    <string name="ga_not_logged_in">Hindi pa naka-login</string>
+    <string name="ga_login_google">Mag-login gamit ang Google</string>
+    <string name="ga_login_desc">I-connect ang iyong Google account para i-verify ang iyong JavaPro premium status.</string>
+    <string name="ga_status_section">JavaPro Status</string>
+    <string name="ga_account_info">Account Info</string>
+    <string name="ga_email">Email</string>
+    <string name="ga_name">Pangalan</string>
+    <string name="ga_expiry">Valid hanggang</string>
+    <string name="ga_permanent">Permanente</string>
+    <string name="ga_free">Libre</string>
+    <string name="ga_re_login">Mag-login Ulit</string>
+    <string name="ga_re_login_desc">I-refresh ang iyong Google account session</string>
+    <string name="ga_refresh_premium">I-check ang Premium Status</string>
+    <string name="ga_refresh_premium_desc">I-sync ang premium status sa server</string>
 </resources>

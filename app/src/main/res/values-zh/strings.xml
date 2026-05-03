@@ -846,7 +846,7 @@
 <string name="payment_back_btn">返回高级版页面</string>
 
 <string name="payment_offhours_title">⚠️ 超出营业时间</string>
-<string name="payment_offhours_desc">在 07:00–15:00 WIB（周一至周五）以外收到的付款将在下一个工作日 07:00 WIB 起处理。\n\n周六和周日处理可能更快。\n\n您的高级版仍将激活，请放心！</string>
+<string name="payment_offhours_desc">在 07:00–15:00 AM（周一至周五）以外收到的付款将在下一个工作日 04:00 PM 起处理。\n\n周六和周日处理可能更快。\n\n您的高级版仍将激活，请放心！</string>
 
 <string name="payment_steps_title">系统工作原理</string>
 <string name="payment_step1">通过 Saweria/Sociabuzz 转账，消息已自动填写</string>
@@ -854,5 +854,25 @@
 <string name="payment_step3">电子邮件 %1$s 立即获得 %2$s 高级套餐</string>
 <string name="payment_step4">重新打开 JavaPro 中的高级版页面以加载最新状态</string>
 <string name="payment_steps_note">💡 请确保不要更改捐款消息，以便系统自动识别您的电子邮件。</string>
+<string name="ga_screen_title">Google 账户</string>
+    <string name="ga_sign_out">退出</string>
+    <string name="ga_sign_out_title">退出账户？</string>
+    <string name="ga_sign_out_desc">您的高级状态将在下次登录时重新检查。</string>
+    <string name="ga_cancel">取消</string>
+    <string name="ga_change_avatar">更换头像</string>
+    <string name="ga_not_logged_in">未登录</string>
+    <string name="ga_login_google">使用 Google 登录</string>
+    <string name="ga_login_desc">连接您的 Google 账户以验证您的 JavaPro 高级状态。</string>
+    <string name="ga_status_section">JavaPro 状态</string>
+    <string name="ga_account_info">账户信息</string>
+    <string name="ga_email">电子邮件</string>
+    <string name="ga_name">姓名</string>
+    <string name="ga_expiry">有效期至</string>
+    <string name="ga_permanent">永久</string>
+    <string name="ga_free">免费</string>
+    <string name="ga_re_login">重新登录</string>
+    <string name="ga_re_login_desc">刷新您的 Google 账户会话</string>
+    <string name="ga_refresh_premium">检查高级状态</string>
+    <string name="ga_refresh_premium_desc">与服务器同步高级状态</string>
 
 </resources>

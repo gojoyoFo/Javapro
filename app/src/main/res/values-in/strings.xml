@@ -849,7 +849,7 @@
 <string name="payment_back_btn">Kembali ke Halaman Premium</string>
 
 <string name="payment_offhours_title">⚠️ Di luar jam operasional</string>
-<string name="payment_offhours_desc">Pembayaran yang masuk di luar jam 07.00–15.00 WIB (Senin–Jumat) akan diproses pada hari kerja berikutnya mulai jam 07.00 WIB.\n\nSabtu &amp; Minggu proses bisa lebih cepat.\n\nPremium kamu tetap akan aktif, tenang saja!</string>
+<string name="payment_offhours_desc">Pembayaran yang masuk di luar jam 07.00–15.00 AM (Senin–Jumat) akan diproses pada hari itu juga mulai jam 14.00 PM.\n\nSabtu &amp; Minggu proses bisa lebih cepat\n\nPremium kamu tetap akan aktif, tenang saja!</string>
 
 <string name="payment_steps_title">Cara kerja sistem</string>
 <string name="payment_step1">Kamu transfer di Saweria/Sociabuzz dengan pesan yang sudah terisi otomatis</string>

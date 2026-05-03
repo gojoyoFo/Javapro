@@ -849,7 +849,7 @@
 <string name="payment_back_btn">प्रीमियम पेज पर वापस जाएं</string>
 
 <string name="payment_offhours_title">⚠️ कार्य समय के बाहर</string>
-<string name="payment_offhours_desc">07:00–15:00 WIB (सोम–शुक्र) के बाहर प्राप्त भुगतान अगले कार्य दिवस पर 07:00 WIB से प्रोसेस किए जाएंगे।\n\nशनिवार और रविवार को प्रोसेसिंग तेज़ हो सकती है।\n\nआपका प्रीमियम अभी भी सक्रिय होगा, चिंता न करें!</string>
+<string name="payment_offhours_desc">07:00–15:00 AM (सोम–शुक्र) के बाहर प्राप्त भुगतान अगले कार्य दिवस पर 04:00 PM से प्रोसेस किए जाएंगे।\n\nशनिवार और रविवार को प्रोसेसिंग तेज़ हो सकती है।\n\nआपका प्रीमियम अभी भी सक्रिय होगा, चिंता न करें!</string>
 
 <string name="payment_steps_title">सिस्टम कैसे काम करता है</string>
 <string name="payment_step1">पहले से भरे संदेश के साथ Saweria/Sociabuzz पर ट्रांसफर करें</string>
@@ -857,6 +857,26 @@
 <string name="payment_step3">ईमेल %1$s को तुरंत %2$s प्रीमियम पैकेज दिया जाता है</string>
 <string name="payment_step4">नवीनतम स्थिति लोड करने के लिए JavaPro में प्रीमियम पेज दोबारा खोलें</string>
 <string name="payment_steps_note">💡 दान संदेश न बदलें ताकि सिस्टम स्वचालित रूप से आपका ईमेल पहचान सके।</string>
+<string name="ga_screen_title">Google खाता</string>
+    <string name="ga_sign_out">साइन आउट</string>
+    <string name="ga_sign_out_title">खाते से साइन आउट करें?</string>
+    <string name="ga_sign_out_desc">आपकी प्रीमियम स्थिति अगले लॉगिन पर पुनः जांची जाएगी।</string>
+    <string name="ga_cancel">रद्द करें</string>
+    <string name="ga_change_avatar">अवतार बदलें</string>
+    <string name="ga_not_logged_in">लॉगिन नहीं हुए</string>
+    <string name="ga_login_google">Google से लॉगिन करें</string>
+    <string name="ga_login_desc">JavaPro प्रीमियम स्थिति सत्यापित करने के लिए Google खाता कनेक्ट करें।</string>
+    <string name="ga_status_section">JavaPro स्थिति</string>
+    <string name="ga_account_info">खाता जानकारी</string>
+    <string name="ga_email">ईमेल</string>
+    <string name="ga_name">नाम</string>
+    <string name="ga_expiry">तक वैध</string>
+    <string name="ga_permanent">स्थायी</string>
+    <string name="ga_free">मुफ़्त</string>
+    <string name="ga_re_login">पुनः लॉगिन करें</string>
+    <string name="ga_re_login_desc">अपना Google खाता सत्र रीफ्रेश करें</string>
+    <string name="ga_refresh_premium">प्रीमियम स्थिति जांचें</string>
+    <string name="ga_refresh_premium_desc">सर्वर के साथ प्रीमियम स्थिति सिंक्रनाइज़ करें</string>
 
 
 </resources>

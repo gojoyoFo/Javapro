@@ -367,5 +367,9 @@ private fun NavContent(
                 }
             )
         }
+
+        composable("google_account") {
+            GoogleAccountScreen(navController = navController, lang = lang)
+        }
     }
 }

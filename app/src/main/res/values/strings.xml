@@ -849,7 +849,7 @@
 <string name="payment_back_btn">Back to Premium Page</string>
 
 <string name="payment_offhours_title">⚠️ Outside operational hours</string>
-<string name="payment_offhours_desc">Payments received outside 07:00–15:00 WIB (Mon–Fri) will be processed on the next working day from 07:00 WIB.\n\nSaturday &amp; Sunday processing can be faster.\n\nYour premium will still be activated, don\'t worry!</string>
+<string name="payment_offhours_desc">Payments received outside 07:00–15:00 AM (Mon–Fri) will be processed today too from 04:00 PM.\n\nSaturday &amp; Sunday processing can be faster.\n\nYour premium will still be activated, don\'t worry!</string>
 
 <string name="payment_steps_title">How the system works</string>
 <string name="payment_step1">You transfer on Saweria/Sociabuzz with the pre-filled message</string>
@@ -857,5 +857,25 @@
 <string name="payment_step3">Email %1$s is instantly granted %2$s premium package</string>
 <string name="payment_step4">Reopen the Premium page in JavaPro to load the latest status</string>
 <string name="payment_steps_note">💡 Make sure you don\'t change the donation message so your email is automatically detected by the system.</string>
+<string name="ga_screen_title">Google Account</string>
+    <string name="ga_sign_out">Sign Out</string>
+    <string name="ga_sign_out_title">Sign Out of Account?</string>
+    <string name="ga_sign_out_desc">Your premium status will be re-checked on next login.</string>
+    <string name="ga_cancel">Cancel</string>
+    <string name="ga_change_avatar">Change Avatar</string>
+    <string name="ga_not_logged_in">Not Logged In</string>
+    <string name="ga_login_google">Login with Google</string>
+    <string name="ga_login_desc">Connect your Google account to verify your JavaPro premium status.</string>
+    <string name="ga_status_section">JavaPro Status</string>
+    <string name="ga_account_info">Account Info</string>
+    <string name="ga_email">Email</string>
+    <string name="ga_name">Name</string>
+    <string name="ga_expiry">Valid until</string>
+    <string name="ga_permanent">Permanent</string>
+    <string name="ga_free">Free</string>
+    <string name="ga_re_login">Re-Login</string>
+    <string name="ga_re_login_desc">Refresh your Google account session</string>
+    <string name="ga_refresh_premium">Check Premium Status</string>
+    <string name="ga_refresh_premium_desc">Sync premium status with server</string>
 
 </resources>

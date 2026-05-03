@@ -64,7 +64,6 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
     val isPremium   = remember { PremiumManager.isPremium(context) }
     val premiumType = remember { PremiumManager.getPremiumType(context) }
-    val expiryMs    = remember { PremiumManager.getExpiryMs(context) }
 
     var googleUser  by remember { mutableStateOf(GoogleAuthManager.getUser(context)) }
     var isSigningIn by remember { mutableStateOf(false) }
@@ -95,20 +94,10 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
         }
     }
 
-    val remainingDays = if (isPremium && premiumType != "permanent") {
-        ((expiryMs - System.currentTimeMillis()) / (1000L * 60 * 60 * 24)).coerceAtLeast(0L)
-    } else 0L
-
     val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
 
-    val strPermanentLicense  = stringResource(R.string.permanent_license_active)
-    val strPlusStarDays      = stringResource(R.string.plus_star_active_days, remainingDays)
-    val strPlusPlusDays      = stringResource(R.string.plus_plus_active_days, remainingDays)
-    val strPlusWeeklyDays    = stringResource(R.string.plus_weekly_days, remainingDays)
-    val strActivateLicense   = stringResource(R.string.activate_for_pro)
-    val strAllSettingsReset  = stringResource(R.string.all_settings_reset)
+    val strAllSettingsReset = stringResource(R.string.all_settings_reset)
 
-    // ── Reset Confirmation Dialog ──────────────────────────────────────────────
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -171,25 +160,16 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
                     ),
                     shape = RoundedCornerShape(50.dp)
                 ) {
-                    Text(
-                        text       = stringResource(R.string.dialog_reset_confirm),
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = stringResource(R.string.dialog_reset_confirm), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 OutlinedButton(
                     onClick = { showResetDialog = false },
                     shape   = RoundedCornerShape(50.dp),
-                    border  = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant
-                    )
+                    border  = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Text(
-                        text  = stringResource(R.string.dialog_reset_cancel),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(text = stringResource(R.string.dialog_reset_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )
@@ -201,9 +181,9 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
             TopAppBar(
                 title = {
                     Text(
-                        text       = stringResource(R.string.settings_title),
-                        style      = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color      = MaterialTheme.colorScheme.onBackground
+                        text  = stringResource(R.string.settings_title),
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 },
                 navigationIcon = {
@@ -227,119 +207,28 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
 
-            // ── Premium status card ────────────────────────────────────────────
-            Card(
-                modifier  = Modifier.fillMaxWidth(),
-                shape     = RoundedCornerShape(32.dp),
-                colors    = CardDefaults.cardColors(containerColor = cardColor),
-                elevation = CardDefaults.cardElevation(0.dp)
-            ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Row(
-                        modifier              = Modifier.fillMaxWidth(),
-                        verticalAlignment     = Alignment.Top,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text       = stringResource(R.string.settings_javapro_status_label),
-                                fontSize   = 13.sp,
-                                color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Normal
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = when (premiumType) {
-                                    "weekly"    -> "PLUS VERSION"
-                                    "monthly"   -> "PLUS+ VERSION"
-                                    "yearly"    -> "PLUS\u2605 VERSION"
-                                    "permanent" -> "KING VERSION"
-                                    else        -> "FREE VERSION"
-                                },
-                                fontSize   = 30.sp,
-                                fontWeight = FontWeight.Black,
-                                fontStyle  = FontStyle.Italic,
-                                color      = if (isPremium) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = when {
-                                    premiumType == "permanent" -> strPermanentLicense
-                                    premiumType == "yearly"    -> strPlusStarDays
-                                    premiumType == "monthly"   -> strPlusPlusDays
-                                    premiumType == "weekly"    -> strPlusWeeklyDays
-                                    else                       -> strActivateLicense
-                                },
-                                fontSize   = 13.sp,
-                                color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 18.sp
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Box(
-                            modifier         = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter            = painterResource(id = R.drawable.ic_crown),
-                                contentDescription = null,
-                                tint               = if (isPremium) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier           = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-
-                    if (!isPremium) {
-                        Spacer(Modifier.height(20.dp))
-                        Button(
-                            onClick  = { navController.navigate("premium") },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape    = RoundedCornerShape(50.dp),
-                            colors   = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-                        ) {
-                            Text(
-                                text       = stringResource(R.string.settings_upgrade_to_pro_btn),
-                                fontWeight = FontWeight.Bold,
-                                fontSize   = 16.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // ── Google Account Card ────────────────────────────────────────────
-            GoogleAccountCard(
-                user       = googleUser,
-                isLoading  = isSigningIn,
-                onSignIn   = {
+            GoogleAccountCardLarge(
+                user      = googleUser,
+                isLoading = isSigningIn,
+                isPremium = isPremium,
+                onSignIn  = {
                     scope.launch {
                         isSigningIn = true
                         val result = GoogleAuthManager.signIn(context)
                         result.onSuccess { user -> googleUser = user }
                         result.onFailure {
-                            android.widget.Toast.makeText(
-                                context, "Login gagal: ${it.localizedMessage}", android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, "Login gagal: ${it.localizedMessage}", Toast.LENGTH_SHORT).show()
                         }
                         isSigningIn = false
                     }
                 },
-                onSignOut  = {
-                    scope.launch {
-                        GoogleAuthManager.signOut(context)
-                        googleUser = null
-                    }
+                onOpenProfile = {
+                    navController.navigate("google_account")
                 }
             )
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Language picker ────────────────────────────────────────────────
             LanguagePickerCard(
                 currentLang  = currentLang,
                 onSelectLang = { selectedLang ->
@@ -350,7 +239,6 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Daily Reward ───────────────────────────────────────────────────
             Card(
                 modifier  = Modifier.fillMaxWidth(),
                 shape     = RoundedCornerShape(20.dp),
@@ -362,7 +250,6 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
             Spacer(Modifier.height(16.dp))
 
-            // ── Color calibration ──────────────────────────────────────────────
             SettingsSectionHeader(
                 title = stringResource(R.string.settings_color_calibration_label),
                 icon  = Icons.Default.Palette
@@ -436,17 +323,13 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
                         onClick  = { redUI = 1000f; greenUI = 1000f; blueUI = 1000f; satUI = 1000f },
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text(
-                            text  = stringResource(R.string.settings_reset_colors_btn),
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Text(text = stringResource(R.string.settings_reset_colors_btn), color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // ── Reset All Card ─────────────────────────────────────────────────
             Card(
                 modifier  = Modifier.fillMaxWidth(),
                 shape     = RoundedCornerShape(20.dp),
@@ -501,7 +384,6 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
             Spacer(Modifier.height(24.dp))
 
-            // ── About App Card ─────────────────────────────────────────────────
             AboutAppCard()
 
             Spacer(Modifier.height(32.dp))
@@ -509,7 +391,157 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
     }
 }
 
-// ── AboutAppCard ───────────────────────────────────────────────────────────────
+@Composable
+private fun GoogleAccountCardLarge(
+    user          : com.javapro.utils.GoogleUser?,
+    isLoading     : Boolean,
+    isPremium     : Boolean,
+    onSignIn      : () -> Unit,
+    onOpenProfile : () -> Unit
+) {
+    val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        shape     = RoundedCornerShape(24.dp),
+        colors    = CardDefaults.cardColors(containerColor = cardColor),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        if (user != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenProfile() }
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier         = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (user.photoUrl != null) {
+                        AsyncImage(
+                            model              = user.photoUrl,
+                            contentDescription = null,
+                            modifier           = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Icon(
+                            imageVector        = Icons.Default.Person,
+                            contentDescription = null,
+                            tint               = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier           = Modifier.size(32.dp)
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text       = user.displayName,
+                        fontSize   = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        maxLines   = 1,
+                        overflow   = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text     = user.email,
+                        fontSize = 13.sp,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (isPremium) {
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            shape         = RoundedCornerShape(50.dp),
+                            color         = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            modifier      = Modifier.wrapContentSize()
+                        ) {
+                            Row(
+                                modifier          = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    painter            = painterResource(id = R.drawable.ic_crown),
+                                    contentDescription = null,
+                                    tint               = MaterialTheme.colorScheme.primary,
+                                    modifier           = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text       = "Premium",
+                                    fontSize   = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color      = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Icon(
+                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = !isLoading, onClick = onSignIn)
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier         = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp, color = MaterialTheme.colorScheme.primary)
+                    } else {
+                        Icon(
+                            imageVector        = Icons.Default.AccountCircle,
+                            contentDescription = null,
+                            tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier           = Modifier.size(32.dp)
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text       = "Login dengan Google",
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text     = "Untuk verifikasi status premium",
+                        fontSize = 13.sp,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun AboutAppCard() {
     val cardColor   = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -535,25 +567,11 @@ private fun AboutAppCard() {
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector        = Icons.Default.Info,
-                        contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.primary,
-                        modifier           = Modifier.size(22.dp)
-                    )
+                    Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                 }
                 Column {
-                    Text(
-                        text       = stringResource(R.string.about_title),
-                        fontSize   = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text     = stringResource(R.string.about_app_name),
-                        fontSize = 12.sp,
-                        color    = MaterialTheme.colorScheme.primary
-                    )
+                    Text(text = stringResource(R.string.about_title),    fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(text = stringResource(R.string.about_app_name), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -561,9 +579,9 @@ private fun AboutAppCard() {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), thickness = 0.8.dp)
             Spacer(Modifier.height(14.dp))
 
-            AboutInfoRow(label = stringResource(R.string.about_version),   value = versionName,             icon = Icons.Default.NewReleases)
+            AboutInfoRow(label = stringResource(R.string.about_version),   value = versionName,            icon = Icons.Default.NewReleases)
             Spacer(Modifier.height(10.dp))
-            AboutInfoRow(label = stringResource(R.string.about_build),     value = versionCode.toString(),  icon = Icons.Default.Build)
+            AboutInfoRow(label = stringResource(R.string.about_build),     value = versionCode.toString(), icon = Icons.Default.Build)
             Spacer(Modifier.height(10.dp))
             AboutInfoRow(label = stringResource(R.string.about_developer), value = stringResource(R.string.about_developer_name), icon = Icons.Default.Code)
 
@@ -584,17 +602,8 @@ private fun AboutAppCard() {
 
 @Composable
 private fun AboutInfoRow(label: String, value: String, icon: ImageVector) {
-    Row(
-        modifier              = Modifier.fillMaxWidth(),
-        verticalAlignment     = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Icon(
-            imageVector        = icon,
-            contentDescription = null,
-            tint               = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-            modifier           = Modifier.size(16.dp)
-        )
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
         Text(text = label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         Text(text = value, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
@@ -639,39 +648,20 @@ private fun LanguagePickerCard(
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Box(
-                    modifier         = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    modifier         = Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector        = Icons.Default.Language,
-                        contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.primary,
-                        modifier           = Modifier.size(20.dp)
-                    )
+                    Icon(imageVector = Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text       = "Language / Bahasa",
-                        fontSize   = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text     = "${selected.flag}  ${selected.label}  ·  ${selected.native}",
-                        fontSize = 12.sp,
-                        color    = MaterialTheme.colorScheme.primary
-                    )
+                    Text(text = "Language / Bahasa", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(text = "${selected.flag}  ${selected.label}  ·  ${selected.native}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                 }
                 Icon(
                     imageVector        = Icons.Default.ExpandMore,
                     contentDescription = null,
                     tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier           = Modifier
-                        .size(20.dp)
-                        .graphicsLayer { rotationZ = chevronRot }
+                    modifier           = Modifier.size(20.dp).graphicsLayer { rotationZ = chevronRot }
                 )
             }
 
@@ -681,64 +671,34 @@ private fun LanguagePickerCard(
                 exit    = shrinkVertically(tween(240)) + fadeOut(tween(180))
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 14.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    HorizontalDivider(
-                        color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                        thickness = 0.8.dp,
-                        modifier  = Modifier.padding(bottom = 6.dp)
-                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), thickness = 0.8.dp, modifier = Modifier.padding(bottom = 6.dp))
                     languages.forEach { lang ->
                         val isSelected = lang.code == currentLang
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.13f)
-                                    else            MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
-                                )
+                                .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.13f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
                                 .border(
                                     width = if (isSelected) 1.2.dp else 0.6.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
-                                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
                                     shape = RoundedCornerShape(14.dp)
                                 )
-                                .clickable {
-                                    onSelectLang(lang.code)
-                                    expanded = false
-                                }
+                                .clickable { onSelectLang(lang.code); expanded = false }
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment     = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Text(text = lang.flag, fontSize = 22.sp)
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text       = lang.label,
-                                    fontSize   = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color      = if (isSelected) MaterialTheme.colorScheme.primary
-                                                 else MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text     = lang.native,
-                                    fontSize = 11.sp,
-                                    color    = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                                               else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Text(text = lang.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                Text(text = lang.native, fontSize = 11.sp, color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (isSelected) {
-                                Icon(
-                                    imageVector        = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint               = MaterialTheme.colorScheme.primary,
-                                    modifier           = Modifier.size(18.dp)
-                                )
+                                Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                             }
                         }
                     }
@@ -748,12 +708,8 @@ private fun LanguagePickerCard(
     }
 }
 
-// ── DailyRewardSettingItem ─────────────────────────────────────────────────────
 @Composable
-fun DailyRewardSettingItem(
-    navController : NavController,
-    context       : Context = LocalContext.current
-) {
+fun DailyRewardSettingItem(navController: NavController, context: Context = LocalContext.current) {
     var canClaim   by remember { mutableStateOf(DailyRewardManager.canClaimToday(context)) }
     var adsWatched by remember { mutableIntStateOf(DailyRewardManager.adsWatchedSession(context)) }
     val required   = DailyRewardManager.ADS_REQUIRED
@@ -769,307 +725,53 @@ fun DailyRewardSettingItem(
     if (remember { PremiumManager.isPremium(context) }) return
 
     ListItem(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { navController.navigate("daily_reward") },
+        modifier = Modifier.fillMaxWidth().clickable { navController.navigate("daily_reward") },
         headlineContent = {
-            Text(
-                text  = stringResource(R.string.setting_daily_reward_title),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Text(text = stringResource(R.string.setting_daily_reward_title), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
         },
         supportingContent = {
             Text(
-                text  = if (canClaim)
-                            stringResource(R.string.setting_daily_reward_desc)
-                        else
-                            stringResource(R.string.reward_title_already),
+                text  = if (canClaim) stringResource(R.string.setting_daily_reward_desc) else stringResource(R.string.reward_title_already),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         leadingContent = {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector        = Icons.Filled.CardGiftcard,
-                    contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.primary,
-                    modifier           = Modifier.size(22.dp)
-                )
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                Icon(imageVector = Icons.Filled.CardGiftcard, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
             }
         },
         trailingContent = {
             Column(horizontalAlignment = Alignment.End) {
                 if (canClaim && adsWatched > 0) {
-                    Badge(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor   = MaterialTheme.colorScheme.primary
-                    ) {
-                        Text(
-                            text       = "$adsWatched/$required",
-                            style      = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Badge(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary) {
+                        Text(text = "$adsWatched/$required", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 } else if (canClaim) {
-                    Icon(
-                        imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    Icon(
-                        imageVector        = Icons.Filled.CheckCircle,
-                        contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.primary,
-                        modifier           = Modifier.size(20.dp)
-                    )
+                    Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
             }
         },
-        colors = ListItemDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
     )
 }
 
 @Composable
-private fun GoogleAccountCard(
-    user      : com.javapro.utils.GoogleUser?,
-    isLoading : Boolean,
-    onSignIn  : () -> Unit,
-    onSignOut : () -> Unit,
-) {
-    var showSignOutDialog by remember { mutableStateOf(false) }
-
-    if (showSignOutDialog) {
-        AlertDialog(
-            onDismissRequest = { showSignOutDialog = false },
-            shape            = RoundedCornerShape(24.dp),
-            containerColor   = MaterialTheme.colorScheme.surface,
-            icon = {
-                Box(
-                    modifier         = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector        = Icons.Default.Logout,
-                        contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.error,
-                        modifier           = Modifier.size(24.dp)
-                    )
-                }
-            },
-            title = {
-                Text(
-                    text       = "Keluar dari Akun?",
-                    fontWeight = FontWeight.Bold,
-                    fontSize   = 18.sp,
-                )
-            },
-            text = {
-                Text(
-                    text       = "Status premium kamu akan dicek ulang saat login berikutnya.",
-                    fontSize   = 14.sp,
-                    color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 20.sp
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showSignOutDialog = false
-                        onSignOut()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor   = MaterialTheme.colorScheme.onError
-                    ),
-                    shape = RoundedCornerShape(50.dp)
-                ) {
-                    Text("Keluar", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showSignOutDialog = false },
-                    shape   = RoundedCornerShape(50.dp)
-                ) {
-                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        )
-    }
-
-    val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-
-    Card(
-        modifier  = Modifier.fillMaxWidth(),
-        shape     = RoundedCornerShape(20.dp),
-        colors    = CardDefaults.cardColors(containerColor = cardColor),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        if (user != null) {
-            // ── Sudah login ───────────────────────────────────────────────────
-            Row(
-                modifier              = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // Avatar
-                Box(
-                    modifier         = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (user.photoUrl != null) {
-                        AsyncImage(
-                            model             = user.photoUrl,
-                            contentDescription = "Foto profil",
-                            modifier          = Modifier.fillMaxSize().clip(CircleShape)
-                        )
-                    } else {
-                        Icon(
-                            imageVector        = Icons.Default.Person,
-                            contentDescription = null,
-                            tint               = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier           = Modifier.size(26.dp)
-                        )
-                    }
-                }
-
-                // Info akun
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text       = user.displayName,
-                        fontSize   = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = MaterialTheme.colorScheme.onSurface,
-                        maxLines   = 1,
-                        overflow   = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text     = user.email,
-                        fontSize = 12.sp,
-                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Tombol sign-out
-                IconButton(onClick = { showSignOutDialog = true }) {
-                    Icon(
-                        imageVector        = Icons.Default.Logout,
-                        contentDescription = "Sign out",
-                        tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier           = Modifier.size(20.dp)
-                    )
-                }
-            }
-        } else {
-            // ── Belum login ───────────────────────────────────────────────────
-            Row(
-                modifier              = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !isLoading, onClick = onSignIn)
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier         = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier  = Modifier.size(22.dp),
-                            strokeWidth = 2.dp,
-                            color     = MaterialTheme.colorScheme.primary
-                        )
-                    } else {
-                        Icon(
-                            imageVector        = Icons.Default.AccountCircle,
-                            contentDescription = null,
-                            tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier           = Modifier.size(24.dp)
-                        )
-                    }
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text       = "Login dengan Google",
-                        fontSize   = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text     = "Untuk verifikasi status premium",
-                        fontSize = 12.sp,
-                        color    = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Icon(
-                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun SettingsSectionHeader(title: String, icon: ImageVector) {
-    Row(
-        modifier          = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text(
-            text          = title.uppercase(),
-            fontSize      = 12.sp,
-            fontWeight    = FontWeight.Bold,
-            color         = MaterialTheme.colorScheme.primary,
-            letterSpacing = 1.sp
-        )
+        Text(text = title.uppercase(), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, letterSpacing = 1.sp)
     }
 }
 
 @Composable
-private fun ElegantColorSlider(
-    label         : String,
-    value         : Float,
-    onValueChange : (Float) -> Unit,
-    maxValue      : Float = 1000f
-) {
+private fun ElegantColorSlider(label: String, value: Float, onValueChange: (Float) -> Unit, maxValue: Float = 1000f) {
     val primary = MaterialTheme.colorScheme.primary
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(text = label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = primary)
             Text(text = "${value.toInt()}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = primary)
         }
@@ -1129,12 +831,8 @@ fun ColorSlider(label: String, value: Float, color: Color, onValueChange: (Float
             value         = value,
             onValueChange = onValueChange,
             valueRange    = 0f..maxValue,
-            colors        = SliderDefaults.colors(
-                thumbColor         = primary,
-                activeTrackColor   = primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-            ),
-            modifier = Modifier.padding(vertical = 4.dp)
+            colors        = SliderDefaults.colors(thumbColor = primary, activeTrackColor = primary, inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant),
+            modifier      = Modifier.padding(vertical = 4.dp)
         )
     }
 }

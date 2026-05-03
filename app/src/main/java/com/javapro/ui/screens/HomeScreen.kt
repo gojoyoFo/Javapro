@@ -146,6 +146,28 @@ suspend fun readCpuClustersSuspend(): List<CpuClusterInfo> = withContext(Dispatc
         if (groups.isEmpty()) return@withContext emptyList()
 
         // ── Langkah 3: Baca frekuensi tiap core ─────────────────────────────
+        // Baca dari policy folder, bukan per-core — lebih reliable saat core offline
+        val policyFreqs = mutableMapOf<Int, Pair<Long, Long>>() // coreFirst -> (cur, max)
+        groups.forEach { cores ->
+            val first = cores.first()
+            val policyBase = "/sys/devices/system/cpu/cpufreq/policy$first"
+            val curFreq = readFreq("$policyBase/scaling_cur_freq")
+                .takeIf { it > 0L }
+                ?: readFreq("$policyBase/cpuinfo_cur_freq")
+                    .takeIf { it > 0L }
+                ?: cores.mapNotNull { c ->
+                    readFreq("/sys/devices/system/cpu/cpu$c/cpufreq/scaling_cur_freq")
+                        .takeIf { it > 0L }
+                }.maxOrNull() ?: 0L
+            val maxFreq = readFreq("$policyBase/cpuinfo_max_freq")
+                .takeIf { it > 0L }
+                ?: cores.mapNotNull { c ->
+                    readFreq("/sys/devices/system/cpu/cpu$c/cpufreq/cpuinfo_max_freq")
+                        .takeIf { it > 0L }
+                }.maxOrNull() ?: 0L
+            policyFreqs[first] = Pair(curFreq, maxFreq)
+        }
+
         val coreFreqs = (0 until cpuCount).map { core ->
             val cur = readFreq("/sys/devices/system/cpu/cpu$core/cpufreq/scaling_cur_freq")
             val max = readFreq("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
@@ -169,23 +191,24 @@ suspend fun readCpuClustersSuspend(): List<CpuClusterInfo> = withContext(Dispatc
         }
 
         groups.mapIndexed { index, cores ->
-            val curValues = cores.mapNotNull { coreFreqs.getOrNull(it)?.first?.takeIf { v -> v > 0L } }
-            val maxValues = cores.mapNotNull { coreFreqs.getOrNull(it)?.second?.takeIf { v -> v > 0L } }
-            val avgCur    = if (curValues.isNotEmpty()) curValues.average().toLong() else 0L
-            val maxFreq   = maxValues.maxOrNull() ?: 0L
+            val policyData  = policyFreqs[cores.first()]
+            val policyCur   = policyData?.first ?: 0L
+            val policyMax   = policyData?.second ?: 0L
 
-            // Baca max_freq dari policy folder kalau ada (lebih akurat dari per-core)
-            val policyMaxFreq = try {
-                File("/sys/devices/system/cpu/cpufreq/policy${cores.first()}/cpuinfo_max_freq")
-                    .takeIf { it.exists() && it.canRead() }
-                    ?.readText()?.trim()?.toLongOrNull() ?: maxFreq
-            } catch (_: Exception) { maxFreq }
+            // Fallback ke per-core kalau policy tidak ada
+            val curValues = if (policyCur > 0L) listOf(policyCur)
+                else cores.mapNotNull { coreFreqs.getOrNull(it)?.first?.takeIf { v -> v > 0L } }
+            val maxValues = if (policyMax > 0L) listOf(policyMax)
+                else cores.mapNotNull { coreFreqs.getOrNull(it)?.second?.takeIf { v -> v > 0L } }
+
+            val avgCur  = if (curValues.isNotEmpty()) curValues.average().toLong() else 0L
+            val maxFreq = maxValues.maxOrNull() ?: 0L
 
             CpuClusterInfo(
                 name           = clusterNames.getOrElse(index) { "Cluster ${index + 1}" },
                 cores          = cores,
                 currentFreqMhz = (avgCur / 1000).toInt(),
-                maxFreqMhz     = (policyMaxFreq / 1000).toInt(),
+                maxFreqMhz     = (maxFreq / 1000).toInt(),
                 color          = clusterColors.getOrElse(index) { Color(0xFFCE93D8) }
             )
         }
@@ -980,11 +1003,8 @@ private fun FpsMonitorCard(
     isShizukuActive : Boolean,
     prefManager     : PreferenceManager
 ) {
-    val context     = LocalContext.current
-    val activeColor = MaterialTheme.colorScheme.tertiary
-    val borderColor = if (fpsEnabled) activeColor.copy(0.35f) else MaterialTheme.colorScheme.outlineVariant
-    val iconBg      = activeColor.copy(0.14f)
-    val iconBorder  = activeColor.copy(0.3f)
+    val dimColor    = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.35f)
+    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(0.5f)
 
     Box(
         modifier = modifier
@@ -996,52 +1016,71 @@ private fun FpsMonitorCard(
             Box(
                 modifier         = Modifier
                     .size(48.dp)
-                    .background(iconBg, RoundedCornerShape(14.dp))
-                    .border(BorderStroke(1.dp, iconBorder), RoundedCornerShape(14.dp)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp))
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
-            ) { Icon(Icons.Default.Speed, null, tint = activeColor, modifier = Modifier.size(26.dp)) }
+            ) { Icon(Icons.Default.Speed, null, tint = dimColor, modifier = Modifier.size(26.dp)) }
 
-            Text(stringResource(R.string.home_fps_monitor_title), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            Row(
+                verticalAlignment    = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    stringResource(R.string.home_fps_monitor_title),
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 14.sp,
+                    color      = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                )
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Text(
+                        "Soon",
+                        modifier  = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontSize  = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color     = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                    )
+                }
+            }
 
             Text(
                 stringResource(R.string.home_show_fps),
                 fontSize   = 11.sp,
-                color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                color      = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.35f),
                 lineHeight = 15.sp
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (fpsEnabled) stringResource(R.string.home_fps_on) else stringResource(R.string.home_fps_off),
+                    stringResource(R.string.home_fps_off),
                     fontSize   = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color      = if (fpsEnabled) activeColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f)
+                    color      = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.3f)
                 )
                 Switch(
-                    checked         = fpsEnabled,
-                    onCheckedChange = { isChecked ->
-                        if (isChecked) {
-                            prefManager.setFpsEnabled(true)
-                            context.startService(Intent(context, FpsService::class.java))
-                            Toast.makeText(context, context.getString(R.string.home_fps_monitor_on), Toast.LENGTH_SHORT).show()
-                        } else {
-                            prefManager.setFpsEnabled(false)
-                            context.stopService(Intent(context, FpsService::class.java))
-                            Toast.makeText(context, context.getString(R.string.home_fps_monitor_off), Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier.height(24.dp),
-                    colors   = SwitchDefaults.colors(
-                        checkedThumbColor   = MaterialTheme.colorScheme.onTertiary,
-                        checkedTrackColor   = activeColor,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    checked         = false,
+                    onCheckedChange = null,
+                    enabled         = false,
+                    modifier        = Modifier.height(24.dp),
+                    colors          = SwitchDefaults.colors(
+                        disabledUncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.3f),
+                        disabledUncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 )
             }
         }
     }
 }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(32.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(BorderStroke(0.8.dp, borderColor), RoundedCornerShape(32.dp))
+    ) {
+        Column(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
 
 
 

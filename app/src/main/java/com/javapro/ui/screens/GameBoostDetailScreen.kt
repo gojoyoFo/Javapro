@@ -40,6 +40,7 @@ import androidx.navigation.NavController
 import com.javapro.utils.PremiumManager
 import com.javapro.utils.PreferenceManager
 import com.javapro.utils.TweakExecutor
+import com.javapro.utils.GameBoostExecutor
 import com.javapro.utils.ShizukuManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -182,118 +183,49 @@ fun GameBoostDetailScreen(
     }
 
     fun launchGame() {
-        try {
-            val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-            if (intent != null) { intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); context.startActivity(intent) }
-            else Toast.makeText(context, context.getString(R.string.gameboost_game_not_found), Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) { Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show() }
+        val ok = GameBoostExecutor.launchGame(context, packageName)
+        if (!ok) Toast.makeText(context, context.getString(R.string.gameboost_game_not_found), Toast.LENGTH_SHORT).show()
     }
 
     suspend fun applyBoost() {
-        if (killBgEnabled) TweakExecutor.execute("am kill-all")
-        if (gameModeEnabled) TweakExecutor.execute("cmd game mode 2 $packageName")
-        if (disableAnimEnabled) {
-            TweakExecutor.execute("settings put global window_animation_scale 0.5")
-            TweakExecutor.execute("settings put global transition_animation_scale 0.5")
-            TweakExecutor.execute("settings put global animator_duration_scale 0.5")
-        }
-        if (touchBoostEnabled) {
-            TweakExecutor.execute("cmd device_config put input_native_boot palm_rejection_enabled 0")
-            TweakExecutor.execute("settings put system touch_blocking_period 0")
-        }
-        if (prioritizeEnabled) {
-            TweakExecutor.execute("cmd game set --mode 2 $packageName")
-            TweakExecutor.execute("cmd device_config put game_overlay \"$packageName\" \"mode=2\"")
-        }
-        if (memOptEnabled) TweakExecutor.execute("echo 3 > /proc/sys/vm/drop_caches")
-        if (renderAheadEnabled) TweakExecutor.execute("cmd game set --render_ahead $selectedRenderAhead $packageName")
-        if (sustainedPerfEnabled) TweakExecutor.execute("settings put global sustained_performance_mode 1")
-        if (isRooted) {
-            if (thermalEnabled) {
-                TweakExecutor.execute("for i in /sys/class/thermal/thermal_zone*; do [ -f \"\$i/mode\" ] && echo disabled > \"\$i/mode\"; [ -f \"\$i/temp\" ] && chmod 000 \"\$i/temp\"; done")
-                TweakExecutor.execute("stop thermal-engine 2>/dev/null; stop thermald 2>/dev/null; setprop vendor.thermal.mode.disable 1")
-                TweakExecutor.execute("getprop | grep 'init.svc_debug_pid.' | grep -i thermal | grep -iv hal | cut -d'[' -f2 | cut -d']' -f1 | while read pid; do [ -z \"\$pid\" ] && continue; [ ! -d \"/proc/\$pid\" ] && continue; cg=\$(sed -n 's/^0:://p' /proc/\$pid/cgroup 2>/dev/null); [ -z \"\$cg\" ] && continue; echo 1 > \"/sys/fs/cgroup\$cg/cgroup.freeze\" 2>/dev/null; done")
-            }
-            if (cpuGpuBoostEnabled) {
-                TweakExecutor.execute("for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > \$g; done")
-                TweakExecutor.execute("for m in /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_max_freq; do d=\$(dirname \$m); cat \$m > \$d/scaling_max_freq; cat \$m > \$d/scaling_min_freq; done")
-                TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/devfreq/governor ] && echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor && cat /sys/class/kgsl/kgsl-3d0/max_gpuclk > /sys/class/kgsl/kgsl-3d0/min_pwrlevel")
-                TweakExecutor.execute("[ -e /sys/class/devfreq/mtk-mali/governor ] && echo performance > /sys/class/devfreq/mtk-mali/governor")
-                TweakExecutor.execute("[ -e /proc/gpufreq/mtk_mali_sysfs/mali_pm_governor ] && echo performance > /proc/gpufreq/mtk_mali_sysfs/mali_pm_governor")
-                TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/force_bus_on ] && echo 1 > /sys/class/kgsl/kgsl-3d0/force_bus_on")
-                TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/force_clk_on ] && echo 1 > /sys/class/kgsl/kgsl-3d0/force_clk_on")
-                TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/force_rail_on ] && echo 1 > /sys/class/kgsl/kgsl-3d0/force_rail_on")
-                TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/bus_split ] && echo 0 > /sys/class/kgsl/kgsl-3d0/bus_split")
-            }
-            if (uclampEnabled) {
-                TweakExecutor.execute("echo 100 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null")
-                TweakExecutor.execute("echo 100 > /dev/cpuctl/foreground/cpu.uclamp.max 2>/dev/null")
-                TweakExecutor.execute("echo 100 > /dev/cpuctl/top-app/cpu.uclamp.min 2>/dev/null")
-                TweakExecutor.execute("echo 100 > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null")
-            }
-            if (ioEnabled) TweakExecutor.execute("for q in /sys/block/*/queue; do echo none > \$q/scheduler 2>/dev/null; echo 0 > \$q/iostats 2>/dev/null; echo 2 > \$q/rq_affinity 2>/dev/null; echo 0 > \$q/add_random 2>/dev/null; echo 256 > \$q/nr_requests 2>/dev/null; done")
-            if (vmEnabled) {
-                TweakExecutor.execute("echo 0 > /proc/sys/vm/swappiness")
-                TweakExecutor.execute("echo 10 > /proc/sys/vm/vfs_cache_pressure")
-                TweakExecutor.execute("echo 0 > /proc/sys/vm/page-cluster")
-                TweakExecutor.execute("echo 50 > /proc/sys/vm/dirty_ratio")
-                TweakExecutor.execute("echo 10 > /proc/sys/vm/dirty_background_ratio")
-                TweakExecutor.execute("echo 4096 > /proc/sys/vm/min_free_kbytes")
-            }
-            if (schedEnabled) {
-                TweakExecutor.execute("echo 1 > /proc/sys/kernel/sched_child_runs_first")
-                TweakExecutor.execute("echo 0 > /proc/sys/kernel/sched_autogroup_enabled")
-                TweakExecutor.execute("echo 4000000 > /proc/sys/kernel/sched_latency_ns")
-                TweakExecutor.execute("echo 500000 > /proc/sys/kernel/sched_min_granularity_ns")
-                TweakExecutor.execute("echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns")
-            }
-            if (lmkEnabled) {
-                TweakExecutor.execute("echo 0,0,0,0,0,0 > /sys/module/lowmemorykiller/parameters/adj 2>/dev/null")
-                TweakExecutor.execute("echo 1 > /proc/sys/vm/oom_kill_allocating_task 2>/dev/null")
-                TweakExecutor.execute("setprop lmkd.reinit 1 2>/dev/null")
-            }
-            if (netEnabled) {
-                TweakExecutor.execute("echo 1 > /proc/sys/net/ipv4/tcp_fastopen")
-                TweakExecutor.execute("echo 1 > /proc/sys/net/ipv4/tcp_sack")
-                TweakExecutor.execute("echo 1 > /proc/sys/net/ipv4/tcp_timestamps")
-                TweakExecutor.execute("settings put global mobile_data_always_on 1")
-            }
-            if (wifiLatencyEnabled) {
-                TweakExecutor.execute("settings put global wifi_sleep_policy 2")
-                TweakExecutor.execute("settings put global wifi_scan_throttle_enabled 0")
-            }
-            if (dozeEnabled) TweakExecutor.execute("dumpsys deviceidle disable")
-        }
+        GameBoostExecutor.applyBoost(
+            pkg      = packageName,
+            cfg      = buildConfig(),
+            isRooted = isRooted
+        )
     }
 
-    suspend fun stopBoost() {
-        TweakExecutor.execute("cmd game mode 1 $packageName")
-        TweakExecutor.execute("cmd game reset \"$packageName\"")
-        TweakExecutor.execute("cmd device_config delete game_overlay \"$packageName\"")
-        TweakExecutor.execute("settings put global window_animation_scale 1.0")
-        TweakExecutor.execute("settings put global transition_animation_scale 1.0")
-        TweakExecutor.execute("settings put global animator_duration_scale 1.0")
-        TweakExecutor.execute("cmd device_config put input_native_boot palm_rejection_enabled 1")
-        TweakExecutor.execute("settings delete system touch_blocking_period")
-        TweakExecutor.execute("settings put global sustained_performance_mode 0")
-        if (isRooted) {
-            TweakExecutor.execute("for i in /sys/class/thermal/thermal_zone*; do [ -f \"\$i/mode\" ] && echo enabled > \"\$i/mode\"; [ -f \"\$i/temp\" ] && chmod 644 \"\$i/temp\"; done")
-            TweakExecutor.execute("start thermal-engine 2>/dev/null; start thermald 2>/dev/null; setprop vendor.thermal.mode.disable 0")
-            TweakExecutor.execute("getprop | grep 'init.svc_debug_pid.' | grep -i thermal | grep -iv hal | cut -d'[' -f2 | cut -d']' -f1 | while read pid; do [ -z \"\$pid\" ] && continue; [ ! -d \"/proc/\$pid\" ] && continue; cg=\$(sed -n 's/^0:://p' /proc/\$pid/cgroup 2>/dev/null); [ -z \"\$cg\" ] && continue; echo 0 > \"/sys/fs/cgroup\$cg/cgroup.freeze\" 2>/dev/null; done")
-            TweakExecutor.execute("for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo schedutil > \$g 2>/dev/null; done")
-            TweakExecutor.execute("for m in /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_min_freq; do d=\$(dirname \$m); cat \$m > \$d/scaling_min_freq 2>/dev/null; done")
-            TweakExecutor.execute("echo 0 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null")
-            TweakExecutor.execute("echo 100 > /dev/cpuctl/foreground/cpu.uclamp.max 2>/dev/null")
-            TweakExecutor.execute("echo 40 > /proc/sys/vm/swappiness")
-            TweakExecutor.execute("echo 100 > /proc/sys/vm/vfs_cache_pressure")
-            TweakExecutor.execute("echo 0 > /proc/sys/kernel/sched_child_runs_first")
-            TweakExecutor.execute("echo 1 > /proc/sys/kernel/sched_autogroup_enabled")
-            TweakExecutor.execute("settings put global wifi_sleep_policy 0")
-            TweakExecutor.execute("settings put global wifi_scan_throttle_enabled 1")
-            TweakExecutor.execute("dumpsys deviceidle enable")
-            TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost ] && echo 0 > /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost")
-        }
-    }
+    fun buildConfig() = GameBoostExecutor.BoostConfig(
+        killBg        = killBgEnabled,
+        prioritize    = prioritizeEnabled,
+        disableAnim   = disableAnimEnabled,
+        touchBoost    = touchBoostEnabled,
+        gameMode      = gameModeEnabled,
+        memOpt        = memOptEnabled,
+        renderAhead   = renderAheadEnabled,
+        renderAheadVal= selectedRenderAhead,
+        sustainedPerf = sustainedPerfEnabled,
+        thermal       = thermalEnabled,
+        cpuGpuBoost   = cpuGpuBoostEnabled,
+        uclamp        = uclampEnabled,
+        io            = ioEnabled,
+        vm            = vmEnabled,
+        sched         = schedEnabled,
+        net           = netEnabled,
+        doze          = dozeEnabled,
+        lmk           = lmkEnabled,
+        wifiLatency   = wifiLatencyEnabled,
+        adrenoBoost   = adrenoBoostLevel,
+        gpuIdleTimer  = gpuIdleTimerEnabled,
+        irqAffinity   = irqAffinityEnabled,
+        scale         = selectedScale,
+        fps           = selectedFps,
+        lockFps       = lockFpsEnabled,
+        dsMethod      = selectedDsMethod,
+        driver        = selectedDriver
+    )
+
+
 
     Scaffold(
         topBar = {
@@ -459,22 +391,7 @@ fun GameBoostDetailScreen(
                                     scope.launch {
                                         isApplyingBoostOpt = true
                                         withContext(Dispatchers.IO) {
-                                            if (killBgEnabled) TweakExecutor.execute("am kill-all")
-                                            if (gameModeEnabled) TweakExecutor.execute("cmd game mode 2 $packageName")
-                                            if (disableAnimEnabled) {
-                                                TweakExecutor.execute("settings put global window_animation_scale 0.5")
-                                                TweakExecutor.execute("settings put global transition_animation_scale 0.5")
-                                                TweakExecutor.execute("settings put global animator_duration_scale 0.5")
-                                            }
-                                            if (touchBoostEnabled) {
-                                                TweakExecutor.execute("cmd device_config put input_native_boot palm_rejection_enabled 0")
-                                                TweakExecutor.execute("settings put system touch_blocking_period 0")
-                                            }
-                                            if (prioritizeEnabled) {
-                                                TweakExecutor.execute("cmd game set --mode 2 $packageName")
-                                                TweakExecutor.execute("cmd device_config put game_overlay \"$packageName\" \"mode=2\"")
-                                            }
-                                            if (memOptEnabled) TweakExecutor.execute("echo 3 > /proc/sys/vm/drop_caches")
+                                            GameBoostExecutor.applyBoostOptions(packageName, buildConfig())
                                         }
                                         isApplyingBoostOpt = false
                                         Toast.makeText(context, context.getString(R.string.gbdetail_boost_applied), Toast.LENGTH_SHORT).show()
@@ -516,10 +433,8 @@ fun GameBoostDetailScreen(
                         scope.launch {
                             isApplyingPerfExtra = true
                             withContext(Dispatchers.IO) {
-                                if (renderAheadEnabled) TweakExecutor.execute("cmd game set --render_ahead $selectedRenderAhead $packageName")
-                                if (sustainedPerfEnabled) TweakExecutor.execute("settings put global sustained_performance_mode 1")
-                                else TweakExecutor.execute("settings put global sustained_performance_mode 0")
-                                                    }
+                                    GameBoostExecutor.applyPerfExtra(packageName, buildConfig())
+                                }
                             isApplyingPerfExtra = false
                             Toast.makeText(context, context.getString(R.string.action_applied), Toast.LENGTH_SHORT).show()
                         }
@@ -587,60 +502,7 @@ fun GameBoostDetailScreen(
                                                 scope.launch {
                                                     isApplyingRootOpt = true
                                                     withContext(Dispatchers.IO) {
-                                                        if (thermalEnabled) {
-                                                            TweakExecutor.execute("for i in /sys/class/thermal/thermal_zone*; do [ -f \"\$i/mode\" ] && echo disabled > \"\$i/mode\"; [ -f \"\$i/temp\" ] && chmod 000 \"\$i/temp\"; done")
-                                                            TweakExecutor.execute("stop thermal-engine 2>/dev/null; stop thermald 2>/dev/null; setprop vendor.thermal.mode.disable 1")
-                                                            TweakExecutor.execute("getprop | grep 'init.svc_debug_pid.' | grep -i thermal | grep -iv hal | cut -d'[' -f2 | cut -d']' -f1 | while read pid; do [ -z \"\$pid\" ] && continue; [ ! -d \"/proc/\$pid\" ] && continue; cg=\$(sed -n 's/^0:://p' /proc/\$pid/cgroup 2>/dev/null); [ -z \"\$cg\" ] && continue; echo 1 > \"/sys/fs/cgroup\$cg/cgroup.freeze\" 2>/dev/null; done")
-                                                        }
-                                                        if (cpuGpuBoostEnabled) {
-                                                            TweakExecutor.execute("for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > \$g; done")
-                                                            TweakExecutor.execute("for m in /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_max_freq; do d=\$(dirname \$m); cat \$m > \$d/scaling_max_freq; cat \$m > \$d/scaling_min_freq; done")
-                                                            TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/devfreq/governor ] && echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor && cat /sys/class/kgsl/kgsl-3d0/max_gpuclk > /sys/class/kgsl/kgsl-3d0/min_pwrlevel")
-                                                            TweakExecutor.execute("[ -e /sys/class/devfreq/mtk-mali/governor ] && echo performance > /sys/class/devfreq/mtk-mali/governor")
-                                                            TweakExecutor.execute("[ -e /proc/gpufreq/mtk_mali_sysfs/mali_pm_governor ] && echo performance > /proc/gpufreq/mtk_mali_sysfs/mali_pm_governor")
-                                                            TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/force_bus_on ] && echo 1 > /sys/class/kgsl/kgsl-3d0/force_bus_on")
-                                                            TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/force_clk_on ] && echo 1 > /sys/class/kgsl/kgsl-3d0/force_clk_on")
-                                                            TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/force_rail_on ] && echo 1 > /sys/class/kgsl/kgsl-3d0/force_rail_on")
-                                                            TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/bus_split ] && echo 0 > /sys/class/kgsl/kgsl-3d0/bus_split")
-                                                        }
-                                                        if (uclampEnabled) {
-                                                            TweakExecutor.execute("echo 100 > /dev/cpuctl/foreground/cpu.uclamp.min 2>/dev/null")
-                                                            TweakExecutor.execute("echo 100 > /dev/cpuctl/foreground/cpu.uclamp.max 2>/dev/null")
-                                                            TweakExecutor.execute("echo 100 > /dev/cpuctl/top-app/cpu.uclamp.min 2>/dev/null")
-                                                            TweakExecutor.execute("echo 100 > /dev/cpuctl/top-app/cpu.uclamp.max 2>/dev/null")
-                                                        }
-                                                        if (ioEnabled) TweakExecutor.execute("for q in /sys/block/*/queue; do echo none > \$q/scheduler 2>/dev/null; echo 0 > \$q/iostats 2>/dev/null; echo 2 > \$q/rq_affinity 2>/dev/null; echo 0 > \$q/add_random 2>/dev/null; echo 256 > \$q/nr_requests 2>/dev/null; done")
-                                                        if (vmEnabled) {
-                                                            TweakExecutor.execute("echo 0 > /proc/sys/vm/swappiness")
-                                                            TweakExecutor.execute("echo 10 > /proc/sys/vm/vfs_cache_pressure")
-                                                            TweakExecutor.execute("echo 0 > /proc/sys/vm/page-cluster")
-                                                            TweakExecutor.execute("echo 50 > /proc/sys/vm/dirty_ratio")
-                                                            TweakExecutor.execute("echo 10 > /proc/sys/vm/dirty_background_ratio")
-                                                            TweakExecutor.execute("echo 4096 > /proc/sys/vm/min_free_kbytes")
-                                                        }
-                                                        if (schedEnabled) {
-                                                            TweakExecutor.execute("echo 1 > /proc/sys/kernel/sched_child_runs_first")
-                                                            TweakExecutor.execute("echo 0 > /proc/sys/kernel/sched_autogroup_enabled")
-                                                            TweakExecutor.execute("echo 4000000 > /proc/sys/kernel/sched_latency_ns")
-                                                            TweakExecutor.execute("echo 500000 > /proc/sys/kernel/sched_min_granularity_ns")
-                                                            TweakExecutor.execute("echo 1000000 > /proc/sys/kernel/sched_wakeup_granularity_ns")
-                                                        }
-                                                        if (lmkEnabled) {
-                                                            TweakExecutor.execute("echo 0,0,0,0,0,0 > /sys/module/lowmemorykiller/parameters/adj 2>/dev/null")
-                                                            TweakExecutor.execute("echo 1 > /proc/sys/vm/oom_kill_allocating_task 2>/dev/null")
-                                                            TweakExecutor.execute("setprop lmkd.reinit 1 2>/dev/null")
-                                                        }
-                                                        if (netEnabled) {
-                                                            TweakExecutor.execute("echo 1 > /proc/sys/net/ipv4/tcp_fastopen")
-                                                            TweakExecutor.execute("echo 1 > /proc/sys/net/ipv4/tcp_sack")
-                                                            TweakExecutor.execute("echo 1 > /proc/sys/net/ipv4/tcp_timestamps")
-                                                            TweakExecutor.execute("settings put global mobile_data_always_on 1")
-                                                        }
-                                                        if (wifiLatencyEnabled) {
-                                                            TweakExecutor.execute("settings put global wifi_sleep_policy 2")
-                                                            TweakExecutor.execute("settings put global wifi_scan_throttle_enabled 0")
-                                                        }
-                                                        if (dozeEnabled) TweakExecutor.execute("dumpsys deviceidle disable")
+                                                        GameBoostExecutor.applyPerfExtra(packageName, buildConfig())
                                                     }
                                                     isApplyingRootOpt = false
                                                     Toast.makeText(context, context.getString(R.string.gbdetail_root_options_applied), Toast.LENGTH_SHORT).show()
@@ -684,16 +546,7 @@ fun GameBoostDetailScreen(
                             scope.launch {
                                 isApplyingExtraRoot = true
                                 withContext(Dispatchers.IO) {
-                                    if (adrenoBoostLevel != "0") {
-                                        TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost ] && echo $adrenoBoostLevel > /sys/class/kgsl/kgsl-3d0/devfreq/adrenoboost")
-                                    }
-                                    if (gpuIdleTimerEnabled) {
-                                        TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/idle_timer ] && echo 10000 > /sys/class/kgsl/kgsl-3d0/idle_timer")
-                                        TweakExecutor.execute("[ -e /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel ] && echo 0 > /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel")
-                                    }
-                                    if (irqAffinityEnabled) {
-                                        TweakExecutor.execute("BIGCPU=\$(ls /sys/devices/system/cpu/ | grep -E '^cpu[0-9]+$' | wc -l); BIGCPU=\$((BIGCPU - 1)); MASK=\$(printf '%x' \$((1 << BIGCPU))); for f in /proc/irq/*/smp_affinity; do echo \$MASK > \$f 2>/dev/null; done")
-                                    }
+                                    GameBoostExecutor.applyRootExtra(packageName, buildConfig())
                                 }
                                 isApplyingExtraRoot = false
                                 Toast.makeText(context, context.getString(R.string.gbdetail_root_extra_applied), Toast.LENGTH_SHORT).show()
@@ -716,31 +569,7 @@ fun GameBoostDetailScreen(
                     scope.launch {
                         isApplyingDriver = true
                         withContext(Dispatchers.IO) {
-                            when (selectedDriver) {
-                                "skia_vulkan" -> {
-                                    TweakExecutor.execute("settings put global gpu_debug_layers off")
-                                    TweakExecutor.execute("cmd device_config put game_driver enable_game_driver 1")
-                                    TweakExecutor.execute("setprop debug.hwui.renderer skiaVk")
-                                    TweakExecutor.execute("setprop debug.renderengine.backend skiaVk")
-                                }
-                                "skia_gl" -> {
-                                    TweakExecutor.execute("settings put global gpu_debug_layers off")
-                                    TweakExecutor.execute("cmd device_config put game_driver enable_game_driver 1")
-                                    TweakExecutor.execute("setprop debug.hwui.renderer skiagl")
-                                    TweakExecutor.execute("setprop debug.renderengine.backend skiagl")
-                                }
-                                "opengl" -> {
-                                    TweakExecutor.execute("settings put global gpu_debug_layers off")
-                                    TweakExecutor.execute("cmd device_config put game_driver enable_game_driver 0")
-                                    TweakExecutor.execute("setprop debug.hwui.renderer opengl")
-                                    TweakExecutor.execute("setprop debug.renderengine.backend opengl")
-                                }
-                                "default" -> {
-                                    TweakExecutor.execute("setprop debug.hwui.renderer \"\"")
-                                    TweakExecutor.execute("setprop debug.renderengine.backend \"\"")
-                                    TweakExecutor.execute("cmd device_config delete game_driver enable_game_driver")
-                                }
-                            }
+                            GameBoostExecutor.applyDriver(packageName, selectedDriver)
                         }
                         isApplyingDriver = false
                         Toast.makeText(context, context.getString(R.string.gbdetail_driver_applied), Toast.LENGTH_SHORT).show()
@@ -763,32 +592,7 @@ fun GameBoostDetailScreen(
                     scope.launch {
                         isApplyingDs = true
                         withContext(Dispatchers.IO) {
-                            if (selectedDsMethod == "new") {
-                                if (selectedScale == "disable") {
-                                    // Disable = reset downscale, jangan set 1.0
-                                    TweakExecutor.execute("cmd game reset \"$packageName\"")
-                                    TweakExecutor.execute("cmd device_config delete game_overlay \"$packageName\"")
-                                } else {
-                                    TweakExecutor.execute("cmd game set --downscale $selectedScale $packageName")
-                                }
-                            } else {
-                                // Legacy method
-                                if (selectedScale != "disable") {
-                                    TweakExecutor.execute("cmd game downscale $selectedScale $packageName")
-                                    TweakExecutor.execute("cmd device_config put game_overlay \"$packageName\" \"mode=2,downscaleFactor=$selectedScale,fps=$selectedFps\"")
-                                    TweakExecutor.execute("cmd game mode 2 \"$packageName\"")
-                                } else {
-                                    // Legacy + disable = reset overlay
-                                    TweakExecutor.execute("cmd game reset \"$packageName\"")
-                                    TweakExecutor.execute("cmd device_config delete game_overlay \"$packageName\"")
-                                }
-                            }
-                            if (lockFpsEnabled) {
-                                TweakExecutor.execute("settings put system peak_refresh_rate $selectedFps.0")
-                                TweakExecutor.execute("settings put system min_refresh_rate $selectedFps.0")
-                                TweakExecutor.execute("settings put secure user_refresh_rate $selectedFps")
-                                TweakExecutor.execute("service call SurfaceFlinger 1035 i32 $selectedFps")
-                            }
+                            GameBoostExecutor.applyDownscale(packageName, buildConfig())
                         }
                         isApplyingDs = false
                         Toast.makeText(context, context.getString(R.string.action_applied), Toast.LENGTH_SHORT).show()
@@ -798,11 +602,7 @@ fun GameBoostDetailScreen(
                     scope.launch {
                         isApplyingDs = true
                         withContext(Dispatchers.IO) {
-                            TweakExecutor.execute("cmd game reset \"$packageName\"")
-                            TweakExecutor.execute("cmd device_config delete game_overlay \"$packageName\"")
-                            TweakExecutor.execute("settings delete system peak_refresh_rate")
-                            TweakExecutor.execute("settings delete system min_refresh_rate")
-                            TweakExecutor.execute("settings delete secure user_refresh_rate")
+                            GameBoostExecutor.resetDownscale(packageName)
                         }
                         selectedScale = "disable"; saveStr(context, "scale_$packageName", "disable")
                         isApplyingDs = false

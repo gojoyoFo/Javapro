@@ -24,6 +24,7 @@ import com.javapro.fps.RootFpsProvider
 import com.javapro.fps.ShizukuFpsProvider
 import com.javapro.utils.ShizukuManager
 import com.javapro.utils.SystemInfoReader
+import com.javapro.utils.SystemSnapshot
 import kotlinx.coroutines.*
 import java.util.concurrent.TimeUnit
 
@@ -287,12 +288,11 @@ class FpsService : Service() {
     // ── Poll loop: CPU/GPU/BAT (independen dari FPS) ──────────────────────────
 
     private suspend fun pollSystemInfoLoop() {
-        // Warmup: baca sekali untuk init prevIdle/prevTotal
         withContext(Dispatchers.IO) { SystemInfoReader.read(this@FpsService) }
         delay(400)
 
         while (currentCoroutineContext().isActive && isRunning) {
-            val snapshot = withContext(Dispatchers.IO) {
+            val snapshot: SystemSnapshot = withContext(Dispatchers.IO) {
                 SystemInfoReader.read(this@FpsService)
             }
 

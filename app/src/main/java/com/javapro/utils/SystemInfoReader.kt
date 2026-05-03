@@ -3,6 +3,27 @@ package com.javapro.utils
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+
+data class SystemSnapshot(
+    val cpuUsagePct   : Float,
+    val cpuTempC      : Float,
+    val clusters      : List<ClusterSnapshot>,
+    val gpuUsagePct   : Float,
+    val gpuTempC      : Float,
+    val ramUsedMb     : Long,
+    val ramTotalMb    : Long,
+    val batteryPct    : Int,
+    val batteryTempC  : Float,
+    val batteryVoltMv : Int,
+    val isCharging    : Boolean
+)
+
+data class ClusterSnapshot(
+    val label      : String,
+    val cores      : List<Int>,
+    val curFreqMhz : Int,
+    val maxFreqMhz : Int
+)
 import android.os.BatteryManager
 import android.util.Log
 import kotlinx.coroutines.Dispatchers

@@ -1074,13 +1074,5 @@ private fun FpsMonitorCard(
     }
 }
 
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(32.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(BorderStroke(0.8.dp, borderColor), RoundedCornerShape(32.dp))
-    ) {
-        Column(modifier = Modifier.padding(14.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
 
 

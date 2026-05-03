@@ -39,6 +39,8 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.navigation.NavController
 import com.javapro.utils.PremiumManager
 import com.javapro.utils.PreferenceManager
+import com.javapro.utils.TweakExecutor
+import com.javapro.utils.ShizukuManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

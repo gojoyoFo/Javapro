@@ -108,3 +108,52 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
+
+// ── Auto-copy fps_core binary ke assets setelah CMake build ──────────────────
+// Binary hasil build CMake otomatis di-copy ke assets/ untuk semua ABI.
+// engine_launcher.sh hanya perlu di-copy manual sekali ke src/main/assets/.
+
+afterEvaluate {
+    val abis = listOf("arm64-v8a", "armeabi-v7a")
+    val assetsDir = file("src/main/assets")
+
+    android.applicationVariants.forEach { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+
+        // Task copy binary dari build output CMake → assets
+        val copyTask = tasks.register("copyFpsCoreBinaries$variantName") {
+            group = "javapro"
+            description = "Copy fps_core binaries to assets for $variantName"
+
+            doLast {
+                assetsDir.mkdirs()
+                abis.forEach { abi ->
+                    val src = file(
+                        "build/intermediates/cmake/${variant.name}/obj/$abi/fps_core"
+                    )
+                    if (src.exists()) {
+                        val dest = file("$assetsDir/fps_core_$abi")
+                        src.copyTo(dest, overwrite = true)
+                        println("Copied fps_core [$abi] → assets/fps_core_$abi (${src.length()} bytes)")
+                    } else {
+                        println("WARNING: fps_core binary not found for $abi at ${src.path}")
+                    }
+                }
+            }
+        }
+
+        // Jalankan copy setelah CMake build selesai
+        tasks.matching {
+            it.name.startsWith("buildCMake") && it.name.contains(variantName, ignoreCase = true)
+        }.configureEach {
+            finalizedBy(copyTask)
+        }
+
+        // Pastikan assets tersedia sebelum merge assets task
+        tasks.matching {
+            it.name == "merge${variantName}Assets"
+        }.configureEach {
+            dependsOn(copyTask)
+        }
+    }
+}

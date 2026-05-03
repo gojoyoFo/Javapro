@@ -83,29 +83,14 @@ private fun readFreqDirect(path: String): Long {
     return try { File(path).readText().trim().toLongOrNull() ?: 0L } catch (_: Exception) { 0L }
 }
 
-private fun readFreqShell(path: String): Long {
-    // Coba tanpa su dulu, kalau 0 coba dengan su (root)
-    return try {
-        val proc = Runtime.getRuntime().exec(arrayOf("cat", path))
-        val v = proc.inputStream.bufferedReader().readLine()?.trim()?.toLongOrNull() ?: 0L
-        proc.waitFor(); proc.destroy()
-        if (v > 0L) v else readFreqShellRoot(path)
-    } catch (_: Exception) { readFreqShellRoot(path) }
-}
-
-private fun readFreqShellRoot(path: String): Long {
-    return try {
-        val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "cat $path"))
-        val v = proc.inputStream.bufferedReader().readLine()?.trim()?.toLongOrNull() ?: 0L
-        proc.waitFor(); proc.destroy()
-        v
-    } catch (_: Exception) { 0L }
-}
-
-private fun readFreq(path: String): Long {
-    val direct = readFreqDirect(path)
-    return if (direct > 0L) direct else readFreqShell(path)
-}
+/**
+ * readFreq: HANYA baca via File I/O langsung.
+ * readFreqShell dan readFreqShellRoot DIHAPUS — keduanya membuka proses
+ * baru per-core per-tick yang menyebabkan blocking dan deadlock pada loop cluster.
+ * Di Android modern semua path /sys/devices/system/cpu/cpuX/cpufreq/ bisa
+ * dibaca tanpa root via File.readText(). Jika gagal (offline core), return 0.
+ */
+private fun readFreq(path: String): Long = readFreqDirect(path)
 
 // Baca cluster dari cpufreq/policy* — cara BENAR karena policy folder
 // mencerminkan cluster fisik yang sesungguhnya di SoC.
@@ -149,11 +134,13 @@ suspend fun readCpuClustersSuspend(): List<CpuClusterInfo> = withContext(Dispatc
             val maxFreqs = (0 until cpuCount).map { core ->
                 readFreq("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq")
             }
-            val uniqueMax = maxFreqs.distinct().filter { it > 0L }.sorted()
+            // PENTING: filter 0L (core offline / tidak terbaca) SEBELUM distinct()
+            // Tanpa ini, 0L ikut masuk sebagai "grup" palsu → muncul Big Core fiktif
+            val uniqueMax = maxFreqs.filter { it > 0L }.distinct().sorted()
             if (uniqueMax.isEmpty()) return@withContext emptyList()
             uniqueMax.map { maxFreq ->
                 maxFreqs.mapIndexedNotNull { i, f -> if (f == maxFreq) i else null }
-            }
+            }.filter { it.isNotEmpty() }  // buang grup kosong
         }
 
         if (groups.isEmpty()) return@withContext emptyList()
@@ -279,14 +266,23 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
+        // Loop CPU usage: cepat (1 detik) — tidak ada shell, hanya baca /proc/stat
         var prev: CpuStatSnapshot? = null
         while (true) {
             val cur = readCpuStatSnapshot()
             if (prev != null) cpuUsage = calcCpuUsage(prev!!, cur)
             prev = cur
-            cpuClusters = readCpuClustersSuspend()
-            cpuHistory  = (cpuHistory + cpuUsage).takeLast(60)
+            cpuHistory = (cpuHistory + cpuUsage).takeLast(60)
             delay(1000)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        // Loop cluster: terpisah, interval 2 detik — hanya baca File sysfs, tidak ada shell
+        // Dipisahkan agar delay baca freq tidak menghambat update % CPU
+        while (true) {
+            cpuClusters = readCpuClustersSuspend()
+            delay(2000)
         }
     }
 
@@ -552,9 +548,9 @@ fun HomeScreen(
                                 )
                             } else {
                                 cpuClusters.take(4).forEach { cluster ->
-                                key(cluster.name) {
+                                key(cluster.cores.first()) {   // key by core index, bukan nama — nama bisa duplikat saat list berubah
                                     val progress = if (cluster.maxFreqMhz > 0) (cluster.currentFreqMhz.toFloat() / cluster.maxFreqMhz).coerceIn(0f, 1f) else 0f
-                                    val animProg by animateFloatAsState(targetValue = progress, animationSpec = tween(600), label = "cp_${cluster.name}")
+                                    val animProg by animateFloatAsState(targetValue = progress, animationSpec = tween(600), label = "cp_${cluster.cores.first()}")
                                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                             Text(cluster.name, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = cluster.color)

@@ -247,10 +247,20 @@ class FpsService : Service() {
     // ── Poll loop: FPS (independen dari System Info) ──────────────────────────
 
     private suspend fun pollFpsLoop() {
-        delay(600)  // Beri waktu shell connect & provider init
+        // RootFpsProvider memiliki internal sampler 250ms, tunggu sampai warmup selesai
+        delay(900)
 
         while (currentCoroutineContext().isActive && isRunning) {
+            // getInstantFps() sekarang NON-BLOCKING:
+            // RootFpsProvider mengembalikan nilai cached dari background sampler 250ms.
+            // ShizukuFpsProvider tetap blocking ringan (sysfs/shell).
             val fps = withContext(Dispatchers.IO) { getCurrentFps() }
+
+            // Log jika root provider beralih ke fallback
+            val provider = fpsProvider
+            if (provider is RootFpsProvider && provider.rootExhausted) {
+                Log.i(TAG, "RootFpsProvider exhausted → running via non-root fallback internally")
+            }
 
             if (fps <= 0f) {
                 consecutiveZeroFps++

@@ -91,9 +91,6 @@ object DailyRewardManager {
             stored.zip(expected).all { (a, b) -> a == b }
     }
 
-    private fun signRequest(deviceId: String, ts: Long): String =
-        PremiumManager.signRequest(deviceId, ts)
-
     private fun verifyServerSignature(json: JSONObject): Boolean {
         return try {
             val receivedSig = json.optString("sig", "")
@@ -280,15 +277,20 @@ object DailyRewardManager {
         if (!hasWatchedEnoughAds(context)) return@withContext ClaimResult.InsufficientAds
         if (hasReachedWeeklyLimit(context)) return@withContext ClaimResult.WeeklyLimitReached(nextMondayMs())
 
-        val deviceId   = PremiumManager.getDeviceId(context)
-        val requestTs  = System.currentTimeMillis()
-        val requestSig = signRequest(deviceId, requestTs)
+        val user = GoogleAuthManager.getUser(context)
+            ?: return@withContext ClaimResult.NetworkError
+
+        val requestTs = System.currentTimeMillis()
 
         try {
-            val adsCount    = adsWatchedSession(context)
-        val adsSig      = hmac("$adsCount:$deviceId:$requestTs")
-        val body = """{"deviceId":"$deviceId","ts":$requestTs,"sig":"$requestSig","adsCount":$adsCount,"adsSig":"$adsSig"}"""
-                .toRequestBody("application/json".toMediaType())
+            val adsCount = adsWatchedSession(context)
+            val adsSig   = hmac("$adsCount:${user.email}:$requestTs")
+            val body = JSONObject().apply {
+                put("idToken",  user.idToken)
+                put("ts",       requestTs)
+                put("adsCount", adsCount)
+                put("adsSig",   adsSig)
+            }.toString().toRequestBody("application/json".toMediaType())
 
             val request = Request.Builder()
                 .url(REWARD_API_URL)

@@ -330,13 +330,12 @@ object AdManager {
             onResult(AdWatchResult.UNAVAILABLE)
             return
         }
-        // customData = deviceId dikirim ke Unity SSV sebagai parameter ?sid=
-        val deviceId = PremiumManager.getDeviceId(activity)
+        val userEmail = PremiumManager.getPremiumEmail(activity)
         showReadyAd(
             activity   = activity,
             slot       = SLOT_DAILY_REWARD,
             onStart    = onStart,
-            customData = deviceId,
+            customData = userEmail,
             onSuccess  = {
                 Log.d(TAG, "[daily_reward] ad completed.")
                 onResult(AdWatchResult.COMPLETED)

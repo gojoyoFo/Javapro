@@ -50,7 +50,7 @@ import java.util.Locale
 @Composable
 fun PremiumScreen(navController: NavController, lang: String) {
     val context      = LocalContext.current
-    val deviceId     = remember { PremiumManager.getDeviceId(context) }
+    val googleUser   = remember { com.javapro.utils.GoogleAuthManager.getUser(context) }
     var isPremium    by remember { mutableStateOf(PremiumManager.isPremium(context)) }
     var premiumType  by remember { mutableStateOf(PremiumManager.getPremiumType(context)) }
     var expiryMs     by remember { mutableStateOf(PremiumManager.getExpiryMs(context)) }
@@ -140,31 +140,37 @@ fun PremiumScreen(navController: NavController, lang: String) {
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Fingerprint, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Text(stringResource(R.string.premium_device_id), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Icon(Icons.Default.AccountCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Text(stringResource(R.string.premium_google_account), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.background)
-                            .clickable {
-                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                cm.setPrimaryClip(ClipData.newPlainText("Device ID", deviceId))
-                                Toast.makeText(context, context.getString(R.string.premium_device_id_copied), Toast.LENGTH_SHORT).show()
+                    if (googleUser != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.background)
+                                .clickable {
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    cm.setPrimaryClip(ClipData.newPlainText("Email", googleUser.email))
+                                    Toast.makeText(context, context.getString(R.string.premium_email_copied), Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment     = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(googleUser.displayName, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(googleUser.email, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment     = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(deviceId, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(8.dp))
-                        Icon(Icons.Default.ContentCopy, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Default.ContentCopy, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        }
+                    } else {
+                        Text(
+                            stringResource(R.string.premium_not_signed_in),
+                            fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    Text(
-                        stringResource(R.string.premium_device_id_tap_hint),
-                        fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 

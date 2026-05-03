@@ -822,5 +822,8 @@
 <string name="freeze_btn_check">जाँचें</string>
 <string name="freeze_btn_freeze">फ्रीज़ करें</string>
 <string name="freeze_btn_unfreeze">अनफ्रीज़ करें</string>
+    <string name="screen_record_display_hz_badge">%1$dHz स्क्रीन</string>
+    <string name="screen_record_fps_warn_exceed">आपकी स्क्रीन %1$dHz है — %2$sfps आपकी डिस्प्ले की क्षमता से अधिक है। रिकॉर्ड किए गए फ्रेम डुप्लिकेट होंगे, नया डेटा नहीं।</string>
+    <string name="screen_record_fps_warn_equal">आपकी स्क्रीन %1$dHz है — %2$sfps इस डिवाइस के लिए अधिकतम है। </string>
 
 </resources>

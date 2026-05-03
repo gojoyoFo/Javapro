@@ -822,4 +822,7 @@
 <string name="freeze_btn_check">Check</string>
 <string name="freeze_btn_freeze">Freeze</string>
 <string name="freeze_btn_unfreeze">Unfreeze</string>
+<string name="screen_record_display_hz_badge">%1$dHz Screen</string>
+    <string name="screen_record_fps_warn_exceed">Your screen is %1$dHz — %2$sfps exceeds your display\'s capability. Recorded frames will be duplicated, not new data.</string>
+    <string name="screen_record_fps_warn_equal">Your screen is %1$dHz — %2$sfps is the maximum for this device</string>
 </resources>

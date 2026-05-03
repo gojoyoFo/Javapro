@@ -822,4 +822,7 @@
 <string name="freeze_btn_check">Cek</string>
 <string name="freeze_btn_freeze">Bekukan</string>
 <string name="freeze_btn_unfreeze">Aktifkan</string>
+<string name="screen_record_display_hz_badge">%1$dHz Layar</string>
+    <string name="screen_record_fps_warn_exceed">Layar kamu %1$dHz — %2$sfps melebihi kemampuan layar. Frame yang direkam akan duplikat, bukan data baru.</string>
+    <string name="screen_record_fps_warn_equal">Layar kamu %1$dHz — %2$sfps sudah maksimal untuk device ini</string>
 </resources>

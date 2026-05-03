@@ -305,17 +305,91 @@ object BatteryExecutor {
     }
 
     suspend fun applyChargeLimit(limit: Int): Boolean = withContext(Dispatchers.IO) {
-        val path = getChargeLimitPath() ?: return@withContext false
-        try {
-            TweakExecutor.execute("echo $limit > $path")
-            val verify = readSysfs(path)?.toIntOrNull()
-            verify != null && verify <= limit
-        } catch (_: Exception) { false }
+        var ok = false
+        val limitPath = getChargeLimitPath()
+        if (limitPath != null) {
+            try {
+                TweakExecutor.execute("echo $limit > $limitPath")
+                val verify = readSysfs(limitPath)?.toIntOrNull()
+                if (verify != null && verify <= limit) ok = true
+            } catch (_: Exception) {}
+        }
+        ok
     }
 
-    suspend fun removeChargeLimit(): Boolean = withContext(Dispatchers.IO) {
-        val path = getChargeLimitPath() ?: return@withContext false
-        try { TweakExecutor.execute("echo 100 > $path"); true } catch (_: Exception) { false }
+    suspend fun enforceChargeLimitNow(context: Context, limit: Int): Boolean = withContext(Dispatchers.IO) {
+        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level  = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: return@withContext false
+        val scale  = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
+        val levelPct   = if (scale > 0) level * 100 / scale else level
+
+        if (!isCharging) return@withContext true
+
+        if (levelPct >= limit) {
+            var stopped = false
+            for (path in SYSFS_CHARGING_ENABLED_PATHS) {
+                if (sysfsExists(path)) {
+                    try {
+                        TweakExecutor.execute("echo 0 > $path")
+                        stopped = true
+                        break
+                    } catch (_: Exception) {}
+                }
+            }
+            if (!stopped) {
+                for (path in SYSFS_INPUT_SUSPEND_PATHS) {
+                    if (sysfsExists(path)) {
+                        try {
+                            val isInputSuspend = path.contains("input_suspend")
+                            TweakExecutor.execute("echo ${if (isInputSuspend) 1 else 0} > $path")
+                            stopped = true
+                            break
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+            return@withContext stopped
+        } else {
+            for (path in SYSFS_CHARGING_ENABLED_PATHS) {
+                if (sysfsExists(path)) {
+                    try { TweakExecutor.execute("echo 1 > $path") } catch (_: Exception) {}
+                }
+            }
+            for (path in SYSFS_INPUT_SUSPEND_PATHS) {
+                if (sysfsExists(path)) {
+                    try {
+                        val isInputSuspend = path.contains("input_suspend")
+                        TweakExecutor.execute("echo ${if (isInputSuspend) 0 else 1} > $path")
+                    } catch (_: Exception) {}
+                }
+            }
+            return@withContext true
+        }
+    }
+
+    suspend fun resumeCharging(): Boolean = withContext(Dispatchers.IO) {
+        var ok = false
+        for (path in SYSFS_CHARGING_ENABLED_PATHS) {
+            if (sysfsExists(path)) {
+                try { TweakExecutor.execute("echo 1 > $path"); ok = true } catch (_: Exception) {}
+            }
+        }
+        for (path in SYSFS_INPUT_SUSPEND_PATHS) {
+            if (sysfsExists(path)) {
+                try {
+                    val isInputSuspend = path.contains("input_suspend")
+                    TweakExecutor.execute("echo ${if (isInputSuspend) 0 else 1} > $path")
+                    ok = true
+                } catch (_: Exception) {}
+            }
+        }
+        val limitPath = getChargeLimitPath()
+        if (limitPath != null) {
+            try { TweakExecutor.execute("echo 100 > $limitPath") } catch (_: Exception) {}
+        }
+        ok
     }
 
     fun isChargeLimitEnabled(context: Context): Boolean {

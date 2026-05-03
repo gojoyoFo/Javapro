@@ -61,6 +61,11 @@ data class CpuClusterInfo(
 
 data class CpuStatSnapshot(val idle: Long, val total: Long)
 
+private object CpuClusterCache {
+    var clusters: List<CpuClusterInfo> = emptyList()
+    var lastUpdated: Long = 0L
+}
+
 suspend fun readCpuStatSnapshot(): CpuStatSnapshot {
     return try {
         val directLine = try {
@@ -245,7 +250,7 @@ fun HomeScreen(
     var showMenu     by remember { mutableStateOf(false) }
     var cpuUsage     by remember { mutableStateOf(0f) }
     var cpuHistory   by remember { mutableStateOf(listOf<Float>()) }
-    var cpuClusters  by remember { mutableStateOf(listOf<CpuClusterInfo>()) }
+    var cpuClusters  by remember { mutableStateOf(CpuClusterCache.clusters) }
     var touchedIndex by remember { mutableStateOf<Int?>(null) }
 
     val scope = rememberCoroutineScope()
@@ -312,7 +317,12 @@ fun HomeScreen(
         // Loop cluster: terpisah, interval 2 detik — hanya baca File sysfs, tidak ada shell
         // Dipisahkan agar delay baca freq tidak menghambat update % CPU
         while (true) {
-            cpuClusters = readCpuClustersSuspend()
+            val result = readCpuClustersSuspend()
+            if (result.isNotEmpty()) {
+                CpuClusterCache.clusters = result
+                CpuClusterCache.lastUpdated = System.currentTimeMillis()
+            }
+            cpuClusters = CpuClusterCache.clusters
             delay(2000)
         }
     }

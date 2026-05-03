@@ -40,22 +40,32 @@ class ScreenRecordService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                ServiceCompat.startForeground(
-                    this,
-                    NOTIF_ID,
-                    buildNotification(),
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                // FIX: Gunakan startForeground langsung (bukan ServiceCompat) untuk Android 13+
+                // ServiceCompat.startForeground bisa gagal silent di beberapa vendor Android 13.
+                // Panggil langsung dengan tipe MEDIA_PROJECTION agar tidak SecurityException.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        NOTIF_ID,
+                        buildNotification(),
                         ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-                    else
-                        0
-                )
+                    )
+                } else {
+                    startForeground(NOTIF_ID, buildNotification())
+                }
             }
             ACTION_STOP -> {
-                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                // FIX: stopForeground harus pakai flag yang benar di semua API level
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
                 stopSelf()
             }
         }
-        return START_NOT_STICKY
+        // FIX: START_STICKY agar service restart jika di-kill OS saat sedang record
+        return START_STICKY
     }
 
     private fun buildNotification(): Notification {

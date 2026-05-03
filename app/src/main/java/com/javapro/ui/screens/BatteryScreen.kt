@@ -107,6 +107,16 @@ fun BatteryScreen(navController: NavController, lang: String) {
         }
     }
 
+    LaunchedEffect(limitEnabled, limitValue) {
+        if (!limitEnabled || !isRooted) return@LaunchedEffect
+        while (true) {
+            withContext(Dispatchers.IO) {
+                BatteryExecutor.enforceChargeLimitNow(context, limitValue.toInt())
+            }
+            delay(30_000L)
+        }
+    }
+
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
@@ -189,8 +199,13 @@ fun BatteryScreen(navController: NavController, lang: String) {
                         scope.launch {
                             isApplyingLimit = true
                             val ok = withContext(Dispatchers.IO) {
-                                if (limitEnabled) BatteryExecutor.applyChargeLimit(limitValue.toInt())
-                                else BatteryExecutor.removeChargeLimit()
+                                if (limitEnabled) {
+                                    BatteryExecutor.applyChargeLimit(limitValue.toInt())
+                                    BatteryExecutor.enforceChargeLimitNow(context, limitValue.toInt())
+                                    true
+                                } else {
+                                    BatteryExecutor.resumeCharging()
+                                }
                             }
                             BatteryExecutor.saveChargeLimitPref(context, limitEnabled, limitValue.toInt())
                             isApplyingLimit = false

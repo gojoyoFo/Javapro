@@ -822,5 +822,8 @@
 <string name="freeze_btn_check">Suriin</string>
 <string name="freeze_btn_freeze">I-Freeze</string>
 <string name="freeze_btn_unfreeze">I-Unfreeze</string>
+    <string name="screen_record_display_hz_badge">%1$dHz Screen</string>
+    <string name="screen_record_fps_warn_exceed">Ang iyong screen ay %1$dHz — ang %2$sfps ay lumagpas sa kakayahan ng display. Ang mga na-record na frame ay magiging duplicate, hindi bagong data.</string>
+    <string name="screen_record_fps_warn_equal">Ang iyong screen ay %1$dHz — ang %2$sfps ang pinakamataas para sa device na ito</string>
 
 </resources>

@@ -21,6 +21,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Install NDK
+        run: |
+          echo "y" | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager \
+            "ndk;27.2.12479018" \
+            "cmake;3.22.1"
+
       - name: Grant execute permission to Gradle
         run: chmod +x gradlew
 
@@ -41,6 +47,17 @@ jobs:
 
       - name: Build APK (Release)
         run: ./gradlew assembleRelease --no-build-cache --rerun-tasks
+
+      - name: Debug - Find fps_core binary
+        if: always()
+        run: |
+          echo "=== Searching for fps_core binary ==="
+          find app/build -name "fps_core" 2>/dev/null || echo "Not found in build/"
+          find app/.cxx  -name "fps_core" 2>/dev/null || echo "Not found in .cxx/"
+          echo "=== CMake output dirs ==="
+          find app/build/intermediates/cmake -type f 2>/dev/null | head -20 || echo "No cmake intermediates"
+          echo "=== Assets dir ==="
+          ls app/src/main/assets/ 2>/dev/null || echo "Assets dir empty or missing"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

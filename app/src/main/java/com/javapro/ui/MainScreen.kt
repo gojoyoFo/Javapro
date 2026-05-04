@@ -240,7 +240,7 @@ private fun MobileLayout(
                 .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
         ) {
             // Tinggi area navbar + system nav bar — dipakai sebagai bottom padding konten
-            val navBarHeightDp     = if (showNav) 8.dp + 52.dp else 0.dp // padding(8) + bar height(52)
+            val navBarHeightDp     = if (showNav) 58.dp + 8.dp else 0.dp // bar height(58) + bottom padding(8)
             val navBarInsets       = WindowInsets.navigationBars
             val density            = androidx.compose.ui.platform.LocalDensity.current
             val systemNavHeightDp  = with(density) { navBarInsets.getBottom(density).toDp() }

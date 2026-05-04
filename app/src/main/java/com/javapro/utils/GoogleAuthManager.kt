@@ -70,6 +70,10 @@ object GoogleAuthManager {
      * Return GoogleUser baru dengan idToken fresh, atau null kalau gagal.
      */
     suspend fun silentSignIn(context: Context): GoogleUser? = withContext(Dispatchers.IO) {
+        // Kalau user sudah tersimpan lokal, pakai data yang ada — tidak perlu hit Credential Manager lagi
+        val cached = getUser(context)
+        if (cached != null) return@withContext cached
+
         try {
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(true) // hanya akun yang sudah pernah login

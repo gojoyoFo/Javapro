@@ -59,9 +59,7 @@ fun GoogleAccountScreen(
 
     val avatarFile          = remember { java.io.File(context.filesDir, "custom_avatar.jpg") }
     val avatarPrefs         = remember { context.getSharedPreferences("avatar_prefs", android.content.Context.MODE_PRIVATE) }
-    var customAvatar by remember {
-        mutableStateOf(if (avatarFile.exists()) Uri.fromFile(avatarFile) else null)
-    }
+    var avatarVersion       by remember { mutableLongStateOf(if (avatarFile.exists()) avatarFile.lastModified() else 0L) }
     var customDisplayName   by remember { mutableStateOf(avatarPrefs.getString("custom_display_name", null)) }
     var isSigningIn         by remember { mutableStateOf(false) }
     var showSignOutDialog   by remember { mutableStateOf(false) }
@@ -73,7 +71,7 @@ fun GoogleAccountScreen(
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     avatarFile.outputStream().use { output -> input.copyTo(output) }
                 }
-                customAvatar = Uri.fromFile(avatarFile)
+                avatarVersion = System.currentTimeMillis()
             } catch (_: Exception) { }
         }
     }
@@ -394,9 +392,18 @@ fun GoogleAccountScreen(
                                     .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
-                                val avatarModel: Any? = customAvatar ?: user!!.photoUrl
-                                if (avatarModel != null) {
-                                    AsyncImage(model = avatarModel, contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape))
+                                if (avatarVersion > 0L) {
+                                    AsyncImage(
+                                        model = coil.request.ImageRequest.Builder(context)
+                                            .data(Uri.fromFile(avatarFile))
+                                            .memoryCacheKey("custom_avatar_$avatarVersion")
+                                            .diskCacheKey("custom_avatar_$avatarVersion")
+                                            .build(),
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                    )
+                                } else if (user!!.photoUrl != null) {
+                                    AsyncImage(model = user!!.photoUrl, contentDescription = null, modifier = Modifier.fillMaxSize().clip(CircleShape))
                                 } else {
                                     Icon(imageVector = Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(52.dp))
                                 }

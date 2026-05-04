@@ -47,12 +47,12 @@ object GoogleAuthManager {
         val p     = prefs(context)
         val email = p.getString(KEY_EMAIL, null) ?: return null
         val name  = p.getString(KEY_NAME,  null) ?: return null
-        val token = p.getString(KEY_ID_TOKEN, null) ?: return null
+        // idToken boleh kosong (bisa expired setelah reboot), yang penting email ada
         return GoogleUser(
             email       = email,
             displayName = name,
             photoUrl    = p.getString(KEY_PHOTO_URL, null),
-            idToken     = token,
+            idToken     = p.getString(KEY_ID_TOKEN, null) ?: "",
         )
     }
 

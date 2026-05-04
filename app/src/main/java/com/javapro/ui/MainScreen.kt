@@ -240,7 +240,7 @@ private fun MobileLayout(
                 .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
         ) {
             // Tinggi area navbar + system nav bar — dipakai sebagai bottom padding konten
-            val navBarHeightDp     = if (showNav) 12.dp + 56.dp else 0.dp // padding(12) + bar height(56)
+            val navBarHeightDp     = if (showNav) 8.dp + 52.dp else 0.dp // padding(8) + bar height(52)
             val navBarInsets       = WindowInsets.navigationBars
             val density            = androidx.compose.ui.platform.LocalDensity.current
             val systemNavHeightDp  = with(density) { navBarInsets.getBottom(density).toDp() }
@@ -262,7 +262,7 @@ private fun MobileLayout(
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter)
                             .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(bottom = 12.dp),
+                            .padding(bottom = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         JavaProNavBar(

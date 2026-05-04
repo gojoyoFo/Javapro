@@ -878,8 +878,7 @@
     <string name="ga_refresh_premium">Check Premium Status</string>
     <string name="ga_refresh_premium_desc">Sync premium status with server</string>
     <string name="payment_sheet_title">Choose Payment Method</string>
-<string name="payment_sheet_package_label">Package: %1$s</string>
-
+<string name="payment_sheet_package">Paket: %s</string>
 <string name="payment_method_saweria_name">Saweria</string>
 <string name="payment_method_saweria_desc">For Indonesian users · Bank transfer, GoPay, OVO, DANA, etc</string>
 <string name="payment_method_saweria_recommended">Recommended</string>

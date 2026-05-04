@@ -892,4 +892,12 @@
 <string name="edit_name_hint">Ang pangalang ito ay ipapakita lamang sa app.</string>
 <string name="edit_name_label">Pangalan</string>
 <string name="btn_save">I-save</string>
+<string name="payment_sheet_title">Pumili ng Paraan ng Pagbabayad</string>
+<string name="payment_sheet_package">Pakete: %s</string>
+<string name="payment_saweria_name">Saweria</string>
+<string name="payment_saweria_desc">Para sa mga gumagamit sa Indonesia · Bank Transfer, GoPay, OVO, DANA, atbp</string>
+<string name="payment_sociabuzz_name">Sociabuzz</string>
+<string name="payment_sociabuzz_desc">Para sa mga internasyonal na gumagamit · Credit card, PayPal, global na paraan</string>
+<string name="payment_recommended">Inirerekomenda</string>
+<string name="payment_auto_message_info">Ang mensahe ng donasyon ay awtomatikong napunan. Huwag baguhin ito para ma-activate ang premium nang awtomatiko.</string>
 </resources>

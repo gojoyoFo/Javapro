@@ -664,7 +664,7 @@ private fun PaymentMethodSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val amountUsd  = when (packageType) {
-        "weekly"    -> 1; "monthly" -> 2; "yearly" -> 5; "permanent" -> 10; else -> 1
+        "weekly"    -> 1; "monthly" -> 2; "yearly" -> 3; "permanent" -> 5; else -> 1
     }
 
     ModalBottomSheet(
@@ -682,9 +682,9 @@ private fun PaymentMethodSheet(
         ) {
             // Header
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Pilih Metode Pembayaran", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                Text(stringResource(R.string.payment_sheet_title), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                 Text(
-                    "Paket: $packageLabel",
+                    stringResource(R.string.payment_sheet_package, packageLabel),
                     fontSize = 13.sp,
                     color    = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -695,11 +695,12 @@ private fun PaymentMethodSheet(
             // ── Saweria — Indonesia ────────────────────────────────────────────
             PaymentOptionCard(
                 flag        = "🇮🇩",
-                name        = "Saweria",
-                description = "Untuk pengguna Indonesia · Transfer Bank, GoPay, OVO, DANA, dll",
+                name        = stringResource(R.string.payment_saweria_name),
+                description = stringResource(R.string.payment_saweria_desc),
                 amount      = "Rp ${"%,d".format(amountIdr).replace(',', '.')}",
                 color       = Color(0xFF00ACC1),
                 recommended = true,
+                recommendedLabel = stringResource(R.string.payment_recommended),
                 onClick     = {
                     onDismiss()
                     openPayment(context, email, packageType, "saweria")
@@ -710,11 +711,12 @@ private fun PaymentMethodSheet(
             // ── Sociabuzz — Global ─────────────────────────────────────────────
             PaymentOptionCard(
                 flag        = "🌍",
-                name        = "Sociabuzz",
-                description = "For international users · Credit card, PayPal, global methods",
+                name        = stringResource(R.string.payment_sociabuzz_name),
+                description = stringResource(R.string.payment_sociabuzz_desc),
                 amount      = "USD $$amountUsd",
                 color       = Color(0xFF7B1FA2),
                 recommended = false,
+                recommendedLabel = stringResource(R.string.payment_recommended),
                 onClick     = {
                     onDismiss()
                     openPayment(context, email, packageType, "sociabuzz")
@@ -735,7 +737,7 @@ private fun PaymentMethodSheet(
                     Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(15.dp).padding(top = 1.dp))
                     Text(
-                        "Pesan donasi sudah terisi otomatis. Jangan ubah isi pesan agar premium bisa aktif otomatis.",
+                        stringResource(R.string.payment_auto_message_info),
                         fontSize   = 11.sp,
                         color      = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 16.sp
@@ -748,13 +750,14 @@ private fun PaymentMethodSheet(
 
 @Composable
 private fun PaymentOptionCard(
-    flag        : String,
-    name        : String,
-    description : String,
-    amount      : String,
-    color       : Color,
-    recommended : Boolean,
-    onClick     : () -> Unit
+    flag             : String,
+    name             : String,
+    description      : String,
+    amount           : String,
+    color            : Color,
+    recommended      : Boolean,
+    recommendedLabel : String = "Rekomendasi",
+    onClick          : () -> Unit
 ) {
     Card(
         onClick = onClick,
@@ -792,7 +795,7 @@ private fun PaymentOptionCard(
                             color = color.copy(alpha = 0.15f)
                         ) {
                             Text(
-                                "Rekomendasi",
+                                recommendedLabel,
                                 fontSize   = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color      = color,
@@ -812,14 +815,14 @@ private fun PaymentOptionCard(
 
 private fun openPayment(context: Context, email: String, packageType: String, platform: String = "saweria") {
     val amountIdr = when (packageType) {
-        "weekly"    -> 15000
-        "monthly"   -> 30000
-        "yearly"    -> 75000
-        "permanent" -> 150000
+        "weekly"    -> 10000
+        "monthly"   -> 20000
+        "yearly"    -> 40000
+        "permanent" -> 80000
         else        -> 0
     }
     val amountUsd = when (packageType) {
-        "weekly"    -> 1; "monthly" -> 2; "yearly" -> 5; "permanent" -> 10; else -> 1
+        "weekly"    -> 1; "monthly" -> 2; "yearly" -> 3; "permanent" -> 5; else -> 1
     }
     val message = Uri.encode("$packageType|$email")
 

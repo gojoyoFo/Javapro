@@ -62,6 +62,48 @@ object GoogleAuthManager {
         prefs(context).edit().clear().apply()
     }
 
+    // ── Silent sign-in — refresh idToken tanpa tampilkan dialog ─────────────
+
+    /**
+     * Refresh idToken secara diam-diam pakai akun yang sudah pernah login.
+     * Tidak tampilkan dialog apapun ke user.
+     * Return GoogleUser baru dengan idToken fresh, atau null kalau gagal.
+     */
+    suspend fun silentSignIn(context: Context): GoogleUser? = withContext(Dispatchers.IO) {
+        try {
+            val googleIdOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(true) // hanya akun yang sudah pernah login
+                .setServerClientId(WEB_CLIENT_ID)
+                .setAutoSelectEnabled(true)           // auto pilih tanpa dialog
+                .build()
+
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+            val credentialManager = CredentialManager.create(context)
+            val result            = credentialManager.getCredential(context, request)
+            val credential        = result.credential
+
+            if (credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL)
+                return@withContext null
+
+            val googleCred = GoogleIdTokenCredential.createFrom(credential.data)
+            val user = GoogleUser(
+                email       = googleCred.id,
+                displayName = googleCred.displayName ?: googleCred.id,
+                photoUrl    = googleCred.profilePictureUri?.toString(),
+                idToken     = googleCred.idToken,
+            )
+
+            saveUser(context, user)
+            user
+
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     // ── Sign-in via Credential Manager ───────────────────────────────────────
 
     /**

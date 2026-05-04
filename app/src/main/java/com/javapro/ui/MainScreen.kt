@@ -239,12 +239,21 @@ private fun MobileLayout(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
         ) {
+            // Tinggi area navbar + system nav bar — dipakai sebagai bottom padding konten
+            val navBarHeightDp     = if (showNav) 16.dp + 58.dp else 0.dp // padding(16) + bar height(58)
+            val navBarInsets       = WindowInsets.navigationBars
+            val density            = androidx.compose.ui.platform.LocalDensity.current
+            val systemNavHeightDp  = with(density) { navBarInsets.getBottom(density).toDp() }
+            val contentBottomPad   = if (showNav) navBarHeightDp + systemNavHeightDp else 0.dp
+
             Box(modifier = Modifier.weight(1f).nestedScroll(nestedScrollConnection)) {
                 NavContent(
                     navController = navController,
                     prefManager   = prefManager,
                     onShowAd      = onShowAd,
-                    modifier      = Modifier.fillMaxSize()
+                    modifier      = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = contentBottomPad)
                 )
 
                 if (showNav) {

@@ -892,4 +892,12 @@
 <string name="edit_name_hint">Nama ini hanya ditampilkan di aplikasi.</string>
 <string name="edit_name_label">Nama</string>
 <string name="btn_save">Simpan</string>
+<string name="payment_sheet_title">Pilih Metode Pembayaran</string>
+<string name="payment_sheet_package">Paket: %s</string>
+<string name="payment_saweria_name">Saweria</string>
+<string name="payment_saweria_desc">Untuk pengguna Indonesia · Transfer Bank, GoPay, OVO, DANA, dll</string>
+<string name="payment_sociabuzz_name">Sociabuzz</string>
+<string name="payment_sociabuzz_desc">Untuk pengguna luar negeri · Kartu kredit, PayPal, metode global</string>
+<string name="payment_recommended">Rekomendasi</string>
+<string name="payment_auto_message_info">Pesan donasi sudah terisi otomatis. Jangan ubah isi pesan agar premium bisa aktif otomatis.</string>
 </resources>

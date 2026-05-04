@@ -892,5 +892,12 @@
 <string name="edit_name_hint">यह नाम केवल ऐप में दिखाया जाएगा।</string>
 <string name="edit_name_label">नाम</string>
 <string name="btn_save">सहेजें</string>
-
+<string name="payment_sheet_title">भुगतान विधि चुनें</string>
+<string name="payment_sheet_package">पैकेज: %s</string>
+<string name="payment_saweria_name">Saweria</string>
+<string name="payment_saweria_desc">इंडोनेशियाई उपयोगकर्ताओं के लिए · बैंक ट्रांसफर, GoPay, OVO, DANA आदि</string>
+<string name="payment_sociabuzz_name">Sociabuzz</string>
+<string name="payment_sociabuzz_desc">अंतर्राष्ट्रीय उपयोगकर्ताओं के लिए · क्रेडिट कार्ड, PayPal, वैश्विक तरीके</string>
+<string name="payment_recommended">अनुशंसित</string>
+<string name="payment_auto_message_info">डोनेशन संदेश स्वचालित रूप से भरा गया है। प्रीमियम स्वचालित रूप से सक्रिय करने के लिए इसे न बदलें।</string>
 </resources>

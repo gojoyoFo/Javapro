@@ -166,7 +166,10 @@ object PremiumManager {
             }
 
             // Ambil idToken dari GoogleAuthManager
-            val user = GoogleAuthManager.getUser(context)
+            // Coba silent refresh dulu supaya token selalu fresh
+            var user = GoogleAuthManager.silentSignIn(context)
+                ?: GoogleAuthManager.getUser(context)
+
             if (user == null) {
                 // User belum login Google — tidak bisa cek online
                 return@withContext isPremium(context)

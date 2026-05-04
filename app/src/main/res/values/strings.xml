@@ -892,5 +892,13 @@
 <string name="edit_name_hint">This name is only displayed in the app.</string>
 <string name="edit_name_label">Name</string>
 <string name="btn_save">Save</string>
+<string name="payment_sheet_title">Choose Payment Method</string>
+<string name="payment_sheet_package">Package: %s</string>
+<string name="payment_saweria_name">Saweria</string>
+<string name="payment_saweria_desc">For Indonesian users · Bank Transfer, GoPay, OVO, DANA, etc</string>
+<string name="payment_sociabuzz_name">Sociabuzz</string>
+<string name="payment_sociabuzz_desc">For international users · Credit card, PayPal, global methods</string>
+<string name="payment_recommended">Recommended</string>
+<string name="payment_auto_message_info">Donation message is pre-filled automatically. Do not change it so premium can be activated automatically.</string>
 
 </resources>

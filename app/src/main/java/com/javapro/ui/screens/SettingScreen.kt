@@ -72,9 +72,11 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
     var isSigningIn by remember { mutableStateOf(false) }
 
     // ── Custom Avatar — copy ke internal storage supaya tidak reset ────────────
+    val avatarFile  = remember { java.io.File(context.filesDir, "custom_avatar.jpg") }
     val avatarPrefs = remember { context.getSharedPreferences("avatar_prefs", Context.MODE_PRIVATE) }
     var customAvatarUri by remember {
-        mutableStateOf(avatarPrefs.getString("custom_avatar_uri", null)?.let { Uri.parse(it) })
+        // Uri.fromFile — tidak butuh FileProvider, selalu valid selama file ada
+        mutableStateOf(if (avatarFile.exists()) Uri.fromFile(avatarFile) else null)
     }
 
     // ── Custom Display Name ───────────────────────────────────────────────────
@@ -130,30 +132,15 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            // Copy ke internal storage supaya URI milik app sendiri & tidak pernah reset
             try {
+                // Copy konten ke internal storage sebagai file biasa
                 val inputStream = context.contentResolver.openInputStream(uri)
-                val destFile    = java.io.File(context.filesDir, "custom_avatar.jpg")
                 inputStream?.use { input ->
-                    destFile.outputStream().use { output -> input.copyTo(output) }
+                    avatarFile.outputStream().use { output -> input.copyTo(output) }
                 }
-                val internalUri = androidx.core.content.FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.provider",
-                    destFile
-                )
-                avatarPrefs.edit().putString("custom_avatar_uri", internalUri.toString()).apply()
-                customAvatarUri = internalUri
-            } catch (_: Exception) {
-                // Fallback: pakai URI asli + takePersistableUriPermission
-                try {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } catch (_: Exception) {}
-                avatarPrefs.edit().putString("custom_avatar_uri", uri.toString()).apply()
-                customAvatarUri = uri
-            }
+                // Uri.fromFile — selalu bisa dibaca Coil tanpa permission khusus
+                customAvatarUri = Uri.fromFile(avatarFile)
+            } catch (_: Exception) { }
         }
     }
 
@@ -304,7 +291,7 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
                 customDisplayName  = customDisplayName,
                 onPickAvatar       = { avatarPickerLauncher.launch(arrayOf("image/*")) },
                 onRemoveAvatar     = {
-                    avatarPrefs.edit().remove("custom_avatar_uri").apply()
+                    avatarFile.delete()
                     customAvatarUri = null
                 },
                 onEditName         = { showEditNameDialog = true },

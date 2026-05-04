@@ -877,7 +877,6 @@
     <string name="ga_re_login_desc">अपना Google खाता सत्र रीफ्रेश करें</string>
     <string name="ga_refresh_premium">प्रीमियम स्थिति जांचें</string>
     <string name="ga_refresh_premium_desc">सर्वर के साथ प्रीमियम स्थिति सिंक्रनाइज़ करें</string>
-    <string name="payment_sheet_title">भुगतान विधि चुनें</string>
 <string name="payment_sheet_package_label">पैकेज: %1$s</string>
 
 <string name="payment_method_saweria_name">Saweria</string>

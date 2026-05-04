@@ -892,8 +892,6 @@
 <string name="edit_name_hint">This name is only displayed in the app.</string>
 <string name="edit_name_label">Name</string>
 <string name="btn_save">Save</string>
-<string name="payment_sheet_title">Choose Payment Method</string>
-<string name="payment_sheet_package">Package: %s</string>
 <string name="payment_saweria_name">Saweria</string>
 <string name="payment_saweria_desc">For Indonesian users · Bank Transfer, GoPay, OVO, DANA, etc</string>
 <string name="payment_sociabuzz_name">Sociabuzz</string>

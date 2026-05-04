@@ -877,7 +877,6 @@
 <string name="ga_re_login_desc">Perbarui sesi akun Google kamu</string>
 <string name="ga_refresh_premium">Cek Status Premium</string>
 <string name="ga_refresh_premium_desc">Sinkronkan status premium dengan server</string>
-<string name="payment_sheet_title">Pilih Metode Pembayaran</string>
 <string name="payment_sheet_package_label">Paket: %1$s</string>
 
 <string name="payment_method_saweria_name">Saweria</string>
@@ -893,7 +892,6 @@
 <string name="edit_name_label">Nama</string>
 <string name="btn_save">Simpan</string>
 <string name="payment_sheet_title">Pilih Metode Pembayaran</string>
-<string name="payment_sheet_package">Paket: %s</string>
 <string name="payment_saweria_name">Saweria</string>
 <string name="payment_saweria_desc">Untuk pengguna Indonesia · Transfer Bank, GoPay, OVO, DANA, dll</string>
 <string name="payment_sociabuzz_name">Sociabuzz</string>

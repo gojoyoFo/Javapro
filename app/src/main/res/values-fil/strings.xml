@@ -877,7 +877,6 @@
     <string name="ga_re_login_desc">I-refresh ang iyong Google account session</string>
     <string name="ga_refresh_premium">I-check ang Premium Status</string>
     <string name="ga_refresh_premium_desc">I-sync ang premium status sa server</string>
-    <string name="payment_sheet_title">Pumili ng Paraan ng Bayad</string>
 <string name="payment_sheet_package_label">Package: %1$s</string>
 
 <string name="payment_method_saweria_name">Saweria</string>

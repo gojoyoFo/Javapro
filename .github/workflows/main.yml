@@ -21,12 +21,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install NDK
-        run: |
-          echo "y" | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager \
-            "ndk;27.2.12479018" \
-            "cmake;3.22.1"
-
       - name: Grant execute permission to Gradle
         run: chmod +x gradlew
 
@@ -42,39 +36,8 @@ jobs:
           keyPassword=javapro123
           EOF
 
-      - name: Build CMake (compile fps_core binary)
-        run: ./gradlew buildCMakeRelWithDebInfo --no-build-cache --rerun-tasks
-
-      - name: Find and copy fps_core to assets
-        run: |
-          mkdir -p app/src/main/assets
-          for ABI in arm64-v8a armeabi-v7a; do
-            BINARY=$(find app/.cxx app/build \
-              -type f -name "fps_core" \
-              ! -name "*.o" ! -name "*.a" ! -name "*.so" \
-              2>/dev/null | grep "/$ABI/" | head -1)
-            if [ -n "$BINARY" ]; then
-              cp "$BINARY" "app/src/main/assets/fps_core_$ABI"
-              echo "✓ Copied fps_core [$ABI] from $BINARY ($(wc -c < $BINARY) bytes)"
-            else
-              echo "⚠ fps_core not found for $ABI"
-              echo "All files in .cxx for $ABI:"
-              find app/.cxx -path "*/$ABI/*" -type f ! -name "*.json" ! -name "*.cmake" 2>/dev/null | sort
-            fi
-          done
-
       - name: Build APK (Release)
         run: ./gradlew assembleRelease --no-build-cache --rerun-tasks
-
-      - name: Debug - Find fps_core binary
-        if: always()
-        run: |
-          echo "=== .cxx directory structure ==="
-          find app/.cxx -type f 2>/dev/null | sort | head -50 || echo "No .cxx dir"
-          echo "=== build/intermediates/cmake ==="
-          find app/build/intermediates/cmake -type f 2>/dev/null | sort | head -30 || echo "No cmake intermediates"
-          echo "=== assets dir ==="
-          ls -la app/src/main/assets/ 2>/dev/null || echo "Assets empty"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

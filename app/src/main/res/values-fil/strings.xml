@@ -888,4 +888,8 @@
 <string name="payment_method_sociabuzz_desc">Para sa mga internasyonal na user · Credit card, PayPal, pandaigdigang paraan</string>
 
 <string name="payment_sheet_info">Ang mensahe ng donasyon ay awtomatikong napunan. Huwag itong baguhin para ma-activate ang iyong premium nang awtomatiko.</string>
+<string name="edit_name_title">Palitan ang Pangalan</string>
+<string name="edit_name_hint">Ang pangalang ito ay ipapakita lamang sa app.</string>
+<string name="edit_name_label">Pangalan</string>
+<string name="btn_save">I-save</string>
 </resources>

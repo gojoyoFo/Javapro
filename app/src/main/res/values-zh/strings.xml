@@ -885,5 +885,9 @@
 <string name="payment_method_sociabuzz_desc">适用于国际用户 · 信用卡、PayPal、全球支付方式</string>
 
 <string name="payment_sheet_info">捐款消息已自动填写，请勿修改，以便系统自动激活您的高级版。</string>
+<string name="edit_name_title">更改名称</string>
+<string name="edit_name_hint">此名称仅在应用中显示。</string>
+<string name="edit_name_label">名称</string>
+<string name="btn_save">保存</string>
 
 </resources>

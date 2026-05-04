@@ -888,6 +888,9 @@
 <string name="payment_method_sociabuzz_desc">अंतर्राष्ट्रीय उपयोगकर्ताओं के लिए · क्रेडिट कार्ड, PayPal, वैश्विक भुगतान</string>
 
 <string name="payment_sheet_info">दान संदेश स्वचालित रूप से भरा गया है। इसे न बदलें ताकि आपका प्रीमियम स्वचालित रूप से सक्रिय हो सके।</string>
-
+<string name="edit_name_title">नाम बदलें</string>
+<string name="edit_name_hint">यह नाम केवल ऐप में दिखाया जाएगा।</string>
+<string name="edit_name_label">नाम</string>
+<string name="btn_save">सहेजें</string>
 
 </resources>

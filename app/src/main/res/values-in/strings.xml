@@ -888,5 +888,8 @@
 <string name="payment_method_sociabuzz_desc">Untuk pengguna internasional · Kartu kredit, PayPal, metode global</string>
 
 <string name="payment_sheet_info">Pesan donasi sudah terisi otomatis. Jangan ubah isi pesan agar premium bisa aktif otomatis.</string>
-
+<string name="edit_name_title">Ganti Nama</string>
+<string name="edit_name_hint">Nama ini hanya ditampilkan di aplikasi.</string>
+<string name="edit_name_label">Nama</string>
+<string name="btn_save">Simpan</string>
 </resources>

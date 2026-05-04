@@ -57,12 +57,25 @@ fun GoogleAccountScreen(
     val premiumType  = remember { PremiumManager.getPremiumType(context) }
     val expiryMs     = remember { PremiumManager.getExpiryMs(context) }
 
-    var customAvatar by remember { mutableStateOf<Uri?>(null) }
+    var customAvatar by remember {
+        mutableStateOf(if (avatarFile.exists()) Uri.fromFile(avatarFile) else null)
+    }
     var isSigningIn  by remember { mutableStateOf(false) }
-    var showSignOutDialog by remember { mutableStateOf(false) }
+    var showSignOutDialog   by remember { mutableStateOf(false) }
+    val avatarFile          = remember { java.io.File(context.filesDir, "custom_avatar.jpg") }
+    val avatarPrefs         = remember { context.getSharedPreferences("avatar_prefs", Context.MODE_PRIVATE) }
+    var customDisplayName   by remember { mutableStateOf(avatarPrefs.getString("custom_display_name", null)) }
+    var showEditNameDialog  by remember { mutableStateOf(false) }
 
     val avatarPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) customAvatar = uri
+        if (uri != null) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    avatarFile.outputStream().use { output -> input.copyTo(output) }
+                }
+                customAvatar = Uri.fromFile(avatarFile)
+            } catch (_: Exception) { }
+        }
     }
 
     val strTitle = when (lang) {
@@ -106,6 +119,34 @@ fun GoogleAccountScreen(
         "hi"  -> "अवतार बदलें"
         "fil" -> "Palitan ang Avatar"
         else  -> "Change Avatar"
+    }
+    val strEditName = when (lang) {
+        "id"  -> "Ganti Nama"
+        "zh"  -> "更改名称"
+        "hi"  -> "नाम बदलें"
+        "fil" -> "Palitan ang Pangalan"
+        else  -> "Change Name"
+    }
+    val strEditNameHint = when (lang) {
+        "id"  -> "Nama ini hanya ditampilkan di aplikasi."
+        "zh"  -> "此名称仅在应用中显示。"
+        "hi"  -> "यह नाम केवल ऐप में दिखाया जाएगा।"
+        "fil" -> "Ang pangalang ito ay ipapakita lamang sa app."
+        else  -> "This name is only displayed in the app."
+    }
+    val strEditNameLabel = when (lang) {
+        "id"  -> "Nama"
+        "zh"  -> "名称"
+        "hi"  -> "नाम"
+        "fil" -> "Pangalan"
+        else  -> "Name"
+    }
+    val strSave = when (lang) {
+        "id"  -> "Simpan"
+        "zh"  -> "保存"
+        "hi"  -> "सहेजें"
+        "fil" -> "I-save"
+        else  -> "Save"
     }
     val strNotLoggedIn = when (lang) {
         "id"  -> "Belum Login"
@@ -223,6 +264,49 @@ fun GoogleAccountScreen(
         }
     }
 
+    // ── Dialog Ganti Nama ─────────────────────────────────────────────────────
+    if (showEditNameDialog) {
+        var nameInput by remember { mutableStateOf(customDisplayName ?: user?.displayName ?: "") }
+        AlertDialog(
+            onDismissRequest = { showEditNameDialog = false },
+            shape            = RoundedCornerShape(24.dp),
+            containerColor   = MaterialTheme.colorScheme.surface,
+            title = { Text(strEditName, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(strEditNameHint, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(
+                        value         = nameInput,
+                        onValueChange = { if (it.length <= 30) nameInput = it },
+                        singleLine    = true,
+                        label         = { Text(strEditNameLabel) },
+                        shape         = RoundedCornerShape(14.dp),
+                        modifier      = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val trimmed = nameInput.trim()
+                        if (trimmed.isNotEmpty()) {
+                            avatarPrefs.edit().putString("custom_display_name", trimmed).apply()
+                            customDisplayName = trimmed
+                        }
+                        showEditNameDialog = false
+                    },
+                    shape = RoundedCornerShape(50.dp)
+                ) { Text(strSave, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showEditNameDialog = false },
+                    shape   = RoundedCornerShape(50.dp)
+                ) { Text(strCancel) }
+            }
+        )
+    }
+
     if (showSignOutDialog) {
         AlertDialog(
             onDismissRequest = { showSignOutDialog = false },
@@ -329,7 +413,25 @@ fun GoogleAccountScreen(
                             }
                         }
 
-                        Text(text = user!!.displayName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        Row(
+                            verticalAlignment     = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text       = customDisplayName ?: user!!.displayName,
+                                fontSize   = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color      = MaterialTheme.colorScheme.onSurface
+                            )
+                            Icon(
+                                imageVector        = Icons.Default.Edit,
+                                contentDescription = strEditName,
+                                tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier           = Modifier
+                                    .size(18.dp)
+                                    .clickable { showEditNameDialog = true }
+                            )
+                        }
 
                         if (isPremium) {
                             Surface(
@@ -356,7 +458,7 @@ fun GoogleAccountScreen(
                 AccountInfoCard(
                     title = strAccountInfo,
                     rows  = listOf(
-                        Triple(Icons.Default.Person, strName,  user!!.displayName),
+                        Triple(Icons.Default.Person, strName,  customDisplayName ?: user!!.displayName),
                         Triple(Icons.Default.Email,  strEmail, user!!.email)
                     )
                 )

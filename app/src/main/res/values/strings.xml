@@ -888,5 +888,9 @@
 <string name="payment_method_sociabuzz_desc">For international users · Credit card, PayPal, global methods</string>
 
 <string name="payment_sheet_info">The donation message is pre-filled automatically. Do not change it so your premium can be activated automatically.</string>
+<string name="edit_name_title">Change Name</string>
+<string name="edit_name_hint">This name is only displayed in the app.</string>
+<string name="edit_name_label">Name</string>
+<string name="btn_save">Save</string>
 
 </resources>

@@ -877,4 +877,15 @@
     <string name="ga_re_login_desc">I-refresh ang iyong Google account session</string>
     <string name="ga_refresh_premium">I-check ang Premium Status</string>
     <string name="ga_refresh_premium_desc">I-sync ang premium status sa server</string>
+    <string name="payment_sheet_title">Pumili ng Paraan ng Bayad</string>
+<string name="payment_sheet_package_label">Package: %1$s</string>
+
+<string name="payment_method_saweria_name">Saweria</string>
+<string name="payment_method_saweria_desc">Para sa mga Indonesian user · Bank transfer, GoPay, OVO, DANA, atbp</string>
+<string name="payment_method_saweria_recommended">Inirerekomenda</string>
+
+<string name="payment_method_sociabuzz_name">Sociabuzz</string>
+<string name="payment_method_sociabuzz_desc">Para sa mga internasyonal na user · Credit card, PayPal, pandaigdigang paraan</string>
+
+<string name="payment_sheet_info">Ang mensahe ng donasyon ay awtomatikong napunan. Huwag itong baguhin para ma-activate ang iyong premium nang awtomatiko.</string>
 </resources>

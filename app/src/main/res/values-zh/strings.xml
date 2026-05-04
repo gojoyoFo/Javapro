@@ -874,5 +874,16 @@
     <string name="ga_re_login_desc">刷新您的 Google 账户会话</string>
     <string name="ga_refresh_premium">检查高级状态</string>
     <string name="ga_refresh_premium_desc">与服务器同步高级状态</string>
+    <string name="payment_sheet_title">选择付款方式</string>
+<string name="payment_sheet_package_label">套餐：%1$s</string>
+
+<string name="payment_method_saweria_name">Saweria</string>
+<string name="payment_method_saweria_desc">适用于印尼用户 · 银行转账、GoPay、OVO、DANA 等</string>
+<string name="payment_method_saweria_recommended">推荐</string>
+
+<string name="payment_method_sociabuzz_name">Sociabuzz</string>
+<string name="payment_method_sociabuzz_desc">适用于国际用户 · 信用卡、PayPal、全球支付方式</string>
+
+<string name="payment_sheet_info">捐款消息已自动填写，请勿修改，以便系统自动激活您的高级版。</string>
 
 </resources>

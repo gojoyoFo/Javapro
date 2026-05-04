@@ -857,5 +857,36 @@
 <string name="payment_step3">Email %1$s langsung di-grant premium paket %2$s</string>
 <string name="payment_step4">Buka ulang halaman Premium di JavaPro untuk memuat status terbaru</string>
 <string name="payment_steps_note">💡 Pastikan pesan donasi tidak diubah agar email kamu terdeteksi otomatis oleh sistem.</string>
+<string name="ga_screen_title">Akun Google</string>
+<string name="ga_sign_out">Keluar</string>
+<string name="ga_sign_out_title">Keluar dari Akun?</string>
+<string name="ga_sign_out_desc">Status premium kamu akan dicek ulang saat login berikutnya.</string>
+<string name="ga_cancel">Batal</string>
+<string name="ga_change_avatar">Ganti Avatar</string>
+<string name="ga_not_logged_in">Belum Login</string>
+<string name="ga_login_google">Login dengan Google</string>
+<string name="ga_login_desc">Hubungkan akun Google kamu untuk memverifikasi status premium JavaPro.</string>
+<string name="ga_status_section">Status JavaPro</string>
+<string name="ga_account_info">Info Akun</string>
+<string name="ga_email">Email</string>
+<string name="ga_name">Nama</string>
+<string name="ga_expiry">Berlaku sampai</string>
+<string name="ga_permanent">Selamanya</string>
+<string name="ga_free">Gratis</string>
+<string name="ga_re_login">Login Ulang</string>
+<string name="ga_re_login_desc">Perbarui sesi akun Google kamu</string>
+<string name="ga_refresh_premium">Cek Status Premium</string>
+<string name="ga_refresh_premium_desc">Sinkronkan status premium dengan server</string>
+<string name="payment_sheet_title">Pilih Metode Pembayaran</string>
+<string name="payment_sheet_package_label">Paket: %1$s</string>
+
+<string name="payment_method_saweria_name">Saweria</string>
+<string name="payment_method_saweria_desc">Untuk pengguna Indonesia · Transfer Bank, GoPay, OVO, DANA, dll</string>
+<string name="payment_method_saweria_recommended">Rekomendasi</string>
+
+<string name="payment_method_sociabuzz_name">Sociabuzz</string>
+<string name="payment_method_sociabuzz_desc">Untuk pengguna internasional · Kartu kredit, PayPal, metode global</string>
+
+<string name="payment_sheet_info">Pesan donasi sudah terisi otomatis. Jangan ubah isi pesan agar premium bisa aktif otomatis.</string>
 
 </resources>

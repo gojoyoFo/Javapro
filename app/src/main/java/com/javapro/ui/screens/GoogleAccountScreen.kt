@@ -57,14 +57,14 @@ fun GoogleAccountScreen(
     val premiumType  = remember { PremiumManager.getPremiumType(context) }
     val expiryMs     = remember { PremiumManager.getExpiryMs(context) }
 
+    val avatarFile          = remember { java.io.File(context.filesDir, "custom_avatar.jpg") }
+    val avatarPrefs         = remember { context.getSharedPreferences("avatar_prefs", android.content.Context.MODE_PRIVATE) }
     var customAvatar by remember {
         mutableStateOf(if (avatarFile.exists()) Uri.fromFile(avatarFile) else null)
     }
-    var isSigningIn  by remember { mutableStateOf(false) }
-    var showSignOutDialog   by remember { mutableStateOf(false) }
-    val avatarFile          = remember { java.io.File(context.filesDir, "custom_avatar.jpg") }
-    val avatarPrefs         = remember { context.getSharedPreferences("avatar_prefs", Context.MODE_PRIVATE) }
     var customDisplayName   by remember { mutableStateOf(avatarPrefs.getString("custom_display_name", null)) }
+    var isSigningIn         by remember { mutableStateOf(false) }
+    var showSignOutDialog   by remember { mutableStateOf(false) }
     var showEditNameDialog  by remember { mutableStateOf(false) }
 
     val avatarPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->

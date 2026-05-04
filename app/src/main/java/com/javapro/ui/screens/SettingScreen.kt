@@ -423,7 +423,6 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
     }
 }
 
-@Composable
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoogleAccountCardLarge(

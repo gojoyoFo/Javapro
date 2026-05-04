@@ -6,8 +6,11 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 
 import android.content.Context
-import android.widget.Toast
 import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -67,6 +70,29 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
     var googleUser  by remember { mutableStateOf(GoogleAuthManager.getUser(context)) }
     var isSigningIn by remember { mutableStateOf(false) }
+
+    // ── Custom Avatar — persisted via SharedPreferences ───────────────────────
+    val avatarPrefs = remember { context.getSharedPreferences("avatar_prefs", Context.MODE_PRIVATE) }
+    var customAvatarUri by remember {
+        mutableStateOf(avatarPrefs.getString("custom_avatar_uri", null)?.let { Uri.parse(it) })
+    }
+
+    val avatarPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            // Ambil persistent permission agar URI tetap valid setelah restart
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
+            // Simpan ke SharedPreferences
+            avatarPrefs.edit().putString("custom_avatar_uri", uri.toString()).apply()
+            customAvatarUri = uri
+        }
+    }
 
     val currentLang  by pref.languageFlow.collectAsState(initial = "en")
     val isBootActive by pref.bootApplyFlow.collectAsState()
@@ -208,9 +234,15 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
         ) {
 
             GoogleAccountCardLarge(
-                user      = googleUser,
-                isLoading = isSigningIn,
-                isPremium = isPremium,
+                user            = googleUser,
+                isLoading       = isSigningIn,
+                isPremium       = isPremium,
+                customAvatarUri = customAvatarUri,
+                onPickAvatar    = { avatarPickerLauncher.launch(arrayOf("image/*")) },
+                onRemoveAvatar  = {
+                    avatarPrefs.edit().remove("custom_avatar_uri").apply()
+                    customAvatarUri = null
+                },
                 onSignIn  = {
                     scope.launch {
                         isSigningIn = true
@@ -392,14 +424,20 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun GoogleAccountCardLarge(
-    user          : com.javapro.utils.GoogleUser?,
-    isLoading     : Boolean,
-    isPremium     : Boolean,
-    onSignIn      : () -> Unit,
-    onOpenProfile : () -> Unit
+    user            : com.javapro.utils.GoogleUser?,
+    isLoading       : Boolean,
+    isPremium       : Boolean,
+    customAvatarUri : Uri?,
+    onPickAvatar    : () -> Unit,
+    onRemoveAvatar  : () -> Unit,
+    onSignIn        : () -> Unit,
+    onOpenProfile   : () -> Unit
 ) {
-    val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val cardColor         = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    var showAvatarMenu    by remember { mutableStateOf(false) }
 
     Card(
         modifier  = Modifier.fillMaxWidth(),
@@ -416,26 +454,76 @@ private fun GoogleAccountCardLarge(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Box(
-                    modifier         = Modifier
-                        .size(60.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (user.photoUrl != null) {
-                        AsyncImage(
-                            model              = user.photoUrl,
-                            contentDescription = null,
-                            modifier           = Modifier.fillMaxSize().clip(CircleShape)
-                        )
-                    } else {
+                // ── Avatar dengan overlay edit ────────────────────────────────
+                Box(contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier         = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .clickable(onClick = { showAvatarMenu = true }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when {
+                            customAvatarUri != null -> {
+                                AsyncImage(
+                                    model              = customAvatarUri,
+                                    contentDescription = null,
+                                    modifier           = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            }
+                            user.photoUrl != null -> {
+                                AsyncImage(
+                                    model              = user.photoUrl,
+                                    contentDescription = null,
+                                    modifier           = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            }
+                            else -> {
+                                Icon(
+                                    imageVector        = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint               = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier           = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                    }
+                    // Overlay ikon edit di pojok kanan bawah avatar
+                    Box(
+                        modifier         = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .align(Alignment.BottomEnd)
+                            .clickable { showAvatarMenu = true },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
-                            imageVector        = Icons.Default.Person,
-                            contentDescription = null,
-                            tint               = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier           = Modifier.size(32.dp)
+                            imageVector        = Icons.Default.Edit,
+                            contentDescription = "Edit avatar",
+                            tint               = MaterialTheme.colorScheme.onPrimary,
+                            modifier           = Modifier.size(11.dp)
                         )
+                    }
+
+                    // Dropdown menu pilih/hapus avatar
+                    DropdownMenu(
+                        expanded         = showAvatarMenu,
+                        onDismissRequest = { showAvatarMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text         = { Text("Ganti foto profil") },
+                            leadingIcon  = { Icon(Icons.Default.AddPhotoAlternate, null) },
+                            onClick      = { showAvatarMenu = false; onPickAvatar() }
+                        )
+                        if (customAvatarUri != null) {
+                            DropdownMenuItem(
+                                text        = { Text("Hapus foto kustom", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                onClick     = { showAvatarMenu = false; onRemoveAvatar() }
+                            )
+                        }
                     }
                 }
 
@@ -458,13 +546,13 @@ private fun GoogleAccountCardLarge(
                     if (isPremium) {
                         Spacer(Modifier.height(4.dp))
                         Surface(
-                            shape         = RoundedCornerShape(50.dp),
-                            color         = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            modifier      = Modifier.wrapContentSize()
+                            shape    = RoundedCornerShape(50.dp),
+                            color    = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            modifier = Modifier.wrapContentSize()
                         ) {
                             Row(
-                                modifier          = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                                modifier              = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                                verticalAlignment     = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(

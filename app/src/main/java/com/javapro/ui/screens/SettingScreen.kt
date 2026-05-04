@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import com.javapro.BuildConfig
 import com.javapro.R
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +67,12 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
     var googleUser  by remember { mutableStateOf(GoogleAuthManager.getUser(context)) }
     var isSigningIn by remember { mutableStateOf(false) }
+
+    // Refresh user info setiap kali SettingScreen kembali ke foreground (misal: balik dari GoogleAccountScreen)
+    val navBackStack by navController.currentBackStackEntryAsState()
+    LaunchedEffect(navBackStack) {
+        googleUser = GoogleAuthManager.getUser(context)
+    }
 
     val currentLang  by pref.languageFlow.collectAsState(initial = "en")
     val isBootActive by pref.bootApplyFlow.collectAsState()

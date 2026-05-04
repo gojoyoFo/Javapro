@@ -25,10 +25,6 @@ android {
         versionName   = "2.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
     }
 
     buildFeatures {
@@ -47,9 +43,6 @@ android {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
-    externalNativeBuild {
-    cmake { path = file("src/main/cpp/CMakeLists.txt") }
-        }
 
     signingConfigs {
         create("release") {
@@ -119,74 +112,4 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.6.0")
 }
 
-afterEvaluate {
-    val abis      = listOf("arm64-v8a", "armeabi-v7a")
-    val assetsDir = file("src/main/assets")
 
-    android.applicationVariants.forEach { variant ->
-        val variantName = variant.name
-        val variantCap  = variantName.replaceFirstChar { it.uppercase() }
-
-        val copyTask = tasks.register("copyFpsCoreBinaries$variantCap") {
-            group       = "javapro"
-            description = "Copy fps_core binaries to assets for $variantName"
-
-            doLast {
-                assetsDir.mkdirs()
-                var anyFound = false
-
-                abis.forEach { abi ->
-                    // Cari binary secara rekursif di semua kemungkinan direktori CMake
-                    val searchRoots = listOf(
-                        file("build/intermediates/cmake"),
-                        file(".cxx")
-                    )
-                    var src: File? = null
-                    for (root in searchRoots) {
-                        if (!root.exists()) continue
-                        src = root.walkTopDown()
-                            .filter { f ->
-                                f.name == "fps_core" &&
-                                f.isFile &&
-                                f.parentFile?.name == abi
-                            }
-                            .firstOrNull()
-                        if (src != null) break
-                    }
-
-                    if (src != null) {
-                        val dest = file("$assetsDir/fps_core_$abi")
-                        src.copyTo(dest, overwrite = true)
-                        println("✓ fps_core [$abi] → ${dest.name} (${src.length()} bytes) from ${src.path}")
-                        anyFound = true
-                    } else {
-                        println("⚠ fps_core not found for $abi")
-                        // Print semua file di .cxx untuk debug
-                        file(".cxx").walkTopDown()
-                            .filter { it.isFile }
-                            .take(30)
-                            .forEach { println("  found: ${it.path}") }
-                    }
-                }
-
-                if (!anyFound) {
-                    throw GradleException(
-                        "fps_core binary not found. NDK terinstall? CMakeLists.txt ada di src/main/cpp/?"
-                    )
-                }
-            }
-        }
-
-        // Dependensi: jalan setelah semua CMake build tasks
-        tasks.matching { t ->
-            val n = t.name.lowercase()
-            (n.startsWith("buildcmake") || n.startsWith("linkexternal")) &&
-            n.contains(variantName.lowercase())
-        }.configureEach { finalizedBy(copyTask) }
-
-        tasks.matching { it.name == "merge${variantCap}Assets" }
-            .configureEach { dependsOn(copyTask) }
-        tasks.matching { it.name == "generate${variantCap}Assets" }
-            .configureEach { dependsOn(copyTask) }
-    }
-}

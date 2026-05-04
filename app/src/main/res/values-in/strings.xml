@@ -898,4 +898,5 @@
 <string name="payment_sociabuzz_desc">Untuk pengguna luar negeri · Kartu kredit, PayPal, metode global</string>
 <string name="payment_recommended">Rekomendasi</string>
 <string name="payment_auto_message_info">Pesan donasi sudah terisi otomatis. Jangan ubah isi pesan agar premium bisa aktif otomatis.</string>
+<string name="payment_sheet_package">Paket: %s</string>
 </resources>

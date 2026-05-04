@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val prefManager    = remember { PreferenceManager(this) }
-            val fpsEnabled     by prefManager.fpsEnabledFlow.collectAsState(initial = false)
+
             val lang           by prefManager.languageFlow.collectAsState(initial = "en")
             val isDark         by prefManager.darkModeFlow.collectAsState()
 
@@ -303,30 +303,6 @@ class MainActivity : ComponentActivity() {
                         lang     = lang,
                         onCancel = { isDownloading = false }
                     )
-                }
-
-                // ── FPS Service control ───────────────────────────────
-                LaunchedEffect(fpsEnabled) {
-                    if (fpsEnabled) {
-                        if (Settings.canDrawOverlays(this@MainActivity)) {
-                            startService(Intent(this@MainActivity, FpsService::class.java))
-                        } else {
-                            startActivity(
-                                Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    Uri.parse("package:$packageName")
-                                )
-                            )
-                            prefManager.setFpsEnabled(false)
-                            Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.toast_overlay_required),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    } else {
-                        stopService(Intent(this@MainActivity, FpsService::class.java))
-                    }
                 }
 
                 // ── Navigation ────────────────────────────────────────

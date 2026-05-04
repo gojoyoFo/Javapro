@@ -6,11 +6,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Intent
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -45,7 +42,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.javapro.BuildConfig
 import com.javapro.R
-import com.javapro.FpsService
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
 import com.javapro.utils.DailyRewardManager
@@ -70,79 +66,6 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
     var googleUser  by remember { mutableStateOf(GoogleAuthManager.getUser(context)) }
     var isSigningIn by remember { mutableStateOf(false) }
-
-    // ── Custom Avatar — copy ke internal storage supaya tidak reset ────────────
-    val avatarFile  = remember { java.io.File(context.filesDir, "custom_avatar.jpg") }
-    val avatarPrefs = remember { context.getSharedPreferences("avatar_prefs", Context.MODE_PRIVATE) }
-    var customAvatarUri by remember {
-        // Uri.fromFile — tidak butuh FileProvider, selalu valid selama file ada
-        mutableStateOf(if (avatarFile.exists()) Uri.fromFile(avatarFile) else null)
-    }
-
-    // ── Custom Display Name ───────────────────────────────────────────────────
-    var customDisplayName by remember {
-        mutableStateOf(avatarPrefs.getString("custom_display_name", null))
-    }
-    var showEditNameDialog by remember { mutableStateOf(false) }
-
-    // ── Dialog Ganti Nama ─────────────────────────────────────────────────────
-    if (showEditNameDialog) {
-        var nameInput by remember { mutableStateOf(customDisplayName ?: GoogleAuthManager.getUser(context)?.displayName ?: "") }
-        AlertDialog(
-            onDismissRequest = { showEditNameDialog = false },
-            shape            = RoundedCornerShape(24.dp),
-            containerColor   = MaterialTheme.colorScheme.surface,
-            title = { Text("Ganti Nama", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Nama ini hanya ditampilkan di aplikasi.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(
-                        value         = nameInput,
-                        onValueChange = { if (it.length <= 30) nameInput = it },
-                        singleLine    = true,
-                        label         = { Text("Nama") },
-                        shape         = RoundedCornerShape(14.dp),
-                        modifier      = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val trimmed = nameInput.trim()
-                        if (trimmed.isNotEmpty()) {
-                            avatarPrefs.edit().putString("custom_display_name", trimmed).apply()
-                            customDisplayName = trimmed
-                        }
-                        showEditNameDialog = false
-                    },
-                    shape = RoundedCornerShape(50.dp)
-                ) { Text("Simpan", fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showEditNameDialog = false },
-                    shape   = RoundedCornerShape(50.dp)
-                ) { Text("Batal") }
-            }
-        )
-    }
-
-    val avatarPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                // Copy konten ke internal storage sebagai file biasa
-                val inputStream = context.contentResolver.openInputStream(uri)
-                inputStream?.use { input ->
-                    avatarFile.outputStream().use { output -> input.copyTo(output) }
-                }
-                // Uri.fromFile — selalu bisa dibaca Coil tanpa permission khusus
-                customAvatarUri = Uri.fromFile(avatarFile)
-            } catch (_: Exception) { }
-        }
-    }
 
     val currentLang  by pref.languageFlow.collectAsState(initial = "en")
     val isBootActive by pref.bootApplyFlow.collectAsState()
@@ -226,7 +149,6 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
                                 .edit().clear().apply()
                             context.getSharedPreferences("GameBoostPrefs", android.content.Context.MODE_PRIVATE)
                                 .edit().clear().putInt("pref_version", 3).apply()
-                            context.stopService(Intent(context, FpsService::class.java))
                             Toast.makeText(context, strAllSettingsReset, Toast.LENGTH_SHORT).show()
                         }
                     },
@@ -284,17 +206,9 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
         ) {
 
             GoogleAccountCardLarge(
-                user               = googleUser,
-                isLoading          = isSigningIn,
-                isPremium          = isPremium,
-                customAvatarUri    = customAvatarUri,
-                customDisplayName  = customDisplayName,
-                onPickAvatar       = { avatarPickerLauncher.launch(arrayOf("image/*")) },
-                onRemoveAvatar     = {
-                    avatarFile.delete()
-                    customAvatarUri = null
-                },
-                onEditName         = { showEditNameDialog = true },
+                user      = googleUser,
+                isLoading = isSigningIn,
+                isPremium = isPremium,
                 onSignIn  = {
                     scope.launch {
                         isSigningIn = true
@@ -475,22 +389,15 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoogleAccountCardLarge(
-    user              : com.javapro.utils.GoogleUser?,
-    isLoading         : Boolean,
-    isPremium         : Boolean,
-    customAvatarUri   : Uri?,
-    customDisplayName : String?,
-    onPickAvatar      : () -> Unit,
-    onRemoveAvatar    : () -> Unit,
-    onEditName        : () -> Unit,
-    onSignIn          : () -> Unit,
-    onOpenProfile     : () -> Unit
+    user          : com.javapro.utils.GoogleUser?,
+    isLoading     : Boolean,
+    isPremium     : Boolean,
+    onSignIn      : () -> Unit,
+    onOpenProfile : () -> Unit
 ) {
-    val cardColor         = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    var showAvatarMenu    by remember { mutableStateOf(false) }
+    val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
 
     Card(
         modifier  = Modifier.fillMaxWidth(),
@@ -507,107 +414,38 @@ private fun GoogleAccountCardLarge(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // ── Avatar dengan overlay edit ────────────────────────────────
-                Box(contentAlignment = Alignment.Center) {
-                    Box(
-                        modifier         = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .clickable(onClick = { showAvatarMenu = true }),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        when {
-                            customAvatarUri != null -> {
-                                AsyncImage(
-                                    model              = customAvatarUri,
-                                    contentDescription = null,
-                                    modifier           = Modifier.fillMaxSize().clip(CircleShape)
-                                )
-                            }
-                            user.photoUrl != null -> {
-                                AsyncImage(
-                                    model              = user.photoUrl,
-                                    contentDescription = null,
-                                    modifier           = Modifier.fillMaxSize().clip(CircleShape)
-                                )
-                            }
-                            else -> {
-                                Icon(
-                                    imageVector        = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint               = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier           = Modifier.size(32.dp)
-                                )
-                            }
-                        }
-                    }
-                    // Overlay ikon edit di pojok kanan bawah avatar
-                    Box(
-                        modifier         = Modifier
-                            .size(20.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .align(Alignment.BottomEnd)
-                            .clickable { showAvatarMenu = true },
-                        contentAlignment = Alignment.Center
-                    ) {
+                Box(
+                    modifier         = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (user.photoUrl != null) {
+                        AsyncImage(
+                            model              = user.photoUrl,
+                            contentDescription = null,
+                            modifier           = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
                         Icon(
-                            imageVector        = Icons.Default.Edit,
-                            contentDescription = "Edit avatar",
-                            tint               = MaterialTheme.colorScheme.onPrimary,
-                            modifier           = Modifier.size(11.dp)
+                            imageVector        = Icons.Default.Person,
+                            contentDescription = null,
+                            tint               = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier           = Modifier.size(32.dp)
                         )
-                    }
-
-                    // Dropdown menu pilih/hapus avatar
-                    DropdownMenu(
-                        expanded         = showAvatarMenu,
-                        onDismissRequest = { showAvatarMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text         = { Text("Ganti foto profil") },
-                            leadingIcon  = { Icon(Icons.Default.AddPhotoAlternate, null) },
-                            onClick      = { showAvatarMenu = false; onPickAvatar() }
-                        )
-                        DropdownMenuItem(
-                            text        = { Text("Ganti nama") },
-                            leadingIcon = { Icon(Icons.Default.Edit, null) },
-                            onClick     = { showAvatarMenu = false; onEditName() }
-                        )
-                        if (customAvatarUri != null) {
-                            DropdownMenuItem(
-                                text        = { Text("Hapus foto kustom", color = MaterialTheme.colorScheme.error) },
-                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                                onClick     = { showAvatarMenu = false; onRemoveAvatar() }
-                            )
-                        }
                     }
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment     = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text       = customDisplayName ?: user.displayName,
-                            fontSize   = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color      = MaterialTheme.colorScheme.onSurface,
-                            maxLines   = 1,
-                            overflow   = TextOverflow.Ellipsis,
-                            modifier   = Modifier.weight(1f, fill = false)
-                        )
-                        Icon(
-                            imageVector        = Icons.Default.Edit,
-                            contentDescription = "Ganti nama",
-                            tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier           = Modifier
-                                .size(16.dp)
-                                .clickable { onEditName() }
-                        )
-                    }
+                    Text(
+                        text       = user.displayName,
+                        fontSize   = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        maxLines   = 1,
+                        overflow   = TextOverflow.Ellipsis
+                    )
                     Text(
                         text     = user.email,
                         fontSize = 13.sp,
@@ -618,13 +456,13 @@ private fun GoogleAccountCardLarge(
                     if (isPremium) {
                         Spacer(Modifier.height(4.dp))
                         Surface(
-                            shape    = RoundedCornerShape(50.dp),
-                            color    = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            modifier = Modifier.wrapContentSize()
+                            shape         = RoundedCornerShape(50.dp),
+                            color         = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            modifier      = Modifier.wrapContentSize()
                         ) {
                             Row(
-                                modifier              = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-                                verticalAlignment     = Alignment.CenterVertically,
+                                modifier          = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(

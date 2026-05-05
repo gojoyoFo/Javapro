@@ -86,6 +86,18 @@ fun MainScreen(
     val navController = rememberNavController()
     val context       = LocalContext.current
     val isPremium     = remember { PremiumManager.isPremium(context) }
+
+    val view   = androidx.compose.ui.platform.LocalView.current
+    val window = (view.context as? android.app.Activity)?.window
+    SideEffect {
+        window?.let {
+            it.navigationBarColor = android.graphics.Color.TRANSPARENT
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                it.isNavigationBarContrastEnforced = false
+            }
+        }
+    }
+
     val windowSize    = rememberWindowSizeInfo()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -94,7 +106,6 @@ fun MainScreen(
     var useFloatingNav by remember { mutableStateOf(getNavBarStyle(context)) }
     LaunchedEffect(currentRoute) { useFloatingNav = getNavBarStyle(context) }
 
-    // Daily reward screen bukan top-level, jadi nav bar disembunyikan
     val topLevelRoutes = setOf("home", "gamelist", "tweaks", "settings")
     val showNav        = currentRoute in topLevelRoutes
 
@@ -236,17 +247,15 @@ private fun MobileLayout(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
                 .padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding())
         ) {
-            // Tinggi area navbar + system nav bar — dipakai sebagai bottom padding konten
-            val navBarHeightDp     = if (showNav) 58.dp + 8.dp else 0.dp // bar height(58) + bottom padding(8)
+            val navBarHeightDp     = if (showNav) 58.dp + 8.dp else 0.dp
             val navBarInsets       = WindowInsets.navigationBars
             val density            = androidx.compose.ui.platform.LocalDensity.current
             val systemNavHeightDp  = with(density) { navBarInsets.getBottom(density).toDp() }
             val contentBottomPad   = if (showNav) navBarHeightDp + systemNavHeightDp else 0.dp
 
-            Box(modifier = Modifier.weight(1f).nestedScroll(nestedScrollConnection)) {
+            Box(modifier = Modifier.weight(1f).nestedScroll(nestedScrollConnection).background(MaterialTheme.colorScheme.background)) {
                 NavContent(
                     navController = navController,
                     prefManager   = prefManager,
@@ -261,6 +270,7 @@ private fun MobileLayout(
                         modifier = Modifier
                             .fillMaxWidth()
                             .align(Alignment.BottomCenter)
+                            .background(Color.Transparent)
                             .windowInsetsPadding(WindowInsets.navigationBars)
                             .padding(bottom = 8.dp),
                         contentAlignment = Alignment.Center
@@ -344,7 +354,6 @@ private fun NavContent(
         composable("screen_record") { ScreenRecordScreen(navController = navController, lang = lang) }
         composable("battery")       { BatteryScreen(navController = navController, lang = lang) }
 
-        // ── Daily Reward Screen ──────────────────────────────────────
         composable("daily_reward") {
             val activity = LocalContext.current.findActivity()
             DailyRewardScreen(

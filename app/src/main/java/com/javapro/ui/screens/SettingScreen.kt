@@ -6,6 +6,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import android.content.Intent
 import androidx.compose.foundation.shape.CircleShape
@@ -68,11 +69,18 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
     var googleUser  by remember { mutableStateOf(GoogleAuthManager.getUser(context)) }
     var isSigningIn by remember { mutableStateOf(false) }
 
+    val avatarFile        = remember { java.io.File(context.filesDir, "custom_avatar.jpg") }
+    val avatarPrefs       = remember { context.getSharedPreferences("avatar_prefs", android.content.Context.MODE_PRIVATE) }
+    var customDisplayName by remember { mutableStateOf(avatarPrefs.getString("custom_display_name", null)) }
+    var customAvatarUri   by remember { mutableStateOf(if (avatarFile.exists()) Uri.fromFile(avatarFile) else null) }
+
     // Refresh user setiap kali SettingScreen kembali ke foreground (balik dari GoogleAccountScreen dll)
     DisposableEffect(navController) {
         val listener = androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
             if (destination.route == "settings") {
-                googleUser = GoogleAuthManager.getUser(context)
+                googleUser        = GoogleAuthManager.getUser(context)
+                customDisplayName = avatarPrefs.getString("custom_display_name", null)
+                customAvatarUri   = if (avatarFile.exists()) Uri.fromFile(avatarFile) else null
             }
         }
         navController.addOnDestinationChangedListener(listener)
@@ -218,10 +226,12 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
         ) {
 
             GoogleAccountCardLarge(
-                user      = googleUser,
-                isLoading = isSigningIn,
-                isPremium = isPremium,
-                onSignIn  = {
+                user              = googleUser,
+                isLoading         = isSigningIn,
+                isPremium         = isPremium,
+                customDisplayName = customDisplayName,
+                customAvatarUri   = customAvatarUri,
+                onSignIn          = {
                     scope.launch {
                         isSigningIn = true
                         val result = GoogleAuthManager.signIn(context)
@@ -403,11 +413,13 @@ fun SettingScreen(pref: PreferenceManager, navController: NavController, lang: S
 
 @Composable
 private fun GoogleAccountCardLarge(
-    user          : com.javapro.utils.GoogleUser?,
-    isLoading     : Boolean,
-    isPremium     : Boolean,
-    onSignIn      : () -> Unit,
-    onOpenProfile : () -> Unit
+    user              : com.javapro.utils.GoogleUser?,
+    isLoading         : Boolean,
+    isPremium         : Boolean,
+    customDisplayName : String?,
+    customAvatarUri   : Uri?,
+    onSignIn          : () -> Unit,
+    onOpenProfile     : () -> Unit
 ) {
     val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
 
@@ -433,9 +445,10 @@ private fun GoogleAccountCardLarge(
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (user.photoUrl != null) {
+                    val avatarModel: Any? = customAvatarUri ?: user.photoUrl
+                    if (avatarModel != null) {
                         AsyncImage(
-                            model              = user.photoUrl,
+                            model              = avatarModel,
                             contentDescription = null,
                             modifier           = Modifier.fillMaxSize().clip(CircleShape)
                         )
@@ -451,7 +464,7 @@ private fun GoogleAccountCardLarge(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text       = user.displayName,
+                        text       = customDisplayName ?: user.displayName,
                         fontSize   = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color      = MaterialTheme.colorScheme.onSurface,

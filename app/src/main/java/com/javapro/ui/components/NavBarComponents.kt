@@ -215,9 +215,9 @@ fun FloatingNavBar(
     Surface(
         modifier        = Modifier,
         shape           = RoundedCornerShape(50),
-        color           = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+        color           = Color.Transparent,
         tonalElevation  = 0.dp,
-        shadowElevation = 8.dp
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
